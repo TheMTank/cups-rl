@@ -23,14 +23,15 @@ import ai2thor.controller
 learning_rate = 0.00025
 discount_factor = 0.99
 epochs = 20
-learning_steps_per_epoch = 10000
+learning_steps_per_epoch = 3500
 replay_memory_size = 10000
 
 # NN learning settings
 batch_size = 64
 
 # Training regime
-test_episodes_per_epoch = 100
+test_episodes_per_epoch = 1
+episode_step_cut_off = 1000
 
 # Other parameters
 frame_repeat = 12
@@ -145,7 +146,7 @@ def learn_from_memory():
         learn(s1, target_q)
 
 
-def perform_learning_step(epoch, event):
+def perform_learning_step(epoch, event, t):
     """ Makes an action according to eps-greedy policy, observes the result
     (next state, reward) and learns from the transition"""
 
@@ -169,6 +170,8 @@ def perform_learning_step(epoch, event):
 
     # With probability eps make a random action.
     eps = exploration_rate(epoch)
+    if t % 1000 == 0:
+        print('Epsilon: {}'.format(eps))
     if random.random() <= eps:
         a = random.randint(0, len(ACTION_SPACE) - 1)
     else:
@@ -176,7 +179,7 @@ def perform_learning_step(epoch, event):
         s1 = s1.reshape([1, 1, resolution[0], resolution[1]])
         a = get_best_action(s1)
     # reward = game.make_action(actions[a], frame_repeat)
-    event, reward, isterminal = make_action(a, event)
+    event, reward, isterminal = make_action(a, event, t)
 
     # isterminal = game.is_episode_finished()
     # isterminal = False
@@ -230,8 +233,10 @@ def calculate_reward(mug_id, task=0):
 def get_total_reward():
     return len(mugs_ids_collected_and_placed)
 
-def is_episode_finished():
+def is_episode_finished(t):
     global mugs_ids_collected_and_placed
+    if t > episode_step_cut_off:
+        return True
     if len(mugs_ids_collected_and_placed) == 3:
         # todo this is called before the total reward
         mugs_ids_collected_and_placed = set()
@@ -239,7 +244,7 @@ def is_episode_finished():
     else:
         return False
 
-def make_action(action_int, event):
+def make_action(action_int, event, t):
     reward = 0
     if action_int == 8:
         if len(event.metadata['inventoryObjects']) == 0:
@@ -255,11 +260,11 @@ def make_action(action_int, event):
         if len(event.metadata['inventoryObjects']) > 0:
 
             for o in event.metadata['objects']:
-                if o['visible'] and (o['objectType'] == 'CounterTop' or
-                                     o['objectType'] == 'TableTop' or
-                                     o['objectType'] == 'Sink' or
-                                     o['objectType'] == 'CoffeeMachine' or
-                                     o['objectType'] == 'Box'):
+                if o['visible'] and o['receptacle'] and (o['objectType'] == 'CounterTop' or
+                                                         o['objectType'] == 'TableTop' or
+                                                         o['objectType'] == 'Sink' or
+                                                         o['objectType'] == 'CoffeeMachine' or
+                                                         o['objectType'] == 'Box'):
                     # import pdb;pdb.set_trace()
                     mug_id = event.metadata['inventoryObjects'][0]['objectId']
                     try:
@@ -268,6 +273,7 @@ def make_action(action_int, event):
                     except Exception as e:
                         # sometimes crashes here for placing mug onto table top which should be fine except distance?
                         # import pdb;pdb.set_trace()
+                        print(e)
                         test = 5
                     reward = calculate_reward(mug_id)
                     break
@@ -275,7 +281,7 @@ def make_action(action_int, event):
         action = ACTION_SPACE[action_int]
         event = controller.step(action)
 
-    return event, reward, is_episode_finished()
+    return event, reward, is_episode_finished(t)
 
 # todo add if cup is visible to agent?
 
@@ -314,45 +320,58 @@ if __name__ == '__main__':
 
             print("Training...")
             # game.new_episode()
+            t = 0
             event = controller.step(dict(action='Initialize', gridSize=0.25))
             for learning_step in trange(learning_steps_per_epoch, leave=False):
-                event = perform_learning_step(epoch, event)
+                event = perform_learning_step(epoch, event, t)
                 # if game.is_episode_finished():
-                if is_episode_finished():
+                if is_episode_finished(t):
                     score = get_total_reward()
                     print('Episode Finished!!! {}'.format(score))
                     train_scores.append(score)
                     # game.new_episode()
+                    controller.reset('FloorPlan28')
                     event = controller.step(dict(action='Initialize', gridSize=0.25))
                     train_episodes_finished += 1
+                    t = 0
 
-            # print("%d training episodes played." % train_episodes_finished)
+                t += 1
 
-            # TODO PRINT EPSILON
+                # if learning_step % 5000 == 0:
+                #     print(ep)
 
-            train_scores = np.array(train_scores)
+            print("{} training episodes played.".format(train_episodes_finished))
 
-            # print("Results: mean: %.1f +/- %.1f," % (train_scores.mean(), train_scores.std()), \
-            #       "min: %.1f," % train_scores.min(), "max: %.1f," % train_scores.max())
+            if len(train_scores) > 0:
+                train_scores = np.array(train_scores)
+
+                print("Results: mean: %.1f +/- %.1f," % (train_scores.mean(), train_scores.std()), \
+                      "min: %.1f," % train_scores.min(), "max: %.1f," % train_scores.max())
 
             print("\nTesting...")
             test_episode = []
             test_scores = []
+            t = 0
             for test_episode in trange(test_episodes_per_epoch, leave=False):
+                controller.reset('FloorPlan28')
                 event = controller.step(dict(action='Initialize', gridSize=0.25))
-                while not is_episode_finished():
+                # import pdb;pdb.set_trace()
+                while not is_episode_finished(t):
                     state = preprocess(event.frame)
                     state = state.reshape([1, 1, resolution[0], resolution[1]])
                     best_action_index = get_best_action(state)
-                    # todo fix bug here.
-                    make_action(best_action_index, frame_repeat)
+                    event, reward, isterminal = make_action(best_action_index, event, t)
+                    t += 1
                 r = get_total_reward()
                 test_scores.append(r)
+                t = 0
 
-            # test_scores = np.array(test_scores)
-            # print("Results: mean: %.1f +/- %.1f," % (
-            #     test_scores.mean(), test_scores.std()), "min: %.1f" % test_scores.min(),
-            #       "max: %.1f" % test_scores.max())
+            # print(test_scores)
+            if len(test_scores) > 0:
+                test_scores = np.array(test_scores)
+                print("Results: mean: %.1f +/- %.1f," % (
+                    test_scores.mean(), test_scores.std()), "min: %.1f" % test_scores.min(),
+                      "max: %.1f" % test_scores.max())
 
             print("Saving the network weigths to:", model_savefile)
             torch.save(model, model_savefile)
