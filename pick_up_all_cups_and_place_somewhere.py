@@ -23,7 +23,7 @@ import ai2thor.controller
 learning_rate = 0.00025
 discount_factor = 0.99
 epochs = 20
-learning_steps_per_epoch = 2000
+learning_steps_per_epoch = 10000
 replay_memory_size = 10000
 
 # NN learning settings
@@ -39,7 +39,7 @@ resolution = (64, 64)
 # resolution = (30, 45)
 episodes_to_watch = 10
 
-model_savefile = "./model-doom.pth"
+model_savefile = "models/model-doom.pth"
 save_model = True
 load_model = False
 skip_learning = False
@@ -230,6 +230,15 @@ def calculate_reward(mug_id, task=0):
 def get_total_reward():
     return len(mugs_ids_collected_and_placed)
 
+def is_episode_finished():
+    global mugs_ids_collected_and_placed
+    if len(mugs_ids_collected_and_placed) == 3:
+        # todo this is called before the total reward
+        mugs_ids_collected_and_placed = set()
+        return True
+    else:
+        return False
+
 def make_action(action_int, event):
     reward = 0
     if action_int == 8:
@@ -253,8 +262,13 @@ def make_action(action_int, event):
                                      o['objectType'] == 'Box'):
                     # import pdb;pdb.set_trace()
                     mug_id = event.metadata['inventoryObjects'][0]['objectId']
-                    event = controller.step(dict(action='PutObject', objectId=mug_id, receptacleObjectId=o['objectId']),
-                                            raise_for_failure=True)
+                    try:
+                        event = controller.step(dict(action='PutObject', objectId=mug_id, receptacleObjectId=o['objectId']),
+                                                raise_for_failure=True)
+                    except Exception as e:
+                        # sometimes crashes here for placing mug onto table top which should be fine except distance?
+                        # import pdb;pdb.set_trace()
+                        test = 5
                     reward = calculate_reward(mug_id)
                     break
     else:
@@ -263,8 +277,7 @@ def make_action(action_int, event):
 
     return event, reward, is_episode_finished()
 
-def is_episode_finished():
-    return True if len(mugs_ids_collected_and_placed) == 3 else False
+# todo add if cup is visible to agent?
 
 if __name__ == '__main__':
     controller = ai2thor.controller.Controller()
@@ -307,12 +320,15 @@ if __name__ == '__main__':
                 # if game.is_episode_finished():
                 if is_episode_finished():
                     score = get_total_reward()
+                    print('Episode Finished!!! {}'.format(score))
                     train_scores.append(score)
                     # game.new_episode()
                     event = controller.step(dict(action='Initialize', gridSize=0.25))
                     train_episodes_finished += 1
 
             # print("%d training episodes played." % train_episodes_finished)
+
+            # TODO PRINT EPSILON
 
             train_scores = np.array(train_scores)
 
@@ -338,8 +354,8 @@ if __name__ == '__main__':
             #     test_scores.mean(), test_scores.std()), "min: %.1f" % test_scores.min(),
             #       "max: %.1f" % test_scores.max())
 
-            # print("Saving the network weigths to:", model_savefile)
-            # torch.save(model, model_savefile)
+            print("Saving the network weigths to:", model_savefile)
+            torch.save(model, model_savefile)
 
             print("Total elapsed time: %.2f minutes" % ((time.time() - time_start) / 60.0))
 
