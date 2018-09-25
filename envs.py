@@ -18,7 +18,7 @@ class ThorWrapperEnv():
         self.t = 0
         self.task = task
 
-        self.resolution = (64, 64)
+
         # action space stuff for ai2thor
         self.ACTION_SPACE = {0: dict(action='MoveAhead'),
                             1: dict(action='MoveBack'),
@@ -36,8 +36,9 @@ class ThorWrapperEnv():
 
         # also Teleport and TeleportFull but obviously only used for initialisation
         self.NUM_ACTIONS = len(self.ACTION_SPACE.keys())
-        self.observation_space = np.array((1, ) + self.resolution) # todo add channel?
         self.action_space = self.NUM_ACTIONS
+        self.resolution = (64, 64)
+        self.observation_space = np.array((1, ) + self.resolution)
 
         self.mugs_ids_collected_and_placed = set()
         self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
@@ -88,6 +89,7 @@ class ThorWrapperEnv():
         self.controller.reset(self.scene_id)
         # todo it seems this doesn't reset inventory?
         self.event = self.controller.step(dict(action='Initialize', gridSize=0.25))
+        print('Just resetted. Current self.event.metadata["inventory"]: {}'.format(self.event.metadata['inventoryObjects']))
         return self.preprocess(self.event.frame)
 
     def preprocess(self, img):

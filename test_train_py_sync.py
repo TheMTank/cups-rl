@@ -1,7 +1,3 @@
-"""
-Adapted from https://github.com/ikostrikov/pytorch-a3c
-"""
-
 from __future__ import print_function
 
 import argparse
@@ -17,7 +13,6 @@ from model import ActorCritic
 from test import test
 from train import train
 
-# Based on
 # https://github.com/pytorch/examples/tree/master/mnist_hogwild
 # Training settings
 parser = argparse.ArgumentParser(description='A3C')
@@ -39,10 +34,10 @@ parser.add_argument('--num-processes', type=int, default=1,
                     help='how many training processes to use (default: 4)')
 parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
-parser.add_argument('--max-episode-length', type=int, default=1000, # todo doesn't affect below. fix.
+parser.add_argument('--max-episode-length', type=int, default=1000000,
                     help='maximum length of an episode (default: 1000000)')
-# parser.add_argument('--env-name', default='PongDeterministic-v4',
-#                     help='environment to train on (default: PongDeterministic-v4)')
+parser.add_argument('--env-name', default='PongDeterministic-v4',
+                    help='environment to train on (default: PongDeterministic-v4)')
 parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
 
@@ -75,10 +70,5 @@ if __name__ == '__main__':
     # p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
     # p.start()
     # processes.append(p)
-
-    for rank in range(0, args.num_processes):
-        p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, optimizer))
-        p.start()
-        processes.append(p)
-    for p in processes:
-        p.join()
+    rank = 0
+    train(rank, args, shared_model, counter, lock, optimizer)

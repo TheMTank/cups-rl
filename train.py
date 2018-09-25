@@ -89,13 +89,14 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 break
 
         R = torch.zeros(1, 1)
-        if not done:
+        if not done: # to change last reward to predicted value to ....
             value, _, _ = model((Variable(state.unsqueeze(0).float()), (hx, cx)))
             R = value.data
 
         values.append(Variable(R))
         policy_loss = 0
         value_loss = 0
+        # import pdb;pdb.set_trace() # good place to breakpoint to see training cycle
         R = Variable(R)
         gae = torch.zeros(1, 1)
         for i in reversed(range(len(rewards))):
