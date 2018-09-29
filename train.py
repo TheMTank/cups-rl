@@ -2,6 +2,13 @@
 Adapted from https://github.com/ikostrikov/pytorch-a3c
 """
 
+
+
+# import numpy as np
+import matplotlib as mpl
+# mpl.use('TkAgg')  # or whatever other backend that you want
+mpl.use('Agg')  # or whatever other backend that you want
+import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -11,6 +18,7 @@ from torch.autograd import Variable
 import envs
 from model import ActorCritic
 
+MOVEMENT_REWARD_DISCOUNT = -0.001
 
 def ensure_shared_grads(model, shared_model):
     for param, shared_param in zip(model.parameters(),
@@ -29,6 +37,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
     # model = ActorCritic(env.observation_space.shape[0], env.action_space)
     model = ActorCritic(1, env.action_space)
+    # model = ActorCritic(3, env.action_space)
 
     if optimizer is None:
         optimizer = optim.Adam(shared_model.parameters(), lr=args.lr)
@@ -39,6 +48,15 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     state = torch.from_numpy(state)
     done = True
 
+    # monitoring
+    avg_reward_for_num_steps_list = []
+    total_reward_for_num_steps_list = []
+    episode_total_rewards_list = []
+    all_rewards_in_episode = []
+    # plt.ion()
+    # plt.ioff()  # turn of interactive plotting mode
+
+    total_length = 0
     episode_length = 0
     while True:
         # Sync with the shared model
@@ -57,6 +75,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
         for step in range(args.num_steps):
             episode_length += 1
+            total_length += 1
             value, logit, (hx, cx) = model((Variable(state.unsqueeze(0).float()),
                                             (hx, cx)))
             prob = F.softmax(logit)
@@ -70,6 +89,9 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
             action_int = action.numpy()[0][0].item()
             # state, reward, done, _ = env.step(action.numpy()[0][0])
             state, reward, done = env.step(action_int)
+
+            reward += MOVEMENT_REWARD_DISCOUNT
+
             done = done or episode_length >= args.max_episode_length
             reward = max(min(reward, 1), -1)
 
@@ -78,20 +100,83 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
             if done:
                 episode_length = 0
+                total_length -= 1
                 state = env.reset()
+                every_x_training_steps = 50
+                num_elements_avg = 5
+                # if total_length % int(args.num_steps * every_x_training_steps) == 0:
+                # print('Step no: {}. total length: {}. '.format(episode_length, total_length,
+                #                                                                  avg_reward_for_num_steps))
+                print('total_length % (args.num_steps * every_x_training_steps) == 0')
+                print('{} % ({} * {}) == 0'.format(total_length, args.num_steps, every_x_training_steps))
+                # x = [i for i in range(total_length) if i % args.num_steps == 0][-50:]
+                # avg_avg_rewards = sum([x for x in avg_reward_for_num_steps_list if i ])
+
+                mean = lambda x: sum(x) / len(x)
+                avg_avg_rewards = [mean(avg_reward_for_num_steps_list[i:i + num_elements_avg]) for i in
+                                   range(0, len(avg_reward_for_num_steps_list), num_elements_avg)]
+                total_reward_averages = [mean(total_reward_for_num_steps_list[i:i + num_elements_avg]) for i in
+                                         range(0, len(total_reward_for_num_steps_list), num_elements_avg)]
+                # todo get averages of periods of 100 [0:5], [5, 10]
+                x = range(len(avg_avg_rewards))
+
+                assert len(total_reward_averages) == len(avg_avg_rewards)
+                fig = plt.figure(2)
+                plt.clf()
+                # fig1 = plt.gcf()
+
+                try:
+                    plt.plot(x, avg_avg_rewards)
+                    plt.plot(x, total_reward_averages)
+                except Exception as e:
+                    import pdb; pdb.set_trace()
+                plt.pause(0.001)
+
+                fp = '/home/beduffy/all_projects/ai2thor-testing/pictures/a3c-total-step-{}.png'.format(
+                    total_length)
+                plt.savefig(fp)
+                print('saved avg acc to: {}'.format(fp))
+                plt.close(fig)
+
+                # next figure
+                total_reward_for_episode = sum(all_rewards_in_episode)
+                episode_total_rewards_list.append(total_reward_for_episode)
+
+                fig = plt.figure(1)
+                plt.clf()
+                x = range(len(episode_total_rewards_list))
+                y = episode_total_rewards_list
+                plt.plot(x, y)
+                fp = '/home/beduffy/all_projects/ai2thor-testing/pictures/a3c-total-reward-per-episode-{}.png'.format(
+                    total_length)
+                plt.savefig(fp)
+                print('saved avg acc to: {}'.format(fp))
+                plt.close(fig)
+                # plt.show()
+                # plt.draw()
+
+                print('Total Length: {}. done after reset: {}. Total reward for episode: {}'.format(total_length, done, total_reward_for_episode))
 
             state = torch.from_numpy(state)
             values.append(value)
             log_probs.append(log_prob)
             rewards.append(reward)
+            all_rewards_in_episode.append(reward)
 
             if done:
                 break
 
+        print('Step no: {}. total length: {}'.format(episode_length, total_length))
+        # Everything below doesn't contain interaction with the environment
         R = torch.zeros(1, 1)
         if not done: # to change last reward to predicted value to ....
             value, _, _ = model((Variable(state.unsqueeze(0).float()), (hx, cx)))
             R = value.data
+
+        total_reward_for_num_steps = sum(rewards)
+        avg_reward_for_num_steps = total_reward_for_num_steps / len(rewards)
+        total_reward_for_num_steps_list.append(total_reward_for_num_steps)
+        avg_reward_for_num_steps_list.append(avg_reward_for_num_steps)
 
         values.append(Variable(R))
         policy_loss = 0
