@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     torch.manual_seed(args.seed)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
-    env = envs.ThorWrapperEnv(current_object_type='Microwave')
+    env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True)
     # shared_model = ActorCritic(
     #     env.observation_space.shape[0], env.action_space)
     shared_model = ActorCritic(1, env.action_space)

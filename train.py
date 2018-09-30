@@ -34,7 +34,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
     # env = create_atari_env(args.env_name)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
-    env = envs.ThorWrapperEnv(current_object_type='Microwave')
+    env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True)
     env.seed(args.seed + rank)
 
     # model = ActorCritic(env.observation_space.shape[0], env.action_space)

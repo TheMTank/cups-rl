@@ -33,7 +33,7 @@ def close_enough(distance):
     return False
 
 class ThorWrapperEnv():
-    def __init__(self, scene_id='FloorPlan28', task=0, max_episode_length=1000, current_object_type='Mug', interaction=True):
+    def __init__(self, scene_id='FloorPlan28', task=0, max_episode_length=1000, current_object_type='Mug', interaction=True, dense_reward=False):
         self.scene_id = scene_id
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
@@ -53,6 +53,7 @@ class ThorWrapperEnv():
         self.t = 0
         self.task = task
         self.done = False
+        self.dense_reward = dense_reward
 
         # action space stuff for ai2thor
         self.ACTION_SPACE = {0: dict(action='MoveAhead'),
@@ -159,7 +160,14 @@ class ThorWrapperEnv():
                 else:
                     return -5
             else:
-                return 0
+                if self.dense_reward:
+                    all_objects_for_object_type = [obj for obj in self.event.metadata['objects'] if
+                                                   obj['objectType'] == self.current_object_type]
+
+                    # only 1 microwave for now or first item. todo make more general!!! always choose the min distance?
+                    return -all_objects_for_object_type[0]['distance']
+                else:
+                    return 0
         elif self.task == 1:
             if done:
                 return 20
