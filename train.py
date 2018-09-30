@@ -87,7 +87,6 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
             log_prob = log_prob.gather(1, Variable(action))
 
             action_int = action.numpy()[0][0].item()
-            # state, reward, done, _ = env.step(action.numpy()[0][0])
             state, reward, done = env.step(action_int)
 
             reward += MOVEMENT_REWARD_DISCOUNT
@@ -141,6 +140,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 # next figure
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
+                all_rewards_in_episode = []
 
                 fig = plt.figure(1)
                 plt.clf()

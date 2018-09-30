@@ -5,14 +5,49 @@ import numpy as np
 import skimage.color, skimage.transform
 import ai2thor.controller
 
+def check_if_focus_and_close_enough(x1, y1, x2, y2, distance):
+    focus_bool = is_bounding_box_close_to_crosshair(x1, y1, x2, y2)
+    close_bool = close_enough(distance)
+
+    return True if focus_bool and close_bool else False
+
+def is_bounding_box_close_to_crosshair(x1, y1, x2, y2):
+    """
+        object's bounding box has to be mostly within the 100x100 middle of the image
+    """
+
+    if x2 < 100:
+        return False
+    if x1 > 200:
+        return False
+    if y2 < 50:
+        return False
+    if y1 > 200:
+        return False
+
+    return True
+
+def close_enough(distance):
+    if distance < 1.0:
+        return True
+    return False
+
 class ThorWrapperEnv():
-    def __init__(self, scene_id='FloorPlan28', task=0, max_episode_length=1000):
-        self.scene_id = 'FloorPlan28'
+    def __init__(self, scene_id='FloorPlan28', task=0, max_episode_length=1000, current_object_type='Mug'):
+        self.scene_id = scene_id
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
 
         self.controller.reset(self.scene_id)
-        self.event = self.controller.step(dict(action='Initialize', gridSize=0.25))
+        self.event = self.controller.step(dict(action='Initialize', gridSize=0.25,
+                                               renderDepthImage=True,
+                                               renderClassImage=True,
+                                               renderObjectImage=True
+                                               ))
+
+        # self.current_object_type = 'Mug'
+        # self.current_object_type = 'Microwave'
+        self.current_object_type = current_object_type
 
         self.max_episode_length = max_episode_length
         self.t = 0
@@ -63,7 +98,6 @@ class ThorWrapperEnv():
                                                              o['objectType'] == 'Sink' or
                                                              o['objectType'] == 'CoffeeMachine' or
                                                              o['objectType'] == 'Box'):
-                        # import pdb;pdb.set_trace()
                         mug_id = self.event.metadata['inventoryObjects'][0]['objectId']
                         try:
                             self.event = self.controller.step(dict(action='PutObject', objectId=mug_id, receptacleObjectId=o['objectId']),
@@ -107,9 +141,20 @@ class ThorWrapperEnv():
         return np.dot(rgb[..., :3], [0.299, 0.587, 0.114])
 
     def calculate_reward(self, done=False):
-        # todo also just try endless reward and see if it spams picking up the cup.
-        # todo interface shouldn't have a mug? should just check
+        # todo create task interface or even class for then specifying easily thousands of tasks
         if self.task == 0:
+            # Go to current object and focus on it
+            if done:
+                import pdb;pdb.set_trace()
+                num_objects_in_view_and_close = self.check_if_focus_and_close_enough_to_object_type(self.current_object_type)
+                if num_objects_in_view_and_close > 0:
+                    print('Stared at object and is close enough. Num objects in view and close: {}'.format(num_objects_in_view_and_close))
+                    return 20
+                else:
+                    return -5
+            else:
+                return 0
+        elif self.task == 1:
             if done:
                 return 20
             if self.last_amount_of_mugs != len(self.mugs_ids_collected_and_placed):
@@ -123,8 +168,8 @@ class ThorWrapperEnv():
                     pass
             self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
             return 0
-        elif self.task == 1:
-            pass
+        elif self.task == 2:
+            pass # todo only if all 3 mugs
             # if mug_id in mugs_ids_collected_and_placed:
             #     # already collected
             #     return 0
@@ -140,12 +185,47 @@ class ThorWrapperEnv():
     def is_episode_finished(self):
         if self.max_episode_length and self.t > self.max_episode_length:
             return True
-        if len(self.mugs_ids_collected_and_placed) == 3:
-            # todo this is called before the total reward
-            self.mugs_ids_collected_and_placed = set()
-            return True
+
+        if self.task == 0:
+            return True if self.check_if_focus_and_close_enough_to_object_type(self.current_object_type) > 0 else False
         else:
-            return False
+            if len(self.mugs_ids_collected_and_placed) == 3:
+                # todo this is called before the total reward
+                self.mugs_ids_collected_and_placed = set()
+                return True
+            else:
+                return False
+
+    def is_episode_termination_success(self):
+        pass
+
+    def check_if_focus_and_close_enough_to_object_type(self, object_type='Mug'):
+        if self.t > 12:
+            import pdb;pdb.set_trace()
+        all_objects_for_object_type = [obj for obj in self.event.metadata['objects'] if obj['objectType'] == object_type]
+        # distances_to_obj_type = [x['distance'] for x in all_objects_for_object_type]
+
+        mapping_color_to_name = {tuple(x['color']): x['name'] for x in self.event.metadata['colors']}
+        mapping_color_to_bounds = {tuple(x['color']): x['bounds'] for x in self.event.metadata['colorBounds']}
+        color_bound_names = [{'color': d['color'],
+                              'name': mapping_color_to_name[tuple(d['color'])],
+                              'bounds': mapping_color_to_bounds[tuple(d['color'])]} for d in
+                               self.event.metadata['colorBounds']]
+
+        bool_list = []
+        # for idx, c_b_n in enumerate(color_bound_names):
+        for idx, obj in enumerate(all_objects_for_object_type):
+            c_b_n_with_same_name_as_obj_id = [x for x in color_bound_names if x['name'] == obj['objectId']]
+            if len(c_b_n_with_same_name_as_obj_id) == 0:
+                continue
+            assert len(c_b_n_with_same_name_as_obj_id) == 1
+
+            x1, y1, x2, y2 = c_b_n_with_same_name_as_obj_id[0]['bounds']
+
+            # check_if_focus_and_close_enough(x1, y1, x2, y2, distances_to_obj_type[idx])
+            bool_list.append(check_if_focus_and_close_enough(x1, y1, x2, y2, obj['distance']))
+
+        return sum(bool_list)
 
     def seed(self, seed):
         return #todo
