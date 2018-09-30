@@ -49,8 +49,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
-    # env = create_atari_env(args.env_name)
-    env = envs.ThorWrapperEnv()
+    # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
+    env = envs.ThorWrapperEnv(current_object_type='Microwave')
     # shared_model = ActorCritic(
     #     env.observation_space.shape[0], env.action_space)
     shared_model = ActorCritic(1, env.action_space)

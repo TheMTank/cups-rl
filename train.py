@@ -3,6 +3,7 @@ Adapted from https://github.com/ikostrikov/pytorch-a3c
 """
 
 
+import time
 
 # import numpy as np
 import matplotlib as mpl
@@ -32,7 +33,8 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     torch.manual_seed(args.seed + rank)
 
     # env = create_atari_env(args.env_name)
-    env = envs.ThorWrapperEnv()
+    # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
+    env = envs.ThorWrapperEnv(current_object_type='Microwave')
     env.seed(args.seed + rank)
 
     # model = ActorCritic(env.observation_space.shape[0], env.action_space)
@@ -53,6 +55,9 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     total_reward_for_num_steps_list = []
     episode_total_rewards_list = []
     all_rewards_in_episode = []
+    episode_lengths = []
+    number_of_episodes = 0
+    start = time.time()
     # plt.ion()
     # plt.ioff()  # turn of interactive plotting mode
 
@@ -98,18 +103,17 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 counter.value += 1
 
             if done:
+                number_of_episodes += 1
+                episode_lengths.append(episode_length)
                 episode_length = 0
                 total_length -= 1
                 state = env.reset()
                 every_x_training_steps = 50
                 num_elements_avg = 5
-                # if total_length % int(args.num_steps * every_x_training_steps) == 0:
-                # print('Step no: {}. total length: {}. '.format(episode_length, total_length,
-                #                                                                  avg_reward_for_num_steps))
+
+                print('Episode number: {}. Total minutes elapsed: {:.3f}'.format(number_of_episodes, (time.time() - start) / 60.0))
                 print('total_length % (args.num_steps * every_x_training_steps) == 0')
                 print('{} % ({} * {}) == 0'.format(total_length, args.num_steps, every_x_training_steps))
-                # x = [i for i in range(total_length) if i % args.num_steps == 0][-50:]
-                # avg_avg_rewards = sum([x for x in avg_reward_for_num_steps_list if i ])
 
                 mean = lambda x: sum(x) / len(x)
                 avg_avg_rewards = [mean(avg_reward_for_num_steps_list[i:i + num_elements_avg]) for i in
@@ -131,8 +135,8 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                     import pdb; pdb.set_trace()
                 plt.pause(0.001)
 
-                fp = '/home/beduffy/all_projects/ai2thor-testing/pictures/a3c-total-step-{}.png'.format(
-                    total_length)
+                fp = '/home/beduffy/all_projects/ai2thor-testing/pictures/a3c-num-episodes-{}.png'.format(
+                    number_of_episodes)
                 plt.savefig(fp)
                 print('saved avg acc to: {}'.format(fp))
                 plt.close(fig)
@@ -148,11 +152,22 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 y = episode_total_rewards_list
                 plt.plot(x, y)
                 fp = '/home/beduffy/all_projects/ai2thor-testing/pictures/a3c-total-reward-per-episode-{}.png'.format(
-                    total_length)
+                    number_of_episodes)
                 plt.savefig(fp)
                 print('saved avg acc to: {}'.format(fp))
                 plt.close(fig)
-                # plt.show()
+
+                fig = plt.figure(3)
+                plt.clf()
+                x = range(len(episode_lengths))
+                y = episode_lengths
+                plt.plot(x, y)
+                fp = '/home/beduffy/all_projects/ai2thor-testing/pictures/episode-lengths-{}.png'.format(
+                    number_of_episodes)
+                plt.savefig(fp)
+                print('saved avg acc to: {}'.format(fp))
+                plt.close(fig)
+                # plt.show() # for live mode but doesn't work
                 # plt.draw()
 
                 print('Total Length: {}. done after reset: {}. Total reward for episode: {}'.format(total_length, done, total_reward_for_episode))
