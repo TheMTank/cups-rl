@@ -33,7 +33,7 @@ def close_enough(distance):
     return False
 
 class ThorWrapperEnv():
-    def __init__(self, scene_id='FloorPlan28', task=0, max_episode_length=1000, current_object_type='Mug'):
+    def __init__(self, scene_id='FloorPlan28', task=0, max_episode_length=1000, current_object_type='Mug', interaction=True):
         self.scene_id = scene_id
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
@@ -69,6 +69,10 @@ class ThorWrapperEnv():
                             9: dict(action='PutObject')  # needs object id
                             }
 
+        if not interaction:
+            self.ACTION_SPACE.pop(8)
+            self.ACTION_SPACE.pop(9)
+
         # also Teleport and TeleportFull but obviously only used for initialisation
         self.NUM_ACTIONS = len(self.ACTION_SPACE.keys())
         self.action_space = self.NUM_ACTIONS
@@ -87,7 +91,7 @@ class ThorWrapperEnv():
                         self.event = self.controller.step(
                             dict(action='PickupObject', objectId=mug_id), raise_for_failure=True)
                         self.mugs_ids_collected_and_placed.add(mug_id)
-                        # reward = self.calculate_reward(mug_id)
+                        print(self.mugs_ids_collected_and_placed, self.event.metadata['inventoryObjects'])
                         break
         elif action_int == 9: # action = dict(action='PutObject', )
             if len(self.event.metadata['inventoryObjects']) > 0:
@@ -103,6 +107,7 @@ class ThorWrapperEnv():
                             self.event = self.controller.step(dict(action='PutObject', objectId=mug_id, receptacleObjectId=o['objectId']),
                                                     raise_for_failure=True)
                             self.mugs_ids_collected_and_placed.remove(mug_id)
+                            print(self.mugs_ids_collected_and_placed, self.event.metadata['inventoryObjects'])
                         except Exception as e:
                             # sometimes crashes here for placing mug onto table top which should be fine except distance?
                             # import pdb;pdb.set_trace()
@@ -123,7 +128,9 @@ class ThorWrapperEnv():
         self.t = 0
         self.controller.reset(self.scene_id)
         # todo check to see if inventory properly reset
-        self.event = self.controller.step(dict(action='Initialize', gridSize=0.25))
+        self.event = self.controller.step(dict(action='Initialize', gridSize=0.25, renderDepthImage=True,
+                                               renderClassImage=True,
+                                               renderObjectImage=True))
         self.mugs_ids_collected_and_placed = set()
         self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
         self.done = False
@@ -145,7 +152,6 @@ class ThorWrapperEnv():
         if self.task == 0:
             # Go to current object and focus on it
             if done:
-                import pdb;pdb.set_trace()
                 num_objects_in_view_and_close = self.check_if_focus_and_close_enough_to_object_type(self.current_object_type)
                 if num_objects_in_view_and_close > 0:
                     print('Stared at object and is close enough. Num objects in view and close: {}'.format(num_objects_in_view_and_close))
@@ -169,7 +175,7 @@ class ThorWrapperEnv():
             self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
             return 0
         elif self.task == 2:
-            pass # todo only if all 3 mugs
+            pass # todo only if all 3 mugs are collected
             # if mug_id in mugs_ids_collected_and_placed:
             #     # already collected
             #     return 0
@@ -200,29 +206,15 @@ class ThorWrapperEnv():
         pass
 
     def check_if_focus_and_close_enough_to_object_type(self, object_type='Mug'):
-        if self.t > 12:
-            import pdb;pdb.set_trace()
         all_objects_for_object_type = [obj for obj in self.event.metadata['objects'] if obj['objectType'] == object_type]
-        # distances_to_obj_type = [x['distance'] for x in all_objects_for_object_type]
-
-        mapping_color_to_name = {tuple(x['color']): x['name'] for x in self.event.metadata['colors']}
-        mapping_color_to_bounds = {tuple(x['color']): x['bounds'] for x in self.event.metadata['colorBounds']}
-        color_bound_names = [{'color': d['color'],
-                              'name': mapping_color_to_name[tuple(d['color'])],
-                              'bounds': mapping_color_to_bounds[tuple(d['color'])]} for d in
-                               self.event.metadata['colorBounds']]
 
         bool_list = []
-        # for idx, c_b_n in enumerate(color_bound_names):
         for idx, obj in enumerate(all_objects_for_object_type):
-            c_b_n_with_same_name_as_obj_id = [x for x in color_bound_names if x['name'] == obj['objectId']]
-            if len(c_b_n_with_same_name_as_obj_id) == 0:
+            bounds = self.event.instance_detections2D.get(obj['objectId'])
+            if bounds is None:
                 continue
-            assert len(c_b_n_with_same_name_as_obj_id) == 1
 
-            x1, y1, x2, y2 = c_b_n_with_same_name_as_obj_id[0]['bounds']
-
-            # check_if_focus_and_close_enough(x1, y1, x2, y2, distances_to_obj_type[idx])
+            x1, y1, x2, y2 = bounds
             bool_list.append(check_if_focus_and_close_enough(x1, y1, x2, y2, obj['distance']))
 
         return sum(bool_list)
