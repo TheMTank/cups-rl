@@ -33,7 +33,8 @@ def close_enough(distance):
     return False
 
 class ThorWrapperEnv():
-    def __init__(self, scene_id='FloorPlan28', task=0, max_episode_length=1000, current_object_type='Mug', interaction=True, dense_reward=False):
+    def __init__(self, scene_id='FloorPlan28', task=0, max_episode_length=1000, current_object_type='Mug',
+                 interaction=True, dense_reward=False, natural_language_instruction=False):
         self.scene_id = scene_id
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
@@ -53,6 +54,10 @@ class ThorWrapperEnv():
         self.t = 0
         self.task = task
         self.done = False
+        self.natural_language_instruction = natural_language_instruction
+        if self.natural_language_instruction:
+            self.train_instructions = ["Go to the microwave"]
+            self.word_to_idx = self.get_word_to_idx()
         self.dense_reward = dense_reward
 
         # action space stuff for ai2thor
@@ -77,7 +82,8 @@ class ThorWrapperEnv():
         # also Teleport and TeleportFull but obviously only used for initialisation
         self.NUM_ACTIONS = len(self.ACTION_SPACE.keys())
         self.action_space = self.NUM_ACTIONS
-        self.resolution = (64, 64)
+        self.resolution = (128, 128) #(64, 64)
+        # self.resolution = (64, 64) #(64, 64)
         self.observation_space = np.array((1, ) + self.resolution)
 
         self.mugs_ids_collected_and_placed = set()
@@ -123,7 +129,11 @@ class ThorWrapperEnv():
         self.t += 1
         self.done = self.is_episode_finished()
         reward = self.calculate_reward(self.done)
-        return self.preprocess(self.event.frame), reward, self.done
+        if self.natural_language_instruction:
+            state = (self.preprocess(self.event.frame), 'Go to the microwave')
+        else:
+            state = self.preprocess(self.event.frame)
+        return state, reward, self.done
 
     def reset(self):
         self.t = 0
@@ -136,7 +146,11 @@ class ThorWrapperEnv():
         self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
         self.done = False
         print('Just resetted. Current self.event.metadata["inventory"]: {}'.format(self.event.metadata['inventoryObjects']))
-        return self.preprocess(self.event.frame)
+        if self.natural_language_instruction:
+            state = (self.preprocess(self.event.frame), 'Go to the microwave')
+        else:
+            state = self.preprocess(self.event.frame)
+        return state
 
     def preprocess(self, img):
         img = skimage.transform.resize(img, self.resolution)
@@ -229,6 +243,15 @@ class ThorWrapperEnv():
 
     def seed(self, seed):
         return #todo
+
+    def get_word_to_idx(self):
+        word_to_idx = {}
+        for instruction_data in self.train_instructions:
+            instruction = instruction_data # todo actual json ['instruction']
+            for word in instruction.split(" "):
+                if word not in word_to_idx:
+                    word_to_idx[word] = len(word_to_idx)
+        return word_to_idx
 
 if __name__ == '__main__':
     # Random agent example with wrapper
