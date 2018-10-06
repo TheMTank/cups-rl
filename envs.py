@@ -34,7 +34,7 @@ def close_enough(distance):
 
 class ThorWrapperEnv():
     def __init__(self, scene_id='FloorPlan28', task=0, max_episode_length=1000, current_object_type='Mug',
-                 interaction=True, dense_reward=False, natural_language_instruction=False):
+                 grayscale=True, interaction=True, dense_reward=False, natural_language_instruction=False):
         self.scene_id = scene_id
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
@@ -82,9 +82,13 @@ class ThorWrapperEnv():
         # also Teleport and TeleportFull but obviously only used for initialisation
         self.NUM_ACTIONS = len(self.ACTION_SPACE.keys())
         self.action_space = self.NUM_ACTIONS
+        self.grayscale = grayscale
         self.resolution = (128, 128) #(64, 64)
         # self.resolution = (64, 64) #(64, 64)
-        self.observation_space = np.array((1, ) + self.resolution)
+        if self.grayscale:
+            self.observation_space = np.array((1, ) + self.resolution)
+        else:
+            self.observation_space = np.array((3, ) + self.resolution)
 
         self.mugs_ids_collected_and_placed = set()
         self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
@@ -155,9 +159,9 @@ class ThorWrapperEnv():
     def preprocess(self, img):
         img = skimage.transform.resize(img, self.resolution)
         img = img.astype(np.float32)
-        # return img
-        gray = self.rgb2gray(img)
-        return gray
+        if self.grayscale:
+            img = self.rgb2gray(img)
+        return img
 
     def rgb2gray(self, rgb):
         return np.dot(rgb[..., :3], [0.299, 0.587, 0.114])
@@ -208,13 +212,13 @@ class ThorWrapperEnv():
 
 
     def get_total_reward(self):
-        return len(self.mugs_ids_collected_and_placed)
+        return len(self.mugs_ids_collected_and_placed) # todo double check this isn't called or change
 
     def is_episode_finished(self):
-        if self.max_episode_length and self.t > self.max_episode_length:
+        if self.max_episode_length and self.t > self.max_episode_length - 1:
             return True
 
-        if self.task == 0:
+        if self.task == 0: # todo add check if natural language mode
             return True if self.check_if_focus_and_close_enough_to_object_type(self.current_object_type) > 0 else False
         else:
             if len(self.mugs_ids_collected_and_placed) == 3:

@@ -8,7 +8,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-
 def normalized_columns_initializer(weights, std=1.0):
     out = torch.randn(weights.size())
     out *= std / torch.sqrt(out.pow(2).sum(1, keepdim=True).expand_as(out))
@@ -35,17 +34,18 @@ def weights_init(m):
 
 class A3C_LSTM_GA(torch.nn.Module):
 
-    def __init__(self, args):
+    def __init__(self, num_channels, num_outputs):
         super(A3C_LSTM_GA, self).__init__()
 
         # Image Processing
-        self.conv1 = nn.Conv2d(3, 128, kernel_size=8, stride=4)
+        self.conv1 = nn.Conv2d(num_channels, 128, kernel_size=8, stride=4)
         self.conv2 = nn.Conv2d(128, 64, kernel_size=4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=4, stride=2)
 
         # Instruction Processing
         self.gru_hidden_size = 256
-        self.input_size = args.input_size
+        # self.input_size = args.input_size # todo
+        self.input_size = 4 # todo change, currently "go to the microwave" 4 words
         self.embedding = nn.Embedding(self.input_size, 32)
         self.gru = nn.GRU(32, self.gru_hidden_size)
 
@@ -55,14 +55,16 @@ class A3C_LSTM_GA(torch.nn.Module):
         # Time embedding layer, helps in stabilizing value prediction
         self.time_emb_dim = 32
         self.time_emb_layer = nn.Embedding(
-                args.max_episode_length+1,
+                # args.max_episode_length+1, # todo feed in episode length
+                1000 + 1,
                 self.time_emb_dim)
 
         # A3C-LSTM layers
-        self.linear = nn.Linear(64 * 8 * 17, 256)
+        # self.linear = nn.Linear(64 * 8 * 17, 256)
+        self.linear = nn.Linear(64 * 6 * 6, 256) # todo maybe 150, 150 res
         self.lstm = nn.LSTMCell(256, 256)
         self.critic_linear = nn.Linear(256 + self.time_emb_dim, 1)
-        self.actor_linear = nn.Linear(256 + self.time_emb_dim, 3)
+        self.actor_linear = nn.Linear(256 + self.time_emb_dim, num_outputs)
 
         # Initializing weights
         self.apply(weights_init)
@@ -81,14 +83,14 @@ class A3C_LSTM_GA(torch.nn.Module):
         x, input_inst, (tx, hx, cx) = inputs
 
         # Get the image representation
-        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv1(x.double()))
         x = F.relu(self.conv2(x))
         x_image_rep = F.relu(self.conv3(x))
 
         # Get the instruction representation
-        encoder_hidden = Variable(torch.zeros(1, 1, self.gru_hidden_size))
+        encoder_hidden = Variable(torch.zeros(1, 1, self.gru_hidden_size)).double()
         for i in range(input_inst.data.size(1)):
-            word_embedding = self.embedding(input_inst[0, i]).unsqueeze(0)
+            word_embedding = self.embedding(input_inst[0, i]).unsqueeze(0).unsqueeze(0)  # crazy todo
             _, encoder_hidden = self.gru(word_embedding, encoder_hidden)
         x_instr_rep = encoder_hidden.view(encoder_hidden.size(1), -1)
 
@@ -97,14 +99,15 @@ class A3C_LSTM_GA(torch.nn.Module):
 
         # Gated-Attention
         x_attention = x_attention.unsqueeze(2).unsqueeze(3)
-        x_attention = x_attention.expand(1, 64, 8, 17)
+        # x_attention = x_attention.expand(1, 64, 8, 17)
+        x_attention = x_attention.expand(1, 64, 6, 6)
         assert x_image_rep.size() == x_attention.size()
         x = x_image_rep*x_attention
         x = x.view(x.size(0), -1)
 
         # A3C-LSTM
         x = F.relu(self.linear(x))
-        hx, cx = self.lstm(x, (hx, cx))
+        hx, cx = self.lstm(x, (hx.double(), cx.double()))
         time_emb = self.time_emb_layer(tx)
         x = torch.cat((hx, time_emb.view(-1, self.time_emb_dim)), 1)
 

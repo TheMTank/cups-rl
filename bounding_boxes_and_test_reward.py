@@ -180,7 +180,7 @@ if __name__ == '__main__':
     reward = check_if_focus_and_close_enough_to_object_type()
     #
     # # Show preprocessed image
-    resolution = (64, 64)
+    resolution = (128, 128)
     img = skimage.transform.resize(event.frame, resolution)
     img = img.astype(np.float32)
     gray = rgb2gray(img)

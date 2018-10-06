@@ -5,6 +5,7 @@ Adapted from https://github.com/ikostrikov/pytorch-a3c
 
 import time
 
+import numpy as np
 # import numpy as np
 import matplotlib as mpl
 # mpl.use('TkAgg')  # or whatever other backend that you want
@@ -18,6 +19,7 @@ from torch.autograd import Variable
 # from envs import create_atari_env
 import envs
 from model import ActorCritic
+from a3c_lstm_ga_model import A3C_LSTM_GA
 
 MOVEMENT_REWARD_DISCOUNT = -0.001
 
@@ -29,17 +31,22 @@ def ensure_shared_grads(model, shared_model):
         shared_param._grad = param.grad
 
 
-def train(rank, args, shared_model, counter, lock, optimizer=None):
+def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
     torch.manual_seed(args.seed + rank)
 
     # env = create_atari_env(args.env_name)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
-    # env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True)
-    env = envs.ThorWrapperEnv(current_object_type='Mug')
+    # env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True)
+    # env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True, natural_language_instruction=True)
+    env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True, grayscale=False)
+
     env.seed(args.seed + rank)
 
     # model = ActorCritic(env.observation_space.shape[0], env.action_space)
-    model = ActorCritic(1, env.action_space)
+    # model = ActorCritic(1, env.action_space)
+
+    # model = A3C_LSTM_GA(1, env.action_space).double()
+    model = A3C_LSTM_GA(3, env.action_space).double()
     # model = ActorCritic(3, env.action_space)
 
     if optimizer is None:
@@ -47,8 +54,16 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
     model.train()
 
-    state = env.reset()
-    state = torch.from_numpy(state)
+    # state = env.reset()
+    (image, instruction) = env.reset()
+    instruction_idx = []
+    for word in instruction.split(" "):
+        instruction_idx.append(env.word_to_idx[word])
+    instruction_idx = np.array(instruction_idx)
+
+    image = torch.from_numpy(image)
+    instruction_idx = torch.from_numpy(instruction_idx).view(1, -1)
+
     done = True
 
     # monitoring
@@ -80,26 +95,33 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         entropies = []
 
         for step in range(args.num_steps):
+            tx = Variable(torch.from_numpy(np.array([episode_length])).long())
             episode_length += 1
             total_length += 1
-            value, logit, (hx, cx) = model((Variable(state.unsqueeze(0).float()),
-                                            (hx, cx)))
+
+            if env.grayscale:
+                image = image.unsqueeze(0).unsqueeze(0)
+            else:
+                image = image.unsqueeze(0).permute(0, 3, 1, 2)
+            value, logit, (hx, cx) = model((Variable(image),
+                                            Variable(instruction_idx),
+                                            (tx, hx, cx)))
             prob = F.softmax(logit)
             log_prob = F.log_softmax(logit)
-            entropy = -(log_prob * prob).sum(1, keepdim=True)
+            entropy = -(log_prob * prob).sum(1)
             entropies.append(entropy)
 
-            action = prob.multinomial(num_samples=1).data
+            action = prob.multinomial(num_samples=1).data # todo check num_samples
             log_prob = log_prob.gather(1, Variable(action))
 
-            action_int = action.numpy()[0][0].item()
-            state, reward, done = env.step(action_int)
+            action = action.numpy()[0, 0]
+            (image, _), reward, done = env.step(action)
+            # state, reward, done = env.step(action)
 
             reward += MOVEMENT_REWARD_DISCOUNT
 
             done = done or episode_length >= args.max_episode_length
-            reward = max(min(reward, 1), -1) # todo dangerous. clamping between 1 and -1 all along?
-            # todo scale/standardise all rewards
+            reward = max(min(reward, 1), -1) # todo think about this
 
             with lock:
                 counter.value += 1
@@ -109,7 +131,13 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 episode_lengths.append(episode_length)
                 episode_length = 0
                 total_length -= 1
-                state = env.reset()
+                (image, instruction) = env.reset()
+                # instruction_idx = []
+                # for word in instruction.split(" "):
+                #     instruction_idx.append(env.word_to_idx[word])
+                # instruction_idx = np.array(instruction_idx)
+                # instruction_idx = torch.from_numpy(
+                #     instruction_idx).view(1, -1)
                 every_x_training_steps = 50
                 num_elements_avg = 5
 
@@ -137,7 +165,6 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                     import pdb; pdb.set_trace()
                 plt.pause(0.001)
 
-                # todo save into experiment number folder or into date folder or... experiment num is best
                 fp = '/home/beduffy/all_projects/ai2thor-testing/pictures/a3c-num-episodes-{}.png'.format(
                     number_of_episodes)
                 plt.savefig(fp)
@@ -175,7 +202,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
                 print('Total Length: {}. done after reset: {}. Total reward for episode: {}'.format(total_length, done, total_reward_for_episode))
 
-            state = torch.from_numpy(state)
+            image = torch.from_numpy(image)
             values.append(value)
             log_probs.append(log_prob)
             rewards.append(reward)
@@ -187,8 +214,15 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         print('Step no: {}. total length: {}'.format(episode_length, total_length))
         # Everything below doesn't contain interaction with the environment
         R = torch.zeros(1, 1)
-        if not done: # to change last reward to predicted value to ....
-            value, _, _ = model((Variable(state.unsqueeze(0).float()), (hx, cx)))
+        if not done:
+            tx = Variable(torch.from_numpy(np.array([episode_length])).long())
+            if env.grayscale:
+                formatted_image = image.unsqueeze(0).unsqueeze(0)
+            else:
+                formatted_image = image.unsqueeze(0).permute(0, 3, 1, 2)
+            value, _, _ = model((Variable(formatted_image),
+                                 Variable(instruction_idx),
+                                 (tx, hx, cx)))
             R = value.data
 
         total_reward_for_num_steps = sum(rewards)
@@ -200,16 +234,16 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         policy_loss = 0
         value_loss = 0
         # import pdb;pdb.set_trace() # good place to breakpoint to see training cycle
-        R = Variable(R)
-        gae = torch.zeros(1, 1)
+        R = Variable(R).double()
+
+        gae = torch.zeros(1, 1).double()
         for i in reversed(range(len(rewards))):
             R = args.gamma * R + rewards[i]
-            advantage = R - values[i]
+            advantage = R - values[i].double()
             value_loss = value_loss + 0.5 * advantage.pow(2)
 
-            # Generalized Advantage Estimataion
-            delta_t = rewards[i] + args.gamma * \
-                values[i + 1].data - values[i].data
+            # Generalized Advantage Estimation
+            delta_t = rewards[i] + args.gamma * values[i + 1].data.double() - values[i].data.double()
             gae = gae * args.gamma * args.tau + delta_t
 
             policy_loss = policy_loss - \
@@ -222,5 +256,3 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
         ensure_shared_grads(model, shared_model)
         optimizer.step()
-
-        # todo checkpoint every 100k.

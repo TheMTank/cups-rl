@@ -10,8 +10,10 @@ import my_optim
 # from envs import create_atari_env
 import envs
 from model import ActorCritic
+from a3c_lstm_ga_model import A3C_LSTM_GA
 from test import test
 from train import train
+from train_a3c_lstm_ga import train_a3c_lstm_ga
 
 # https://github.com/pytorch/examples/tree/master/mnist_hogwild
 # Training settings
@@ -44,16 +46,20 @@ parser.add_argument('--no-shared', default=False,
 
 if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'
-    os.environ['CUDA_VISIBLE_DEVICES'] = ""
+    os.environ['CUDA_VISIBLE_DEVICES'] = "" # todo change, try GPU batch?
 
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
-    env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True)
+    # env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True)
+    # env = envs.ThorWrapperEnv(current_object_type='Mug')
+    # env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True, grayscale=False)
     # shared_model = ActorCritic(
     #     env.observation_space.shape[0], env.action_space)
-    shared_model = ActorCritic(1, env.action_space)
+    # shared_model = ActorCritic(1, env.action_space)
+    # shared_model = A3C_LSTM_GA(1, env.action_space).double()
+    shared_model = A3C_LSTM_GA(3, 10).double()
     # shared_model = ActorCritic(3, env.action_space)
     shared_model.share_memory()
 
@@ -72,4 +78,5 @@ if __name__ == '__main__':
     # p.start()
     # processes.append(p)
     rank = 0
-    train(rank, args, shared_model, counter, lock, optimizer)
+    # train(rank, args, shared_model, counter, lock, optimizer)
+    train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer)
