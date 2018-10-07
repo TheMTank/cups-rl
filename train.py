@@ -18,6 +18,7 @@ from torch.autograd import Variable
 # from envs import create_atari_env
 import envs
 from model import ActorCritic
+import utils
 
 MOVEMENT_REWARD_DISCOUNT = -0.001
 
@@ -32,15 +33,11 @@ def ensure_shared_grads(model, shared_model):
 def train(rank, args, shared_model, counter, lock, optimizer=None):
     torch.manual_seed(args.seed + rank)
 
-    # env = create_atari_env(args.env_name)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True)
     env = envs.ThorWrapperEnv(current_object_type='Mug')
     env.seed(args.seed + rank)
-
-    # model = ActorCritic(env.observation_space.shape[0], env.action_space)
-    model = ActorCritic(1, env.action_space)
-    # model = ActorCritic(3, env.action_space)
+    model = ActorCritic(env.observation_space[0], env.action_space)
 
     if optimizer is None:
         optimizer = optim.Adam(shared_model.parameters(), lr=args.lr)
@@ -95,7 +92,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
             action_int = action.numpy()[0][0].item()
             state, reward, done = env.step(action_int)
 
-            reward += MOVEMENT_REWARD_DISCOUNT
+            reward += MOVEMENT_REWARD_DISCOUNT # todo should be within environment?
 
             done = done or episode_length >= args.max_episode_length
             reward = max(min(reward, 1), -1) # todo dangerous. clamping between 1 and -1 all along?
@@ -110,70 +107,17 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 episode_length = 0
                 total_length -= 1
                 state = env.reset()
-                every_x_training_steps = 50
-                num_elements_avg = 5
 
-                print('Episode number: {}. Total minutes elapsed: {:.3f}'.format(number_of_episodes, (time.time() - start) / 60.0))
-                print('total_length % (args.num_steps * every_x_training_steps) == 0')
-                print('{} % ({} * {}) == 0'.format(total_length, args.num_steps, every_x_training_steps))
-
-                mean = lambda x: sum(x) / len(x)
-                avg_avg_rewards = [mean(avg_reward_for_num_steps_list[i:i + num_elements_avg]) for i in
-                                   range(0, len(avg_reward_for_num_steps_list), num_elements_avg)]
-                total_reward_averages = [mean(total_reward_for_num_steps_list[i:i + num_elements_avg]) for i in
-                                         range(0, len(total_reward_for_num_steps_list), num_elements_avg)]
-                # todo get averages of periods of 100 [0:5], [5, 10]
-                x = range(len(avg_avg_rewards))
-
-                assert len(total_reward_averages) == len(avg_avg_rewards)
-                fig = plt.figure(2)
-                plt.clf()
-                # fig1 = plt.gcf()
-
-                try:
-                    plt.plot(x, avg_avg_rewards)
-                    plt.plot(x, total_reward_averages)
-                except Exception as e:
-                    import pdb; pdb.set_trace()
-                plt.pause(0.001)
-
-                # todo save into experiment number folder or into date folder or... experiment num is best
-                fp = '/home/beduffy/all_projects/ai2thor-testing/pictures/a3c-num-episodes-{}.png'.format(
-                    number_of_episodes)
-                plt.savefig(fp)
-                print('saved avg acc to: {}'.format(fp))
-                plt.close(fig)
-
-                # next figure
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
                 all_rewards_in_episode = []
 
-                fig = plt.figure(1)
-                plt.clf()
-                x = range(len(episode_total_rewards_list))
-                y = episode_total_rewards_list
-                plt.plot(x, y)
-                fp = '/home/beduffy/all_projects/ai2thor-testing/pictures/a3c-total-reward-per-episode-{}.png'.format(
-                    number_of_episodes)
-                plt.savefig(fp)
-                print('saved avg acc to: {}'.format(fp))
-                plt.close(fig)
+                utils.create_plots(args.experiment_id, avg_reward_for_num_steps_list, total_reward_for_num_steps_list, number_of_episodes,
+                                   episode_total_rewards_list, episode_lengths)
 
-                fig = plt.figure(3)
-                plt.clf()
-                x = range(len(episode_lengths))
-                y = episode_lengths
-                plt.plot(x, y)
-                fp = '/home/beduffy/all_projects/ai2thor-testing/pictures/episode-lengths-{}.png'.format(
-                    number_of_episodes)
-                plt.savefig(fp)
-                print('saved avg acc to: {}'.format(fp))
-                plt.close(fig)
-                # plt.show() # for live mode but doesn't work
-                # plt.draw()
-
-                print('Total Length: {}. done after reset: {}. Total reward for episode: {}'.format(total_length, done, total_reward_for_episode))
+                print('Episode number: {}. Total minutes elapsed: {:.3f}'.format(number_of_episodes,
+                                                                                 (time.time() - start) / 60.0))
+                print('Total Length: {}. Total reward for episode: {}'.format(total_length, done, total_reward_for_episode))
 
             state = torch.from_numpy(state)
             values.append(value)

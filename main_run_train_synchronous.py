@@ -2,6 +2,8 @@ from __future__ import print_function
 
 import argparse
 import os
+import uuid
+import sys
 
 import torch
 import torch.multiprocessing as mp
@@ -32,6 +34,8 @@ parser.add_argument('--max-grad-norm', type=float, default=50,
                     help='value loss coefficient (default: 50)')
 parser.add_argument('--seed', type=int, default=1,
                     help='random seed (default: 1)')
+parser.add_argument('--experiment-id', default=uuid.uuid4(),
+                    help='random guid for separating plots')
 parser.add_argument('--num-processes', type=int, default=1,
                     help='how many training processes to use (default: 4)')
 parser.add_argument('--num-steps', type=int, default=20,
@@ -51,17 +55,17 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
-    # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
-    # env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True)
-    # env = envs.ThorWrapperEnv(current_object_type='Mug')
-    # env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True, grayscale=False)
-    # shared_model = ActorCritic(
-    #     env.observation_space.shape[0], env.action_space)
+    # shared_model = ActorCritic(env.observation_space.shape[0], env.action_space)
     # shared_model = ActorCritic(1, env.action_space)
     # shared_model = A3C_LSTM_GA(1, env.action_space).double()
     shared_model = A3C_LSTM_GA(3, 10).double()
-    # shared_model = ActorCritic(3, env.action_space)
+    # shared_model = ActorCritic(1, 10) # todo get 1 and 10 from environment without instantiating it
     shared_model.share_memory()
+
+    experiment_path = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}'.format(args.experiment_id)
+    if not os.path.exists(experiment_path):
+        print('Creating experiment folder: {}'.format(experiment_path))
+        os.makedirs(experiment_path)
 
     if args.no_shared:
         optimizer = None

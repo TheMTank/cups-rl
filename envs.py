@@ -46,8 +46,6 @@ class ThorWrapperEnv():
                                                renderObjectImage=True
                                                ))
 
-        # self.current_object_type = 'Mug'
-        # self.current_object_type = 'Microwave'
         self.current_object_type = current_object_type
 
         self.max_episode_length = max_episode_length
@@ -61,6 +59,7 @@ class ThorWrapperEnv():
         self.dense_reward = dense_reward
 
         # action space stuff for ai2thor
+        # todo loop through list so we can arbitrarily remove some actions e.g. lookup/down
         self.ACTION_SPACE = {0: dict(action='MoveAhead'),
                             1: dict(action='MoveBack'),
                             2: dict(action='MoveRight'),
