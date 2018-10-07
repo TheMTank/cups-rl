@@ -17,7 +17,7 @@ from torch.autograd import Variable
 
 # from envs import create_atari_env
 import envs
-from model import ActorCritic
+from model import ActorCritic, ActorCriticExtraInput
 import utils
 
 MOVEMENT_REWARD_DISCOUNT = -0.001
@@ -36,15 +36,20 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True)
     env = envs.ThorWrapperEnv(current_object_type='Mug', max_episode_length=args.max_episode_length)
+    # env = envs.ThorWrapperEnv(current_object_type='Mug', max_episode_length=args.max_episode_length)
     env.seed(args.seed + rank)
-    model = ActorCritic(env.observation_space[0], env.action_space)
+    # model = ActorCritic(env.observation_space[0], env.action_space)
+    model = ActorCriticExtraInput(env.observation_space[0], env.action_space)
 
     if optimizer is None:
         optimizer = optim.Adam(shared_model.parameters(), lr=args.lr)
 
     model.train()
 
-    state = env.reset()
+    if env.entity_feats:
+        state, entity_feats = env.reset()
+    else:
+        state = env.reset()
     state = torch.from_numpy(state)
     done = True
 
@@ -59,19 +64,15 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     # plt.ion()
     # plt.ioff()  # turn of interactive plotting mode
 
-    total_length = 0
+    total_length = args.total_length if args.total_length is not None else 0
     episode_length = 0
     while True:
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
         if total_length > 0 and total_length % 100000 == 0:
             fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
-            utils.save_checkpoint({
-                'total_length': total_length,
-                # 'arch': args.arch,
-                'state_dict': model.state_dict(),
-                # 'best_prec1': best_prec1,
-                'optimizer' : optimizer.state_dict(),
+            utils.save_checkpoint({'total_length': total_length, 'state_dict': model.state_dict(),
+                                    'optimizer' : optimizer.state_dict(),
             }, args.experiment_id, fn)
 
         if done:
@@ -89,8 +90,12 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         for step in range(args.num_steps):
             episode_length += 1
             total_length += 1
-            value, logit, (hx, cx) = model((Variable(state.unsqueeze(0).float()),
-                                            (hx, cx)))
+            if env.entity_feats:
+                value, logit, (hx, cx) = model(((Variable(state.unsqueeze(0).float()), torch.from_numpy(entity_feats).float()),
+                                                (hx, cx)))
+            else:
+                value, logit, (hx, cx) = model((Variable(state.unsqueeze(0).float()),
+                                                (hx, cx)))
             prob = F.softmax(logit)
             log_prob = F.log_softmax(logit)
             entropy = -(log_prob * prob).sum(1, keepdim=True)
@@ -100,7 +105,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
             log_prob = log_prob.gather(1, Variable(action))
 
             action_int = action.numpy()[0][0].item()
-            state, reward, done = env.step(action_int)
+            (state, entity_feats), reward, done = env.step(action_int)
 
             reward += MOVEMENT_REWARD_DISCOUNT # todo should be within environment?
 
@@ -116,7 +121,10 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 episode_lengths.append(episode_length)
                 episode_length = 0
                 total_length -= 1
-                state = env.reset()
+                if env.entity_feats:
+                    state, entity_feats = env.reset()
+                else:
+                    state = env.reset()
 
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
@@ -142,7 +150,11 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         # Everything below doesn't contain interaction with the environment
         R = torch.zeros(1, 1)
         if not done: # to change last reward to predicted value to ....
-            value, _, _ = model((Variable(state.unsqueeze(0).float()), (hx, cx)))
+            if env.entity_feats:
+                value, _, _ = model(((Variable(state.unsqueeze(0).float()), torch.from_numpy(entity_feats).float()), (hx, cx)))
+
+            else:
+                value, _, _ = model((Variable(state.unsqueeze(0).float()), (hx, cx)))
             R = value.data
 
         total_reward_for_num_steps = sum(rewards)
@@ -176,5 +188,3 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
         ensure_shared_grads(model, shared_model)
         optimizer.step()
-
-        # todo checkpoint every 100k.

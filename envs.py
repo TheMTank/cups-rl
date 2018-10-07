@@ -15,7 +15,7 @@ def is_bounding_box_close_to_crosshair(x1, y1, x2, y2):
     """
         object's bounding box has to be mostly within the 100x100 middle of the image
     """
-
+    # todo fix for microwave and do in one line
     if x2 < 100:
         return False
     if x1 > 200:
@@ -27,14 +27,13 @@ def is_bounding_box_close_to_crosshair(x1, y1, x2, y2):
 
     return True
 
-def close_enough(distance):
-    if distance < 1.0:
-        return True
-    return False
+def close_enough(distance, less_than=1.0):
+    return True if distance < less_than else False
 
 class ThorWrapperEnv():
     def __init__(self, scene_id='FloorPlan28', task=0, max_episode_length=1000, current_object_type='Mug',
-                 grayscale=True, interaction=True, dense_reward=False, natural_language_instruction=False):
+                 grayscale=True, interaction=True, dense_reward=False, natural_language_instruction=False,
+                 entity_feats=True):
         self.scene_id = scene_id
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
@@ -56,6 +55,7 @@ class ThorWrapperEnv():
         if self.natural_language_instruction:
             self.train_instructions = ["Go to the microwave"]
             self.word_to_idx = self.get_word_to_idx()
+        self.entity_feats = entity_feats
         self.dense_reward = dense_reward
 
         # action space stuff for ai2thor
@@ -136,6 +136,9 @@ class ThorWrapperEnv():
             state = (self.preprocess(self.event.frame), 'Go to the microwave')
         else:
             state = self.preprocess(self.event.frame)
+        if self.entity_feats:
+            state = (state, self.calculate_entity_feats(self.current_object_type))
+
         return state, reward, self.done
 
     def reset(self):
@@ -153,6 +156,8 @@ class ThorWrapperEnv():
             state = (self.preprocess(self.event.frame), 'Go to the microwave')
         else:
             state = self.preprocess(self.event.frame)
+        if self.entity_feats:
+            state = (state, self.calculate_entity_feats(self.current_object_type))
         return state
 
     def preprocess(self, img):
@@ -243,6 +248,42 @@ class ThorWrapperEnv():
             bool_list.append(check_if_focus_and_close_enough(x1, y1, x2, y2, obj['distance']))
 
         return sum(bool_list)
+
+    def calculate_entity_feats(self, object_type='Mug'):
+        """
+        For each entity of object type, retrieve 9 values: x, y, width, height, 3d_distance, x_3d, y_3d, z_3d, class
+        """
+
+        all_objects_for_object_type = [obj for obj in self.event.metadata['objects'] if
+                                       obj['objectType'] == object_type]
+
+        entity_feats = []
+        for obj in all_objects_for_object_type:
+
+            entity_feats.extend([obj['position']['x'], obj['position']['y'], obj['position']['z'], (obj['distance'])])
+            entity_feats.append(0 if object_type == 'Mug' else 1) # todo
+            # bbox feats
+            bounds = self.event.instance_detections2D.get(obj['objectId'])
+            if bounds is None:
+                entity_feats.extend([0, 0, 0, 0])
+            else:
+                x1, y1, x2, y2 = bounds
+                entity_feats.append(x1)
+                entity_feats.append(y1)
+                entity_feats.append(abs(x2 - x1))
+                entity_feats.append(abs(y2 - y1))
+
+        if len(self.event.metadata['inventoryObjects']) > 0:
+            # todo can only pick up cups so this is fine but eventually can pick up anything
+            # can only carry one item
+            # self.event.metadata['inventoryObjects'][0]['objectId']
+            # todo maybe changed 3d to agents 3d
+            entity_feats.extend([0, 0, 0, 0, 0 if object_type == 'Mug' else 1,
+                                 0, 0, 0, 0])
+
+            # todo if in inventory or out of sight. And check if id changes
+
+        return np.array(entity_feats)
 
     def seed(self, seed):
         return #todo

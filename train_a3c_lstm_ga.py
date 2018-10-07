@@ -78,20 +78,16 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
     # plt.ion()
     # plt.ioff()  # turn of interactive plotting mode
 
-    total_length = args.total_length
+    total_length = args.total_length if args.total_length else 0
     episode_length = 0
     while True:
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
         if total_length > 0 and total_length % 100000 == 0:
             fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
-            utils.save_checkpoint({
-                'total_length': total_length,
-                # 'arch': args.arch,
-                'state_dict': model.state_dict(),
-                # 'best_prec1': best_prec1,
-                'optimizer' : optimizer.state_dict(),
-            }, args.experiment_id, fn)
+            utils.save_checkpoint({'total_length': total_length, 'state_dict': model.state_dict(),
+                                   'optimizer': optimizer.state_dict(),
+                                   }, args.experiment_id, fn)
 
         if done:
             cx = Variable(torch.zeros(1, 256))

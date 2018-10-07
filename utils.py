@@ -41,9 +41,8 @@ def create_plots(experiment_id, avg_reward_for_num_steps_list, total_reward_for_
     plt.clf()
     x = range(len(episode_total_rewards_list))
     y = episode_total_rewards_list
-    plt.plot(x, y, label='Total Reward per episode')
+    plt.plot(x, y)
     plt.title('Total Reward per episode')
-    plt.legend()
     fp = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}/a3c-total-reward-per-episode-{}.png'.format(
          experiment_id, number_of_episodes)
     plt.savefig(fp)
@@ -70,3 +69,5 @@ def save_checkpoint(state, experiment_id, filename, is_best=False):
     print('Saved model to path: {}'.format(fp))
     # if is_best:
     #     shutil.copyfile(filepath, 'model_best.pth.tar')
+
+# todo create more plots of gradients at different layers etc

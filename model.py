@@ -76,3 +76,55 @@ class ActorCritic(torch.nn.Module):
         x = hx
 
         return self.critic_linear(x), self.actor_linear(x), (hx, cx)
+
+class ActorCriticExtraInput(torch.nn.Module):
+    def __init__(self, num_inputs, action_space):
+        super(ActorCriticExtraInput, self).__init__()
+        self.conv1 = nn.Conv2d(num_inputs, 32, 3, stride=2, padding=1)
+        self.conv2 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
+        self.conv3 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
+        self.conv4 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
+
+        # self.lstm = nn.LSTMCell(32 * 3 * 3, 256)
+        # self.lstm = nn.LSTMCell(512, 256) # for 64x64
+        # self.lstm = nn.LSTMCell(32 * 8 * 8, 256) # for 128x128 input
+        self.lstm = nn.LSTMCell(32 * 8 * 8 + 27, 256) # for 128x128 input + 27
+
+        num_outputs = action_space
+        self.critic_linear = nn.Linear(256, 1)
+        self.actor_linear = nn.Linear(256, num_outputs)
+
+        self.apply(weights_init)
+        self.actor_linear.weight.data = normalized_columns_initializer(
+            self.actor_linear.weight.data, 0.01)
+        self.actor_linear.bias.data.fill_(0)
+        self.critic_linear.weight.data = normalized_columns_initializer(
+            self.critic_linear.weight.data, 1.0)
+        self.critic_linear.bias.data.fill_(0)
+
+        self.lstm.bias_ih.data.fill_(0)
+        self.lstm.bias_hh.data.fill_(0)
+
+        self.train()
+
+    def forward(self, inputs):
+        (inputs, entity_feat), (hx, cx) = inputs
+        if len(inputs.size()) == 3:
+            inputs = inputs.unsqueeze(0)
+        x = F.elu(self.conv1(inputs))
+        x = F.elu(self.conv2(x))
+        x = F.elu(self.conv3(x))
+        x = F.elu(self.conv4(x))
+
+        # todo try 27 features alone!
+        # todo normalise the 9 features?\z
+        # todo even try x and y alone!!! so 6
+        # x = x.view(-1, 32 * 3 * 3)
+        # import pdb;pdb.set_trace()
+        entity_feat = entity_feat.view(1, 27)
+        x = x.view(-1, 2048) # todo maybe 2048 is too big
+        x = torch.cat([x, entity_feat], 1)
+        hx, cx = self.lstm(x, (hx, cx))
+        x = hx
+
+        return self.critic_linear(x), self.actor_linear(x), (hx, cx)
