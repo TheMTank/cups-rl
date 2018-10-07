@@ -35,7 +35,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True)
-    env = envs.ThorWrapperEnv(current_object_type='Mug')
+    env = envs.ThorWrapperEnv(current_object_type='Mug', max_episode_length=args.max_episode_length)
     env.seed(args.seed + rank)
     model = ActorCritic(env.observation_space[0], env.action_space)
 
@@ -64,6 +64,16 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     while True:
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
+        if total_length > 0 and total_length % 100000 == 0:
+            fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
+            utils.save_checkpoint({
+                'total_length': total_length,
+                # 'arch': args.arch,
+                'state_dict': model.state_dict(),
+                # 'best_prec1': best_prec1,
+                'optimizer' : optimizer.state_dict(),
+            }, args.experiment_id, fn)
+
         if done:
             cx = Variable(torch.zeros(1, 256))
             hx = Variable(torch.zeros(1, 256))

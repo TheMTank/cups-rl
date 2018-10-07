@@ -1,5 +1,7 @@
 import time
+import shutil
 
+import torch
 import numpy as np
 import matplotlib as mpl
 # mpl.use('TkAgg')  # or whatever other backend that you want
@@ -28,7 +30,7 @@ def create_plots(experiment_id, avg_reward_for_num_steps_list, total_reward_for_
     plt.pause(0.001)
 
     # todo relative paths don't work, why?
-    fp = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}/a3c-num-episodes-{}.png'.format(experiment_id,
+    fp = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}/a3c-avgavg-reward-and-avg-total-reward-num-episodes-{}.png'.format(experiment_id,
           number_of_episodes)
     plt.savefig(fp)
     print('saved avg acc to: {}'.format(fp))
@@ -45,7 +47,7 @@ def create_plots(experiment_id, avg_reward_for_num_steps_list, total_reward_for_
     fp = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}/a3c-total-reward-per-episode-{}.png'.format(
          experiment_id, number_of_episodes)
     plt.savefig(fp)
-    print('saved avg acc to: {}'.format(fp))
+    print('saved total reward per episode to: {}'.format(fp))
     plt.close(fig)
 
     fig = plt.figure(3)
@@ -57,7 +59,14 @@ def create_plots(experiment_id, avg_reward_for_num_steps_list, total_reward_for_
     fp = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}/episode-lengths-{}.png'.format(experiment_id,
          number_of_episodes)
     plt.savefig(fp)
-    print('saved avg acc to: {}'.format(fp))
+    print('Saved episode lengths to: {}'.format(fp))
     plt.close(fig)
     # plt.show() # for live mode but doesn't work
     # plt.draw()
+
+def save_checkpoint(state, experiment_id, filename, is_best=False):
+    fp = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}/{}'.format(experiment_id, filename)
+    torch.save(state, fp)
+    print('Saved model to path: {}'.format(fp))
+    # if is_best:
+    #     shutil.copyfile(filepath, 'model_best.pth.tar')

@@ -35,11 +35,11 @@ def ensure_shared_grads(model, shared_model):
 def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
     torch.manual_seed(args.seed + rank)
 
-    # env = create_atari_env(args.env_name)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True, natural_language_instruction=True)
-    env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True, grayscale=False)
+    env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True, grayscale=False,
+                              max_episode_length=args.max_episode_length)
 
     env.seed(args.seed + rank)
 
@@ -78,11 +78,21 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
     # plt.ion()
     # plt.ioff()  # turn of interactive plotting mode
 
-    total_length = 0
+    total_length = args.total_length
     episode_length = 0
     while True:
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
+        if total_length > 0 and total_length % 100000 == 0:
+            fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
+            utils.save_checkpoint({
+                'total_length': total_length,
+                # 'arch': args.arch,
+                'state_dict': model.state_dict(),
+                # 'best_prec1': best_prec1,
+                'optimizer' : optimizer.state_dict(),
+            }, args.experiment_id, fn)
+
         if done:
             cx = Variable(torch.zeros(1, 256))
             hx = Variable(torch.zeros(1, 256))
