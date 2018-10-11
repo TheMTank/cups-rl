@@ -65,6 +65,9 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
     image = torch.from_numpy(image)
     instruction_idx = torch.from_numpy(instruction_idx).view(1, -1)
 
+    # todo print probabilities of actions every 100 or 1000
+    # todo see where the gradients flow. Feel the gradients
+
     done = True
 
     # monitoring
@@ -147,6 +150,7 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
                 # instruction_idx = torch.from_numpy(
                 #     instruction_idx).view(1, -1)
 
+                # todo massive bug here with sums seeming wrong
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
                 all_rewards_in_episode = []
@@ -157,7 +161,8 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
 
                 print('Episode number: {}. Total minutes elapsed: {:.3f}'.format(number_of_episodes,
                                                                                  (time.time() - start) / 60.0))
-                print('Total Length: {}. done after reset: {}. Total reward for episode: {}'.format(total_length, done, total_reward_for_episode))
+                print('Total Length: {}. done after reset: {}. Total reward for episode: {}'.format(total_length, done,
+                                                                                                    total_reward_for_episode))
 
             image = torch.from_numpy(image)
             values.append(value)

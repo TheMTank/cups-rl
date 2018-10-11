@@ -59,8 +59,9 @@ if __name__ == '__main__':
     # shared_model = ActorCritic(1, env.action_space)
     # shared_model = A3C_LSTM_GA(1, env.action_space).double()
     # shared_model = A3C_LSTM_GA(3, 10).double()
-    # shared_model = ActorCritic(1, 10) # todo get 1 and 10 from environment without instantiating it
-    shared_model = ActorCriticExtraInput(1, 10)
+    # shared_model = A3C_LSTM_GA(3, 2).double()
+    shared_model = ActorCritic(1, 10) # todo get 1 and 10 from environment without instantiating it
+    # shared_model = ActorCriticExtraInput(1, 10)
 
     if args.no_shared:
         optimizer = None
@@ -102,5 +103,5 @@ if __name__ == '__main__':
     # p.start()
     # processes.append(p)
     rank = 0
-    train(rank, args, shared_model, counter, lock, optimizer)
-    # train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer)
+    # train(rank, args, shared_model, counter, lock, optimizer)
+    train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer)

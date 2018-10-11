@@ -1,3 +1,4 @@
+import time
 import random
 
 import cv2
@@ -15,25 +16,18 @@ def is_bounding_box_close_to_crosshair(x1, y1, x2, y2):
     """
         object's bounding box has to be mostly within the 100x100 middle of the image
     """
-    # todo fix for microwave and do in one line
-    if x2 < 100:
+    # todo fix for microwave
+    if x2 < 100 or x1 > 200 or y2 < 50 or y1 > 200:
         return False
-    if x1 > 200:
-        return False
-    if y2 < 50:
-        return False
-    if y1 > 200:
-        return False
-
     return True
 
 def close_enough(distance, less_than=1.0):
     return True if distance < less_than else False
 
 class ThorWrapperEnv():
-    def __init__(self, scene_id='FloorPlan28', task=0, max_episode_length=1000, current_object_type='Mug',
+    def __init__(self, scene_id='FloorPlan28', task=5, max_episode_length=1000, current_object_type='Mug',
                  grayscale=True, interaction=True, dense_reward=False, natural_language_instruction=False,
-                 entity_feats=True):
+                 entity_feats=False):
         self.scene_id = scene_id
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
@@ -46,15 +40,19 @@ class ThorWrapperEnv():
                                                ))
 
         self.current_object_type = current_object_type
-
+        self.last_actions = []
         self.max_episode_length = max_episode_length
         self.t = 0
         self.task = task
         self.done = False
+        self.check_n_last_actions = 3
         self.natural_language_instruction = natural_language_instruction
         if self.natural_language_instruction:
-            self.train_instructions = ["Go to the microwave"]
+            # self.train_instructions = ["Go to the microwave"]
+            self.train_instructions = ['Turn left 3 times', 'Turn right 3 times']
             self.word_to_idx = self.get_word_to_idx()
+
+        self.current_instruction_idx = 0
         self.entity_feats = entity_feats
         self.dense_reward = dense_reward
 
@@ -93,6 +91,8 @@ class ThorWrapperEnv():
         self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
 
     def step(self, action_int):
+        self.last_actions.append(action_int)
+
         if action_int == 8: # 8: dict(action='PickupObject')
             if len(self.event.metadata['inventoryObjects']) == 0:
                 for o in self.event.metadata['objects']:
@@ -151,9 +151,13 @@ class ThorWrapperEnv():
         self.mugs_ids_collected_and_placed = set()
         self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
         self.done = False
+        self.check_n_last_actions = []
         print('Just resetted. Current self.event.metadata["inventory"]: {}'.format(self.event.metadata['inventoryObjects']))
+
         if self.natural_language_instruction:
-            state = (self.preprocess(self.event.frame), 'Go to the microwave')
+            self.current_instruction_idx = random.randint(0, len(self.train_instructions) - 1)
+            print('Current natural language task: {}'.format(self.train_instructions[self.current_instruction_idx]))
+            state = (self.preprocess(self.event.frame), self.train_instructions[self.current_instruction_idx])
         else:
             state = self.preprocess(self.event.frame)
         if self.entity_feats:
@@ -213,17 +217,42 @@ class ThorWrapperEnv():
             #     mugs_ids_collected_and_placed.add(mug_id)
             #     print('Reward collected!!!!!! {}'.format(mugs_ids_collected_and_placed))
             #     return 1.0
+        elif self.task == 5:
+            if len(self.last_actions) < self.check_n_last_actions:
+                return 0
+            if self.current_instruction_idx == 0:
+                # 6: dict(action='RotateRight'),
+                # 7: dict(action='RotateLeft'),
+                if all([a == 7 for a in self.last_actions[-self.check_n_last_actions:]]): # todo into function
+                    return 5
+            elif self.current_instruction_idx == 1:
+                if all([a == 6 for a in self.last_actions[-self.check_n_last_actions:]]): # todo can have dict mapping
+                    return 5
 
-
-    def get_total_reward(self):
-        return len(self.mugs_ids_collected_and_placed) # todo double check this isn't called or change
+            return 0
 
     def is_episode_finished(self):
         if self.max_episode_length and self.t > self.max_episode_length - 1:
             return True
+        # todo
 
         if self.task == 0: # todo add check if natural language mode
             return True if self.check_if_focus_and_close_enough_to_object_type(self.current_object_type) > 0 else False
+        elif self.task == 5:
+            if len(self.last_actions) < 3:
+                return False
+            episode_over = False
+            if self.current_instruction_idx == 0:
+                if all([a == 7 for a in self.last_actions[-self.check_n_last_actions:]]): # todo into function
+                    episode_over = True
+            elif self.current_instruction_idx == 1:
+                if all([a == 6 for a in self.last_actions[-self.check_n_last_actions:]]): # todo can have dict mapping
+                    episode_over = True
+            # episode_over = all([a == 3 for a in self.last_actions[-3:]])
+            if episode_over:
+                print('Task successful at step number: {}'.format(self.t))
+                time.sleep(1)
+            return episode_over
         else:
             if len(self.mugs_ids_collected_and_placed) == 3:
                 # todo this is called before the total reward
@@ -231,6 +260,9 @@ class ThorWrapperEnv():
                 return True
             else:
                 return False
+
+    def get_total_reward(self):
+        return len(self.mugs_ids_collected_and_placed) # todo double check this isn't called or change
 
     def is_episode_termination_success(self):
         pass
@@ -299,8 +331,12 @@ class ThorWrapperEnv():
 
 if __name__ == '__main__':
     # Random agent example with wrapper
+
     env = ThorWrapperEnv()
     for episode in range(5):
         for t in range(1000):
             a = random.randint(0, len(env.ACTION_SPACE) - 1)
-            s, r, terminal = env.step(a)
+            s, r, done = env.step(a)
+
+            if done:
+                break
