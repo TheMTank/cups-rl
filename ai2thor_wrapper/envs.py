@@ -66,9 +66,11 @@ class ThorWrapperEnv():
         self.NUM_ACTIONS = len(self.ACTION_SPACE.keys())
         self.action_space = self.NUM_ACTIONS
 
-        # self.pickupable_object_types = self.config['ENV_SPECIFIC']['PICKUPABLE_OBJECTS'].split(',')
-        self.pickupable_object_types = self.config['ENV_SPECIFIC']['PICKUPABLE_OBJECTS'].split(',')
+        # acceptable objects taken from config.ini file. Stripping to allow spaces
+        self.pickupable_object_types = [x.strip() for x in self.config['ENV_SPECIFIC']['PICKUPABLE_OBJECTS'].split(',')]
+        self.receptacle_object_types = [x.strip() for x in self.config['ENV_SPECIFIC']['ACCEPTABLE_RECEPTACLES'].split(',')]
         print('Objects that can be picked up: \n{}'.format(self.pickupable_object_types))
+        print('Objects that have objects placed into/onto them (receptacles): \n{}'.format(self.receptacle_object_types))
 
         self.grayscale = grayscale
         self.resolution = (128, 128)  # (64, 64)
@@ -77,38 +79,41 @@ class ThorWrapperEnv():
         else:
             self.observation_space = np.array((3,) + self.resolution)
 
-        self.mugs_ids_collected_and_placed = []
-        self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
+        self.goal_objects_collected_and_placed = []
+        self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
 
     def step(self, action_int):
         if self.ACTION_SPACE[action_int]['action'] == 'PickupObject':
             if len(self.event.metadata['inventoryObjects']) == 0:
                 for o in self.event.metadata['objects']:
                     # loop through objects that are visible, pickupable and there is a bounding box visible
-                    if o['visible'] and o['pickupable'] and any([(o['objectType'] in self.pickupable_object_types)]) \
+                    if o['visible'] and o['pickupable'] and o['objectType'] in self.pickupable_object_types \
                             and o['objectId'] in self.event.instance_detections2D:
-                        mug_id = o['objectId']
+                        object_id = o['objectId']
+                        object_type = o['objectType']
                         self.event = self.controller.step(
-                            dict(action='PickupObject', objectId=mug_id), raise_for_failure=True)
-                        self.mugs_ids_collected_and_placed.append(mug_id)
-                        print('Picked up mug', self.event.metadata['inventoryObjects'])
+                            dict(action='PickupObject', objectId=object_id), raise_for_failure=True)
+                        if object_type == self.current_object_type:
+                            self.goal_objects_collected_and_placed.append(object_id)
+                        print('Picked up', self.event.metadata['inventoryObjects'])
                         break
         elif self.ACTION_SPACE[action_int]['action'] == 'PutObject':
             if len(self.event.metadata['inventoryObjects']) > 0:
                 for o in self.event.metadata['objects']:
                     # loop through receptacles
-                    if o['visible'] and o['receptacle'] and o['objectId'] in self.event.instance_detections2D and \
-                            (o['objectType'] == 'CounterTop' or
-                             o['objectType'] == 'TableTop' or
-                             o['objectType'] == 'Sink' or
-                             # o['objectType'] == 'CoffeeMachine' or # error sometimes
-                             o['objectType'] == 'Box'): # and o['receptacleCount'] < 4:
-                        mug_id = self.event.metadata['inventoryObjects'][0]['objectId']
-                        self.event = self.controller.step(dict(action='PutObject', objectId=mug_id,
-                                                               receptacleObjectId=o['objectId']),
-                                                               raise_for_failure=True)
-                        self.mugs_ids_collected_and_placed.remove(mug_id)
-                        print('Placed mug onto', o['objectId'], ' Inventory: ', self.event.metadata['inventoryObjects'])
+                    if o['visible'] and o['receptacle'] and \
+                            o['objectType'] in self.receptacle_object_types and \
+                            len(o['receptacleObjectIds']) < o['receptacleCount']:
+                        # todo might still crash.
+                        inventory_object_id = self.event.metadata['inventoryObjects'][0]['objectId']
+                        inventory_object_type = self.event.metadata['inventoryObjects'][0]['objectType']
+
+                        self.event = self.controller.step(dict(action='PutObject', objectId=inventory_object_id,
+                                                               receptacleObjectId=o['objectId']))#,
+                                                               #raise_for_failure=True)
+                        if inventory_object_type == self.current_object_type:
+                            self.goal_objects_collected_and_placed.remove(inventory_object_id)
+                        print('Placed object onto', o['objectId'], ' Inventory: ', self.event.metadata['inventoryObjects'])
                         break
         elif self.ACTION_SPACE[action_int]['action'] == 'OpenObject':
             for o in self.event.metadata['objects']:
@@ -152,15 +157,15 @@ class ThorWrapperEnv():
     def calculate_reward(self, done=False):
         reward = self.movement_reward
         if self.task == 0:
-            if self.last_amount_of_mugs < len(self.mugs_ids_collected_and_placed):
-                self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
+            if self.last_amount_of_goal_objects < len(self.goal_objects_collected_and_placed):
+                self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
                 # mug has been picked up
                 reward += 1
-                print('{} reward collected! Inventory: {}'.format(reward, self.mugs_ids_collected_and_placed))
-            elif self.last_amount_of_mugs > len(self.mugs_ids_collected_and_placed):
+                print('{} reward collected! Inventory: {}'.format(reward, self.goal_objects_collected_and_placed))
+            elif self.last_amount_of_goal_objects > len(self.goal_objects_collected_and_placed):
                 # placed mug onto/into receptacle
                 pass
-            self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
+            self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
         else:
             raise NotImplementedError
 
@@ -178,8 +183,8 @@ class ThorWrapperEnv():
         self.event = self.controller.step(dict(action='Initialize', gridSize=0.25, renderDepthImage=True,
                                                renderClassImage=True,
                                                renderObjectImage=True))
-        self.mugs_ids_collected_and_placed = []
-        self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
+        self.goal_objects_collected_and_placed = []
+        self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
         self.done = False
         state = self.preprocess(self.event.frame)
         return state
