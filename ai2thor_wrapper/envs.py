@@ -1,3 +1,8 @@
+import os
+import json
+import configparser
+import sys
+
 import numpy as np
 import skimage.color, skimage.transform
 import ai2thor.controller
@@ -20,9 +25,16 @@ ALL_POSSIBLE_ACTIONS = [
 
 class ThorWrapperEnv():
     def __init__(self, scene_id='FloorPlan28', seed=None, task=0, max_episode_length=1000, current_object_type='Mug',
-                 grayscale=True, interaction=True, movement_reward=0):
+                 grayscale=True, interaction=True, config_path='config.ini', movement_reward=0):
+        # Loads config file from path relative to ai2thor_wrapper python package folder
+        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), config_path)
+        self.config = configparser.ConfigParser()
+        config_output = self.config.read(config_path)
+        if len(config_output) == 0:
+            print('No config file found at: {}. Exiting'.format(config_path))
+            sys.exit()
+
         self.scene_id = scene_id
-        self.scene_id = 'FloorPlan28'
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
         if seed:
@@ -54,6 +66,10 @@ class ThorWrapperEnv():
         self.NUM_ACTIONS = len(self.ACTION_SPACE.keys())
         self.action_space = self.NUM_ACTIONS
 
+        # self.pickupable_object_types = self.config['ENV_SPECIFIC']['PICKUPABLE_OBJECTS'].split(',')
+        self.pickupable_object_types = self.config['ENV_SPECIFIC']['PICKUPABLE_OBJECTS'].split(',')
+        print('Objects that can be picked up: \n{}'.format(self.pickupable_object_types))
+
         self.grayscale = grayscale
         self.resolution = (128, 128)  # (64, 64)
         if self.grayscale:
@@ -68,7 +84,9 @@ class ThorWrapperEnv():
         if self.ACTION_SPACE[action_int]['action'] == 'PickupObject':
             if len(self.event.metadata['inventoryObjects']) == 0:
                 for o in self.event.metadata['objects']:
-                    if o['visible'] and (o['objectType'] == 'Mug'):
+                    # loop through objects that are visible, pickupable and there is a bounding box visible
+                    if o['visible'] and o['pickupable'] and any([(o['objectType'] in self.pickupable_object_types)]) \
+                            and o['objectId'] in self.event.instance_detections2D:
                         mug_id = o['objectId']
                         self.event = self.controller.step(
                             dict(action='PickupObject', objectId=mug_id), raise_for_failure=True)
@@ -78,53 +96,42 @@ class ThorWrapperEnv():
         elif self.ACTION_SPACE[action_int]['action'] == 'PutObject':
             if len(self.event.metadata['inventoryObjects']) > 0:
                 for o in self.event.metadata['objects']:
-                    if o['visible'] and o['receptacle'] and (o['objectType'] == 'CounterTop' or
-                                                             o['objectType'] == 'TableTop' or
-                                                             o['objectType'] == 'Sink' or
-                                                             # o['objectType'] == 'CoffeeMachine' or # error sometimes
-                                                             o['objectType'] == 'Box') and o['receptacleCount'] < 4:
+                    # loop through receptacles
+                    if o['visible'] and o['receptacle'] and o['objectId'] in self.event.instance_detections2D and \
+                            (o['objectType'] == 'CounterTop' or
+                             o['objectType'] == 'TableTop' or
+                             o['objectType'] == 'Sink' or
+                             # o['objectType'] == 'CoffeeMachine' or # error sometimes
+                             o['objectType'] == 'Box'): # and o['receptacleCount'] < 4:
                         mug_id = self.event.metadata['inventoryObjects'][0]['objectId']
-                        try:
-                            self.event = self.controller.step(dict(action='PutObject', objectId=mug_id,
-                                                                   receptacleObjectId=o['objectId']),
-                                                                   raise_for_failure=True)
-                        except Exception as e:
-                            import pdb;pdb.set_trace()
-                            print(e)
+                        self.event = self.controller.step(dict(action='PutObject', objectId=mug_id,
+                                                               receptacleObjectId=o['objectId']),
+                                                               raise_for_failure=True)
                         self.mugs_ids_collected_and_placed.remove(mug_id)
                         print('Placed mug onto', o['objectId'], ' Inventory: ', self.event.metadata['inventoryObjects'])
                         break
         elif self.ACTION_SPACE[action_int]['action'] == 'OpenObject':
             for o in self.event.metadata['objects']:
-                if o['visible'] and o['openable'] and o['objectType'] == 'Microwave':
+                # loop through objects that are visible, openable, closed
+                if o['visible'] and o['openable'] and not o['isopen'] and o['objectType'] == 'Microwave' \
+                        and o['objectId'] in self.event.instance_detections2D:
                     print('Opened', o['objectId'])
-                    try:
-                        self.event = self.controller.step(
-                            dict(action='OpenObject', objectId=o['objectId']), raise_for_failure=True)
-                    except Exception as e:
-                        import pdb;pdb.set_trace()
-                        print(e)
+
+                    self.event = self.controller.step(
+                        dict(action='OpenObject', objectId=o['objectId']), raise_for_failure=True)
                     break
         elif self.ACTION_SPACE[action_int]['action'] == 'CloseObject':
             for o in self.event.metadata['objects']:
-                if o['visible'] and o['openable'] and o['objectType'] == 'Microwave':
+                # loop through objects that are visible, openable, open
+                if o['visible'] and o['openable'] and o['isopen'] and o['objectType'] == 'Microwave' \
+                        and o['objectId'] in self.event.instance_detections2D:
                     print('Closed', o['objectId'])
-                    try:
-                        self.event = self.controller.step(
-                            dict(action='CloseObject', objectId=o['objectId']), raise_for_failure=True)
-                    except Exception as e:
-                        import pdb;pdb.set_trace()
-                        print(e)
+                    self.event = self.controller.step(
+                        dict(action='CloseObject', objectId=o['objectId']), raise_for_failure=True)
                     break
         else:
             action = self.ACTION_SPACE[action_int]
-            # self.event = self.controller.step(action)
-            try:
-                self.event = self.controller.step(dict(action=self.ACTION_SPACE[action_int]['action'], raise_for_failure=True))
-            except Exception as e:
-                import pdb;
-                pdb.set_trace()
-                print(e)
+            self.event = self.controller.step(action)
 
         self.t += 1
         state = self.preprocess(self.event.frame)
@@ -160,7 +167,8 @@ class ThorWrapperEnv():
         return reward
 
     def is_episode_finished(self):
-        if self.max_episode_length and self.t > self.max_episode_length:
+        if self.max_episode_length and self.t >= self.max_episode_length - 1:
+            print('Reached maximum episode length: t: {}'.format(self.t))
             return True
 
     def reset(self):
