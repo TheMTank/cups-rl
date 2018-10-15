@@ -7,7 +7,7 @@ import numpy as np
 import skimage.color, skimage.transform
 import ai2thor.controller
 
-ALL_POSSIBLE_ACTIONS = [
+POSSIBLE_ACTIONS = [
     'MoveAhead',
     'MoveBack',
     'MoveRight',
@@ -25,7 +25,7 @@ ALL_POSSIBLE_ACTIONS = [
 
 class ThorWrapperEnv():
     def __init__(self, scene_id='FloorPlan28', seed=None, task=0, max_episode_length=1000, current_object_type='Mug',
-                 grayscale=True, interaction=True, config_path='config.ini', movement_reward=0):
+                 grayscale=True, interaction=True, config_path='config_example.ini', movement_reward=0):
         # Loads config file from path relative to ai2thor_wrapper python package folder
         config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), config_path)
         self.config = configparser.ConfigParser()
@@ -54,12 +54,12 @@ class ThorWrapperEnv():
 
         # action dictionary from int to dict action to pass to event.controller.step()
         self.ACTION_SPACE = {}
-        for idx, action_str in enumerate(ALL_POSSIBLE_ACTIONS):
+        for idx, action_str in enumerate(POSSIBLE_ACTIONS):
             self.ACTION_SPACE[idx] = dict(action=action_str)
 
         if not interaction:
             interaction_actions = ['OpenObject', 'CloseObject', 'PickupObject', 'PutObject']
-            for idx in range(len(ALL_POSSIBLE_ACTIONS)):
+            for idx in range(len(POSSIBLE_ACTIONS)):
                 if self.ACTION_SPACE[idx]['action'] in interaction_actions:
                     self.ACTION_SPACE.pop(idx)
 
@@ -67,10 +67,10 @@ class ThorWrapperEnv():
         self.action_space = self.NUM_ACTIONS
 
         # acceptable objects taken from config.ini file. Stripping to allow spaces
-        self.pickupable_object_types = [x.strip() for x in self.config['ENV_SPECIFIC']['PICKUPABLE_OBJECTS'].split(',')]
+        self.pickup_object_types = [x.strip() for x in self.config['ENV_SPECIFIC']['PICKUP_OBJECTS'].split(',')]
         self.receptacle_object_types = [x.strip() for x in self.config['ENV_SPECIFIC']['ACCEPTABLE_RECEPTACLES'].split(',')]
-        print('Objects that can be picked up: \n{}'.format(self.pickupable_object_types))
-        print('Objects that have objects placed into/onto them (receptacles): \n{}'.format(self.receptacle_object_types))
+        print('Objects that can be picked up: \n{}'.format(self.pickup_object_types))
+        print('Objects that allow objects placed into/onto them (receptacles): \n{}'.format(self.receptacle_object_types))
 
         self.grayscale = grayscale
         self.resolution = (128, 128)  # (64, 64)
@@ -87,7 +87,7 @@ class ThorWrapperEnv():
             if len(self.event.metadata['inventoryObjects']) == 0:
                 for o in self.event.metadata['objects']:
                     # loop through objects that are visible, pickupable and there is a bounding box visible
-                    if o['visible'] and o['pickupable'] and o['objectType'] in self.pickupable_object_types \
+                    if o['visible'] and o['pickupable'] and o['objectType'] in self.pickup_object_types \
                             and o['objectId'] in self.event.instance_detections2D:
                         object_id = o['objectId']
                         object_type = o['objectType']
@@ -113,7 +113,8 @@ class ThorWrapperEnv():
                                                                #raise_for_failure=True)
                         if inventory_object_type == self.current_object_type:
                             self.goal_objects_collected_and_placed.remove(inventory_object_id)
-                        print('Placed object onto', o['objectId'], ' Inventory: ', self.event.metadata['inventoryObjects'])
+                        print('Placed', inventory_object_id, ' onto', o['objectId'], ' Inventory: ',
+                              self.event.metadata['inventoryObjects'])
                         break
         elif self.ACTION_SPACE[action_int]['action'] == 'OpenObject':
             for o in self.event.metadata['objects']:
@@ -148,7 +149,7 @@ class ThorWrapperEnv():
         img = skimage.transform.resize(img, self.resolution)
         img = img.astype(np.float32)
         if self.grayscale:
-            img = self.rgb2gray(img)
+            img = self.rgb2gray(img)  # todo cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         return img
 
     def rgb2gray(self, rgb):
