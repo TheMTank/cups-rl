@@ -9,7 +9,7 @@ mpl.use('Agg')  # or whatever other backend that you want
 import matplotlib.pyplot as plt
 
 def create_plots(experiment_id, avg_reward_for_num_steps_list, total_reward_for_num_steps_list, number_of_episodes,
-                 episode_total_rewards_list, episode_lengths):
+                 episode_total_rewards_list, episode_lengths, env, prob):
     num_elements_avg = 5
     mean = lambda x: sum(x) / len(x)
     avg_avg_rewards = [mean(avg_reward_for_num_steps_list[i:i + num_elements_avg]) for i in
@@ -60,8 +60,29 @@ def create_plots(experiment_id, avg_reward_for_num_steps_list, total_reward_for_
     plt.savefig(fp)
     print('Saved episode lengths to: {}'.format(fp))
     plt.close(fig)
+    # todo fill bottom underneath line so less coloured in is better
+
+    x_tick_labels = [env.ACTION_SPACE[i]['action'] for i in range(len(env.ACTION_SPACE))]
+    x_pos = np.arange(len(x_tick_labels))
+    probabilities = prob.data.numpy()[0]
+
+    fig = plt.figure(4)
+    plt.clf()
+    plt.bar(x_pos, probabilities, align='center', alpha=0.5)
+    plt.xticks(x_pos, x_tick_labels, rotation='vertical')
+    plt.ylabel('Probability')
+    plt.title('Action probabilities')
     # plt.show() # for live mode but doesn't work
     # plt.draw()
+    fp = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}/action-probabilities-{}.png'.format(experiment_id,
+                                                                                                   number_of_episodes)
+    plt.savefig(fp)
+    print('Saved episode lengths to: {}'.format(fp))
+    plt.close(fig)
+
+    print(x_pos)
+    print(x_tick_labels)
+    print(probabilities)
 
 def save_checkpoint(state, experiment_id, filename, is_best=False):
     fp = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}/{}'.format(experiment_id, filename)

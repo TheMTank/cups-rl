@@ -8,8 +8,8 @@ import time
 import numpy as np
 # import numpy as np
 import matplotlib as mpl
-# mpl.use('TkAgg')  # or whatever other backend that you want
-mpl.use('Agg')  # or whatever other backend that you want
+# mpl.use('TkAgg')  # or whatever other backend that you want. For interactive
+mpl.use('Agg')  # or whatever other backend that you want. For non-interactive
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
@@ -131,7 +131,7 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
             reward += MOVEMENT_REWARD_DISCOUNT
 
             done = done or episode_length >= args.max_episode_length
-            reward = max(min(reward, 1), -1) # todo think about this
+            # reward = max(min(reward, 1), -1) # todo think about this
 
             with lock:
                 counter.value += 1
@@ -157,7 +157,7 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
 
                 utils.create_plots(args.experiment_id, avg_reward_for_num_steps_list, total_reward_for_num_steps_list,
                                    number_of_episodes,
-                                   episode_total_rewards_list, episode_lengths)
+                                   episode_total_rewards_list, episode_lengths, env, prob)
 
                 print('Episode number: {}. Total minutes elapsed: {:.3f}'.format(number_of_episodes,
                                                                                  (time.time() - start) / 60.0))
