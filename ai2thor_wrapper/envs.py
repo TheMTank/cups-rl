@@ -173,7 +173,7 @@ class ThorWrapperEnv():
         return reward
 
     def is_episode_finished(self):
-        if self.max_episode_length and self.t >= self.max_episode_length - 1:
+        if self.max_episode_length and self.t >= self.max_episode_length:
             print('Reached maximum episode length: t: {}'.format(self.t))
             return True
 
