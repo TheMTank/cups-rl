@@ -1,3 +1,4 @@
+import math
 import time
 import random
 
@@ -7,25 +8,28 @@ import skimage.color, skimage.transform
 import ai2thor.controller
 
 def check_if_focus_and_close_enough(x1, y1, x2, y2, distance):
-    focus_bool = is_bounding_box_close_to_crosshair(x1, y1, x2, y2)
+    focus_bool = is_bounding_box_centre_close_to_crosshair(x1, y1, x2, y2)
     close_bool = close_enough(distance)
 
     return True if focus_bool and close_bool else False
 
-def is_bounding_box_close_to_crosshair(x1, y1, x2, y2):
+def is_bounding_box_centre_close_to_crosshair(x1, y1, x2, y2, threshold_within=100):
     """
         object's bounding box has to be mostly within the 100x100 middle of the image
     """
-    # todo fix for microwave
-    if x2 < 100 or x1 > 200 or y2 < 50 or y1 > 200:
-        return False
-    return True
+    bbox_x_cent, bbox_y_cent = (x2 + x1) / 2, (y2 + y1) / 2
+    dist = math.sqrt((150 - bbox_x_cent) ** 2 + (150 - bbox_y_cent) ** 2)
+    # print(bbox_x_cent, bbox_y_cent)
+    # if dist < threshold_within:
+    #     print('distance {} within threshold: {}'.format(dist, threshold_within))
+    #     import pdb;pdb.set_trace()
+    return True if dist < threshold_within else False
 
 def close_enough(distance, less_than=1.0):
     return True if distance < less_than else False
 
 class ThorWrapperEnv():
-    def __init__(self, scene_id='FloorPlan28', task=5, max_episode_length=1000, current_object_type='Mug',
+    def __init__(self, scene_id='FloorPlan28', task=6, max_episode_length=1000, current_object_type='Mug',
                  grayscale=True, interaction=True, dense_reward=False, natural_language_instruction=False,
                  entity_feats=False):
         self.scene_id = scene_id
@@ -49,10 +53,15 @@ class ThorWrapperEnv():
         self.natural_language_instruction = natural_language_instruction
         if self.natural_language_instruction:
             # self.train_instructions = ["Go to the microwave"]
-            self.train_instructions = ['Turn left 3 times', 'Turn right 3 times']
+            # self.train_instructions = ['Turn left 3 times', 'Turn right 3 times']
+            self.train_instructions = ['Go and look at microwave', 'Go and look at cup']
             self.word_to_idx = self.get_word_to_idx()
 
-        self.current_instruction_idx = 0
+            self.current_instruction_idx = 1 # random.randint(0, len(self.train_instructions) - 1) # todo set np and random seed
+            self.current_object_type = 'Microwave' if self.current_instruction_idx == 0 else 'Mug'
+
+        if self.task in [0, 6] and not natural_language_instruction:
+            raise ValueError('For tasks 0 and 6, natural_language_instruction param must be set to True')
         self.entity_feats = entity_feats
         self.dense_reward = dense_reward
 
@@ -130,10 +139,10 @@ class ThorWrapperEnv():
             self.event = self.controller.step(action)
 
         self.t += 1
-        self.done = self.is_episode_finished()
-        reward = self.calculate_reward(self.done)
+        self.done, success = self.is_episode_finished()
+        reward = self.calculate_reward(self.done, success)
         if self.natural_language_instruction:
-            state = (self.preprocess(self.event.frame), 'Go to the microwave')
+            state = (self.preprocess(self.event.frame), self.train_instructions[self.current_instruction_idx])
         else:
             state = self.preprocess(self.event.frame)
         if self.entity_feats:
@@ -172,9 +181,9 @@ class ThorWrapperEnv():
         return img
 
     def rgb2gray(self, rgb):
-        return np.dot(rgb[..., :3], [0.299, 0.587, 0.114])
+        return np.dot(rgb[..., :3], [0.299, 0.587, 0.114]) # todo this does float conversion???
 
-    def calculate_reward(self, done=False):
+    def calculate_reward(self, done=False, success=False):
         # todo create task interface or even class for then specifying easily thousands of tasks
         if self.task == 0:
             # Go to current object and focus on it
@@ -228,12 +237,22 @@ class ThorWrapperEnv():
             elif self.current_instruction_idx == 1:
                 if all([a == 6 for a in self.last_actions[-self.check_n_last_actions:]]): # todo can have dict mapping
                     return 5
+        elif self.task == 6:
+            # Go and look at microwave
+            if self.current_instruction_idx == 0:
+                pass # dense
+            # Go and look at cup
+            elif self.current_instruction_idx == 1:
+                pass # dense
+
+            if success:
+                return 10
 
             return 0
 
     def is_episode_finished(self):
-        if self.max_episode_length and self.t > self.max_episode_length - 1:
-            return True
+        if self.max_episode_length and self.t > self.max_episode_length:
+            return True, False
         # todo
 
         if self.task == 0: # todo add check if natural language mode
@@ -253,6 +272,9 @@ class ThorWrapperEnv():
                 print('Task successful at step number: {}'.format(self.t))
                 time.sleep(1)
             return episode_over
+        elif self.task == 6:
+            done = True if self.check_if_focus_and_close_enough_to_object_type(self.current_object_type) > 0 else False
+            return done, True if done else False
         else:
             if len(self.mugs_ids_collected_and_placed) == 3:
                 # todo this is called before the total reward

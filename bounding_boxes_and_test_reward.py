@@ -182,6 +182,8 @@ if __name__ == '__main__':
     # # Show preprocessed image
     resolution = (128, 128)
     img = skimage.transform.resize(event.frame, resolution)
+    plt.imshow(img) # show colour pre-processed (works in 0-1 range)
+    plt.show()
     img = img.astype(np.float32)
     gray = rgb2gray(img)
     gray_unsqueezed = np.expand_dims(gray, 0)

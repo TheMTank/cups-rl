@@ -46,7 +46,8 @@ class A3C_LSTM_GA(torch.nn.Module):
         self.gru_hidden_size = 256
         # self.input_size = args.input_size # todo
         # self.input_size = 4 # todo change, currently "go to the microwave" 4 words
-        self.input_size = 5 # #'Turn left 3 times', 'Turn right 3 times'
+        # self.input_size = 5 # #'Turn left 3 times', 'Turn right 3 times'
+        self.input_size = 6  #['Go and look at microwave', 'Go and look at cup']
         self.embedding = nn.Embedding(self.input_size, 32)
         self.gru = nn.GRU(32, self.gru_hidden_size)
 
