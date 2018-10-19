@@ -22,7 +22,7 @@ from model import ActorCritic
 from a3c_lstm_ga_model import A3C_LSTM_GA
 import utils
 
-MOVEMENT_REWARD_DISCOUNT = -0.001
+MOVEMENT_REWARD_DISCOUNT = -0.01
 
 def ensure_shared_grads(model, shared_model):
     for param, shared_param in zip(model.parameters(),
@@ -39,7 +39,7 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True, natural_language_instruction=True)
     env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True, grayscale=False,
-                              max_episode_length=args.max_episode_length)
+                              max_episode_length=args.max_episode_length, interaction=False)
 
     env.seed(args.seed + rank)
 
@@ -76,6 +76,8 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
     episode_total_rewards_list = []
     all_rewards_in_episode = []
     episode_lengths = []
+    p_losses = []
+    v_losses = []
     number_of_episodes = 0
     start = time.time()
     # plt.ion()
@@ -83,6 +85,7 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
 
     total_length = args.total_length if args.total_length else 0
     episode_length = 0
+    num_backprops = 0
     while True:
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
@@ -137,18 +140,19 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
                 counter.value += 1
 
             if done:
+                print('Episode over. Last reward: {}'.format(reward))
                 number_of_episodes += 1
                 episode_lengths.append(episode_length)
                 episode_length = 0
                 total_length -= 1
                 (image, instruction) = env.reset()
-                # todo is below needed for more sentences?
-                # instruction_idx = []
-                # for word in instruction.split(" "):
-                #     instruction_idx.append(env.word_to_idx[word])
-                # instruction_idx = np.array(instruction_idx)
-                # instruction_idx = torch.from_numpy(
-                #     instruction_idx).view(1, -1)
+                instruction_idx = []
+                for word in instruction.split(" "):
+                    instruction_idx.append(env.word_to_idx[word])
+                instruction_idx = np.array(instruction_idx)
+                instruction_idx = torch.from_numpy(
+                    instruction_idx).view(1, -1)
+                print('Instruction turned to tensors: ', instruction_idx)
 
                 # todo massive bug here with sums seeming wrong
                 total_reward_for_episode = sum(all_rewards_in_episode)
@@ -157,7 +161,7 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
 
                 utils.create_plots(args.experiment_id, avg_reward_for_num_steps_list, total_reward_for_num_steps_list,
                                    number_of_episodes,
-                                   episode_total_rewards_list, episode_lengths, env, prob)
+                                   episode_total_rewards_list, episode_lengths, env, prob, p_losses, v_losses)
 
                 print('Episode number: {}. Total minutes elapsed: {:.3f}'.format(number_of_episodes,
                                                                                  (time.time() - start) / 60.0))
@@ -212,6 +216,25 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
                 log_probs[i] * Variable(gae) - args.entropy_coef * entropies[i]
 
         optimizer.zero_grad()
+
+        p_losses.append(policy_loss.data[0, 0])
+        v_losses.append(value_loss.data[0, 0])
+
+        if len(p_losses) > 1000: # 1000 * 20 (args.num_steps) = 20000
+            # import pdb;pdb.set_trace()
+            num_backprops += 1
+            print(" ".join([
+                "Training thread: {}".format(rank),
+                "Num backprops: {}K".format(num_backprops),
+                "Avg policy loss: {}".format(np.mean(p_losses)),
+                "Avg value loss: {}".format(np.mean(v_losses))]))
+            # logging.info(" ".join([
+            #     "Training thread: {}".format(rank),
+            #     "Num iters: {}K".format(num_iters),
+            #     "Avg policy loss: {}".format(np.mean(p_losses)),
+            #     "Avg value loss: {}".format(np.mean(v_losses))]))
+            p_losses = []
+            v_losses = []
 
         (policy_loss + args.value_loss_coef * value_loss).backward()
         torch.nn.utils.clip_grad_norm(model.parameters(), args.max_grad_norm)
