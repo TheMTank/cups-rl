@@ -36,7 +36,7 @@ parser.add_argument('--seed', type=int, default=1,
                     help='random seed (default: 1)')
 parser.add_argument('--total-length', type=int, default=0, help='initial length if resuming')
 parser.add_argument('--experiment-id', default=uuid.uuid4(),
-                    help='random guid for separating plots and checkpointing. If experiment taken, '
+                    help='random or chosen guid for folder creation for plots and checkpointing. If experiment taken, '
                          'will resume training!')
 parser.add_argument('--num-processes', type=int, default=1,
                     help='how many training processes to use (default: 4)')
@@ -50,7 +50,7 @@ parser.add_argument('--no-shared', default=False,
 
 if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'
-    os.environ['CUDA_VISIBLE_DEVICES'] = "" # todo change, try GPU batch?
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0' #"" # todo change, try GPU batch?
 
     args = parser.parse_args()
 
@@ -58,7 +58,7 @@ if __name__ == '__main__':
     # shared_model = ActorCritic(env.observation_space.shape[0], env.action_space)
     # shared_model = ActorCritic(1, env.action_space)
     # shared_model = A3C_LSTM_GA(1, env.action_space).double()
-    shared_model = A3C_LSTM_GA(3, 10).double()
+    shared_model = A3C_LSTM_GA(3, 8).double()
     # shared_model = A3C_LSTM_GA(3, 2).double()
     # shared_model = ActorCritic(1, 10) # todo get 1 and 10 from environment without instantiating it
     # shared_model = ActorCriticExtraInput(1, 10)

@@ -29,7 +29,7 @@ def get_path_of_latest_plot(list_of_paths):
     return path_to_return
 
 parser = argparse.ArgumentParser(description='A3C')
-parser.add_argument('--experiment-id', type=str, default='6a163e74-4c96-494d-9490-0157bb93e154',
+parser.add_argument('--experiment-id', type=str, default='ec2e10a3-7ec7-4b46-9c29-5107540b1d7d',
                     help='experiment-id')
 args = parser.parse_args()
 
@@ -41,6 +41,8 @@ else:
     avgavg_paths = glob.glob(experiment_path + '/a3c-avgavg-reward-*')
     total_reward_paths = glob.glob(experiment_path + '/a3c-total-*')
     episode_length_paths = glob.glob(experiment_path + '/episode-lengths-*')
+
+    # todo add action probabilities and losses
 
     fp1 = get_path_of_latest_plot(avgavg_paths)
     fp2 = get_path_of_latest_plot(total_reward_paths)

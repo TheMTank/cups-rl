@@ -54,10 +54,11 @@ class ThorWrapperEnv():
         if self.natural_language_instruction:
             # self.train_instructions = ["Go to the microwave"]
             # self.train_instructions = ['Turn left 3 times', 'Turn right 3 times']
-            self.train_instructions = ['Go and look at microwave', 'Go and look at cup']
+            # self.train_instructions = ['Go and look at microwave', 'Go and look at cup']
+            self.train_instructions = ['microwave', 'cup']
             self.word_to_idx = self.get_word_to_idx()
 
-            self.current_instruction_idx = 1 # random.randint(0, len(self.train_instructions) - 1) # todo set np and random seed
+            self.current_instruction_idx = 0 # random.randint(0, len(self.train_instructions) - 1) # todo set np and random seed
             self.current_object_type = 'Microwave' if self.current_instruction_idx == 0 else 'Mug'
 
         if self.task in [0, 6] and not natural_language_instruction:
@@ -166,6 +167,7 @@ class ThorWrapperEnv():
         if self.natural_language_instruction:
             self.current_instruction_idx = random.randint(0, len(self.train_instructions) - 1)
             print('Current natural language task: {}'.format(self.train_instructions[self.current_instruction_idx]))
+            self.current_object_type = 'Microwave' if self.current_instruction_idx == 0 else 'Mug'
             state = (self.preprocess(self.event.frame), self.train_instructions[self.current_instruction_idx])
         else:
             state = self.preprocess(self.event.frame)
@@ -238,12 +240,13 @@ class ThorWrapperEnv():
                 if all([a == 6 for a in self.last_actions[-self.check_n_last_actions:]]): # todo can have dict mapping
                     return 5
         elif self.task == 6:
-            # Go and look at microwave
-            if self.current_instruction_idx == 0:
-                pass # dense
-            # Go and look at cup
-            elif self.current_instruction_idx == 1:
-                pass # dense
+            if self.dense_reward:
+                # Go and look at microwave
+                if self.current_instruction_idx == 0:
+                    pass # todo distance to centre
+                # Go and look at cup
+                elif self.current_instruction_idx == 1:
+                    pass # dense
 
             if success:
                 return 10

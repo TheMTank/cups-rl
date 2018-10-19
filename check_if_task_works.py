@@ -21,24 +21,21 @@ if __name__ == '__main__':
     actions_to_look_at_cup = [6, 6, 0, 0, 6, 0, 0, 7, 0, 0, 0, 7, 5]
 
     env = ThorWrapperEnv(natural_language_instruction=True)
-    for episode in range(2):
-        env.current_instruction_idx = 0
-        env.current_object_type = 'Microwave'
-        for idx, a in enumerate(actions_to_look_at_microwave):
-            s, r, terminal = env.step(a)
-            print(r, terminal)
-            if terminal:
-                break
-            # time.sleep(0.5)
+    for episode in range(4):
+        # todo single loop but also do wrong one and then make it a test case
 
-        env.reset()
-        env.current_instruction_idx = 1
-        env.current_object_type = 'Mug'
-        for idx, a in enumerate(actions_to_look_at_cup):
-            s, r, terminal = env.step(a)
-            print(r, terminal)
-            if terminal:
-                break
+        if env.current_instruction_idx == 0:
+            for idx, a in enumerate(actions_to_look_at_microwave):
+                s, r, terminal = env.step(a)
+                print(r, terminal)
+                if terminal:
+                    break
+        else:
+            for idx, a in enumerate(actions_to_look_at_cup):
+                s, r, terminal = env.step(a)
+                print(r, terminal)
+                if terminal:
+                    break
 
         env.reset()
         time.sleep(2)

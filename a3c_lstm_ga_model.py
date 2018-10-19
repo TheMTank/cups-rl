@@ -47,7 +47,8 @@ class A3C_LSTM_GA(torch.nn.Module):
         # self.input_size = args.input_size # todo
         # self.input_size = 4 # todo change, currently "go to the microwave" 4 words
         # self.input_size = 5 # #'Turn left 3 times', 'Turn right 3 times'
-        self.input_size = 6  #['Go and look at microwave', 'Go and look at cup']
+        # self.input_size = 6  #['Go and look at microwave', 'Go and look at cup']
+        self.input_size = 2  # ['microwave', 'cup']
         self.embedding = nn.Embedding(self.input_size, 32)
         self.gru = nn.GRU(32, self.gru_hidden_size)
 
@@ -92,9 +93,14 @@ class A3C_LSTM_GA(torch.nn.Module):
         # Get the instruction representation
         encoder_hidden = Variable(torch.zeros(1, 1, self.gru_hidden_size)).double()
         for i in range(input_inst.data.size(1)):
+
+            # todo first unsqueeze should be sequence length!!!
+            # but for now im gonna try just one word. todo check when i bring multi word sentences back
             word_embedding = self.embedding(input_inst[0, i]).unsqueeze(0).unsqueeze(0)  # crazy todo
-            _, encoder_hidden = self.gru(word_embedding, encoder_hidden)
+            word_embedding = word_embedding.expand(input_inst.data.size(1), -1, -1) # only change seq len dimension
+            _, encoder_hidden = self.gru(word_embedding, encoder_hidden) # todo import pdb;pdb.set_trace(). see if this works nad two unsqueezes were wrong?
         x_instr_rep = encoder_hidden.view(encoder_hidden.size(1), -1)
+        # todo try MLP above instead or just one layer
 
         # Get the attention vector from the instruction representation
         x_attention = F.sigmoid(self.attn_linear(x_instr_rep))
