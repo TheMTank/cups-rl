@@ -7,13 +7,13 @@ from ai2thor_wrapper.envs import ThorWrapperEnv
 
 if __name__ == '__main__':
     # Random agent example with wrapper
-    max_episode_length = 10000
+    max_episode_length = 5000
     env = ThorWrapperEnv(max_episode_length=max_episode_length)
     for episode in range(20):
         start = time.time()
         s = env.reset()
         for t in range(max_episode_length):
-            a = random.randint(0, len(env.ACTION_SPACE) - 1)
+            a = random.choice(env.ACTION_SPACE)
             s, r, done = env.step(a)
             if done:
                 break

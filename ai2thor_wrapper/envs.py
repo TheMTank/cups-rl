@@ -20,7 +20,7 @@ POSSIBLE_ACTIONS = [
     'CloseObject',
     'PickupObject',
     'PutObject'
-    # Teleport and TeleportFull but these shouldn't be actions for an agent
+    # Teleport and TeleportFull but these shouldn't be allowable actions for an agent
 ]
 
 class ThorWrapperEnv():
@@ -54,18 +54,17 @@ class ThorWrapperEnv():
         self.interaction = interaction
 
         # action dictionary from int to dict action to pass to event.controller.step()
-        self.ACTION_SPACE = {}
-        for idx, action_str in enumerate(POSSIBLE_ACTIONS):
-            self.ACTION_SPACE[idx] = dict(action=action_str)
+        self.ACTION_DICT = {idx: action_str for idx, action_str in enumerate(POSSIBLE_ACTIONS)}
 
         if not self.interaction:
             interaction_actions = ['OpenObject', 'CloseObject', 'PickupObject', 'PutObject']
             for idx in range(len(POSSIBLE_ACTIONS)):
-                if self.ACTION_SPACE[idx]['action'] in interaction_actions:
-                    self.ACTION_SPACE.pop(idx)
+                if self.ACTION_DICT[idx] in interaction_actions:
+                    self.ACTION_DICT.pop(idx)
 
-        self.NUM_ACTIONS = len(self.ACTION_SPACE.keys())
-        self.action_space = self.NUM_ACTIONS
+        self.ACTION_SPACE = list(self.ACTION_DICT.keys())
+        self.NUM_ACTIONS = len(self.ACTION_SPACE)
+        self.action_space = self.NUM_ACTIONS  # OpenAI interface but not used here
 
         # acceptable objects taken from config.ini file. Stripping to allow spaces
         self.pickup_object_types = [x.strip() for x in self.config['ENV_SPECIFIC']['PICKUP_OBJECTS'].split(',')]
@@ -87,7 +86,7 @@ class ThorWrapperEnv():
         self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
 
     def step(self, action_int):
-        if self.ACTION_SPACE[action_int]['action'] == 'PickupObject':
+        if self.ACTION_DICT[action_int] == 'PickupObject':
             if len(self.event.metadata['inventoryObjects']) == 0:
                 for obj in self.event.metadata['objects']:
                     # loop through objects that are visible, pickupable and there is a bounding box visible
@@ -103,27 +102,31 @@ class ThorWrapperEnv():
                             self.goal_objects_collected_and_placed.append(object_id)
                         print('Picked up', self.event.metadata['inventoryObjects'])
                         break
-        elif self.ACTION_SPACE[action_int]['action'] == 'PutObject':
+        elif self.ACTION_DICT[action_int] == 'PutObject':
             if len(self.event.metadata['inventoryObjects']) > 0:
                 for obj in self.event.metadata['objects']:
                     # loop through receptacles
                     if obj['visible'] and \
                             obj['receptacle'] and \
                             obj['objectType'] in self.receptacle_object_types and \
-                       len(obj['receptacleObjectIds']) < obj['receptacleCount']:
+                            len(obj['receptacleObjectIds']) < obj['receptacleCount']:
                         # todo might still crash.
                         inventory_object_id = self.event.metadata['inventoryObjects'][0]['objectId']
                         inventory_object_type = self.event.metadata['inventoryObjects'][0]['objectType']
 
                         self.event = self.controller.step(dict(action='PutObject', objectId=inventory_object_id,
-                                                               receptacleObjectId=obj['objectId']))#,
-                                                               #raise_for_failure=True)
-                        if inventory_object_type == self.current_task_object:
-                            self.goal_objects_collected_and_placed.remove(inventory_object_id)
+                                                               receptacleObjectId=obj['objectId']))#, raise_for_failure=True)
+                        # if inventory_object_type == self.current_task_object:
+
+                        if len(self.goal_objects_collected_and_placed) == 0:
+                            pass
+                            # import pdb;pdb.set_trace() # todo why?
+                        # self.goal_objects_collected_and_placed.remove(inventory_object_id)
+                        self.goal_objects_collected_and_placed = []
                         print('Placed', inventory_object_id, ' onto', obj['objectId'], ' Inventory: ',
                               self.event.metadata['inventoryObjects'])
                         break
-        elif self.ACTION_SPACE[action_int]['action'] == 'OpenObject':
+        elif self.ACTION_DICT[action_int] == 'OpenObject':
             for obj in self.event.metadata['objects']:
                 # loop through objects that are visible, openable, closed
                 if obj['visible'] and obj['openable'] and \
@@ -134,7 +137,7 @@ class ThorWrapperEnv():
                     self.event = self.controller.step(
                         dict(action='OpenObject', objectId=obj['objectId']), raise_for_failure=True)
                     break
-        elif self.ACTION_SPACE[action_int]['action'] == 'CloseObject':
+        elif self.ACTION_DICT[action_int] == 'CloseObject':
             for obj in self.event.metadata['objects']:
                 # loop through objects that are visible, openable, open
                 if obj['visible'] and obj['openable'] and obj['isopen'] and \
@@ -145,8 +148,8 @@ class ThorWrapperEnv():
                         dict(action='CloseObject', objectId=obj['objectId']), raise_for_failure=True)
                     break
         else:
-            action = self.ACTION_SPACE[action_int]
-            self.event = self.controller.step(action)
+            action = self.ACTION_DICT[action_int]
+            self.event = self.controller.step(dict(action=action))
 
         self.t += 1
         state = self.preprocess(self.event.frame)
