@@ -41,7 +41,7 @@ This section will be updated soon to show how to run examples using the provided
 example task in which the goal of the agent is to place a cup in the microwave.
 
 <div align="center">
-  <img src="examples/cup_into_microwave.gif" width="700px" />
+  <img src="examples/cup_into_microwave.gif" width="294px" />
   <p>Example of task "place cup in microwave"</p>
 </div>
 
