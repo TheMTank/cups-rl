@@ -37,7 +37,13 @@ Install Python dependencies:
 
 ## How to use
 
-This section will be updated soon to show how to run examples using the provided code.
+This section will be updated soon to show how to run examples using the provided code. In the meantime, here is an 
+example task in which the goal of the agent is to place a cup in the microwave.
+
+<div align="center">
+  <img src="examples/cup_into_microwave.gif" width="700px" />
+  <p>Example of task "place cup in microwave"</p>
+</div>
 
 ## The Team
 
