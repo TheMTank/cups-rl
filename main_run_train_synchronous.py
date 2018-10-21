@@ -20,7 +20,7 @@ from train_a3c_lstm_ga import train_a3c_lstm_ga
 # https://github.com/pytorch/examples/tree/master/mnist_hogwild
 # Training settings
 parser = argparse.ArgumentParser(description='A3C')
-parser.add_argument('--lr', type=float, default=0.0001,
+parser.add_argument('--lr', type=float, default=0.0003,
                     help='learning rate (default: 0.0001)')
 parser.add_argument('--gamma', type=float, default=0.99,
                     help='discount factor for rewards (default: 0.99)')
@@ -35,7 +35,8 @@ parser.add_argument('--max-grad-norm', type=float, default=50,
 parser.add_argument('--seed', type=int, default=1,
                     help='random seed (default: 1)')
 parser.add_argument('--total-length', type=int, default=0, help='initial length if resuming')
-parser.add_argument('--experiment-id', default=uuid.uuid4(),
+parser.add_argument('--number-of-episodes', type=int, default=0, help='number-of-episodes passed if resuming')
+parser.add_argument('-eid', '--experiment-id', default=uuid.uuid4(),
                     help='random or chosen guid for folder creation for plots and checkpointing. If experiment taken, '
                          'will resume training!')
 parser.add_argument('--num-processes', type=int, default=1,
@@ -54,11 +55,16 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # todo print args to file in experiment folder
+    # todo print all logs to experiment folder
+    # todo allow changing name of experiment folder and perfect checkpointing
+    # todo load episode number, learning rate and optimiser and more
+
     torch.manual_seed(args.seed)
     # shared_model = ActorCritic(env.observation_space.shape[0], env.action_space)
     # shared_model = ActorCritic(1, env.action_space)
     # shared_model = A3C_LSTM_GA(1, env.action_space).double()
-    shared_model = A3C_LSTM_GA(3, 8).double()
+    shared_model = A3C_LSTM_GA(3, 8).double() # todo try GPU
     # shared_model = A3C_LSTM_GA(3, 2).double()
     # shared_model = ActorCritic(1, 10) # todo get 1 and 10 from environment without instantiating it
     # shared_model = ActorCriticExtraInput(1, 10)
@@ -88,7 +94,14 @@ if __name__ == '__main__':
             checkpoint = torch.load(checkpoint_to_load)
             args.total_length = checkpoint['total_length']
             shared_model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
+            optimizer.load_state_dict(checkpoint['optimizer']) # todo check if overwrites learning rate. probably does
+
+            if checkpoint['number_of_episodes']:
+                args.number_of_episodes = checkpoint['number_of_episodes']
+
+            for param_group in optimizer.param_groups:
+                print('Learning rate: ', param_group['lr']) # oh it doesn't
+
             print("=> loaded checkpoint '{}' (total_length {})"
                   .format(checkpoint_to_load, checkpoint['total_length']))
 

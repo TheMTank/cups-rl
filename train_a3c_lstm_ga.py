@@ -65,7 +65,6 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
     image = torch.from_numpy(image)
     instruction_idx = torch.from_numpy(instruction_idx).view(1, -1)
 
-    # todo print probabilities of actions every 100 or 1000
     # todo see where the gradients flow. Feel the gradients
 
     done = True
@@ -78,7 +77,8 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
     episode_lengths = []
     p_losses = []
     v_losses = []
-    number_of_episodes = 0
+    if args.number_of_episodes is not None:
+        number_of_episodes = args.number_of_episodes
     start = time.time()
     # plt.ion()
     # plt.ioff()  # turn of interactive plotting mode
@@ -89,11 +89,6 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
     while True:
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
-        if total_length > 0 and total_length % 100000 == 0:
-            fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
-            utils.save_checkpoint({'total_length': total_length, 'state_dict': model.state_dict(),
-                                   'optimizer': optimizer.state_dict(),
-                                   }, args.experiment_id, fn)
 
         if done:
             cx = Variable(torch.zeros(1, 256))
@@ -108,6 +103,16 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
         entropies = []
 
         for step in range(args.num_steps):
+            if total_length > 0 and total_length % 1000 == 0:
+                fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
+                checkpoint_dict = {
+                    'total_length': total_length,
+                    'number_of_episodes': number_of_episodes,
+                    # todo save more stuff
+                    'state_dict': model.state_dict(),
+                    'optimizer': optimizer.state_dict()
+                }
+                utils.save_checkpoint(checkpoint_dict, args.experiment_id, fn)
             tx = Variable(torch.from_numpy(np.array([episode_length])).long())
             episode_length += 1
             total_length += 1
@@ -141,6 +146,8 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
 
             if done:
                 print('Episode over. Last reward: {}'.format(reward))
+                print('Episode number: {}. Total minutes elapsed: {:.3f}'.format(number_of_episodes,
+                                                                                 (time.time() - start) / 60.0))
                 number_of_episodes += 1
                 episode_lengths.append(episode_length)
                 episode_length = 0
@@ -154,7 +161,7 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
                     instruction_idx).view(1, -1)
                 print('Instruction turned to tensors: ', instruction_idx)
 
-                # todo massive bug here with sums seeming wrong
+                # todo bug here with sums seeming wrong over the long term
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
                 all_rewards_in_episode = []
@@ -163,10 +170,8 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
                                    number_of_episodes,
                                    episode_total_rewards_list, episode_lengths, env, prob, p_losses, v_losses)
 
-                print('Episode number: {}. Total minutes elapsed: {:.3f}'.format(number_of_episodes,
-                                                                                 (time.time() - start) / 60.0))
-                print('Total Length: {}. done after reset: {}. Total reward for episode: {}'.format(total_length, done,
-                                                                                                    total_reward_for_episode))
+
+                print('Total Length: {}. Total reward for episode: {}'.format(total_length, total_reward_for_episode))
 
             image = torch.from_numpy(image)
             values.append(value)
