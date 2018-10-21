@@ -1,17 +1,26 @@
+"""
+Tests related to the ai2thor environment wrapper.
+"""
 import sys
 sys.path.append('..')
 import random
+import threading
 import time
 import unittest
 
+
+import ai2thor.controller
 from ai2thor_wrapper.envs import ThorWrapperEnv
+
+
 
 class TestAI2ThorWrapperEnv(unittest.TestCase):
     def test_environments_runs_and_check_speed(self):
         """
-        Checks to see if the environment still runs and nothing breaks. Useful for continuous deployment and keeping
-        master stable. Also, we check how much time 10 steps takes within the environment. Final assert
-        checks if max_episode_length is equal to the number of steps taken and no off-by-one errors.
+        Checks to see if the environment still runs and nothing breaks. Useful for continuous
+        deployment and keeping master stable. Also, we check how much time 10 steps takes within
+        the environment. Final assert checks if max_episode_length is equal to the number of steps
+        taken and no off-by-one errors.
         """
 
         num_steps = 10
@@ -25,14 +34,16 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
             s, r, done = env.step(a)
 
             time_for_step = time.time() - start_of_step
-            print('Step: {}. env.t: {}. Time taken for step: {:.3f}'.format(t, env.t, time_for_step))
+            print('Step: {}. env.t: {}. Time taken for step: {:.3f}'.format(t,
+                                                                            env.t,
+                                                                            time_for_step))
             all_step_times.append(time_for_step)
 
             if done:
                 break
 
         print('Time taken altogether: {}\nAverage time taken per step: {:.3f}'.format(
-                            time.time() - start, sum(all_step_times) / len(all_step_times)))
+            time.time() - start, sum(all_step_times) / len(all_step_times)))
 
         self.assertTrue(len(all_step_times) == num_steps)
 
@@ -67,7 +78,8 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
 
     def test_ai2thor_example_2(self):
         """
-        Examples of how to interact with environment internals e.g. picking up, placing and opening objects
+        Examples of how to interact with environment internals e.g. picking up, placing and
+        opening objects.
         Taken from here: http://ai2thor.allenai.org/tutorials/examples
         """
 
@@ -84,7 +96,8 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
         # In FloorPlan28, the agent should now be looking at a mug
         for o in event.metadata['objects']:
             if o['visible'] and o['pickupable'] and o['objectType'] == 'Mug':
-                event = controller.step(dict(action='PickupObject', objectId=o['objectId']), raise_for_failure=True)
+                event = controller.step(dict(action='PickupObject', objectId=o['objectId']),
+                                        raise_for_failure=True)
                 mug_object_id = o['objectId']
                 break
 
@@ -94,15 +107,16 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
         event = controller.step(dict(action='LookUp'))
         for o in event.metadata['objects']:
             if o['visible'] and o['openable'] and o['objectType'] == 'Microwave':
-                event = controller.step(dict(action='OpenObject', objectId=o['objectId']), raise_for_failure=True)
+                event = controller.step(dict(action='OpenObject', objectId=o['objectId']),
+                                        raise_for_failure=True)
                 receptacle_object_id = o['objectId']
                 break
 
         event = controller.step(dict(action='MoveRight'), raise_for_failure=True)
-        event = controller.step(dict(
-            action='PutObject',
-            receptacleObjectId=receptacle_object_id,
-            objectId=mug_object_id), raise_for_failure=True)
+        event = controller.step(dict(action='PutObject',
+                                     receptacleObjectId=receptacle_object_id,
+                                     objectId=mug_object_id),
+                                raise_for_failure=True)
 
         # close the microwave
         event = controller.step(dict(
@@ -125,11 +139,6 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
 
         Good examples of how to multi-thread are below
         """
-
-        import threading
-        import time
-        import ai2thor.controller
-
         thread_count = 1
 
         def run(thread_num):
@@ -158,20 +167,22 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
                     render_depth_image = True
                     print('Thread num: {}. Added Depth info'.format(thread_num))
 
-
-                env.step(dict(action='Initialize', gridSize=0.25, renderDepthImage=render_depth_image,
-                                          renderClassImage=render_class_image,
-                                          renderObjectImage=render_object_image))
+                env.step(dict(action='Initialize',
+                              gridSize=0.25,
+                              renderDepthImage=render_depth_image,
+                              renderClassImage=render_class_image,
+                              renderObjectImage=render_object_image))
                 print('Thread num: {}. init time: {}'.format(thread_num, time.time() - t_start))
                 t_start_total = time.time()
                 for _ in range(10):
                     env.step({'action': 'MoveAhead'})
                     env.step({'action': 'RotateRight'})
                 total_time = time.time() - t_start_total
-                print('Thread num: {}. Total time for 20 steps: {}. {:.2f} fps'.format(thread_num,
-                                                                                       total_time, 20 / total_time))
+                print('Thread num: {}. Total time for 20 steps: {}. {:.2f} fps'.
+                      format(thread_num, total_time, 20 / total_time))
 
-        threads = [threading.Thread(target=run, args=(thread_num, )) for thread_num in range(thread_count)]
+        threads = [threading.Thread(target=run, args=(thread_num, ))
+                   for thread_num in range(thread_count)]
         for t in threads:
             t.daemon = True
             t.start()
@@ -184,6 +195,7 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
                 t.join(1)
 
         print('done')
+
 
 if __name__ == '__main__':
     unittest.main()
