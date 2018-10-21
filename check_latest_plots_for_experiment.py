@@ -28,38 +28,71 @@ def get_path_of_latest_plot(list_of_paths):
     print('Found latest plot to show: {}'.format(path_to_return))
     return path_to_return
 
-parser = argparse.ArgumentParser(description='A3C')
-parser.add_argument('--experiment-id', type=str, default='ec2e10a3-7ec7-4b46-9c29-5107540b1d7d',
-                    help='experiment-id')
-args = parser.parse_args()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Show latest plots for experiment id')
+    parser.add_argument('--experiment-id',
+                        type=str, default='test-experiment-id',
+                        # type=str, default='77d9f492-8f1e-4dff-b588-2d4cbee85591',
+                        help='experiment-id')
+    args = parser.parse_args()
 
-experiment_path = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}'.format(args.experiment_id)
-if not os.path.exists(experiment_path):
-    print('Could not find experiment folder: {}'.format(experiment_path))
-else:
-    print('Experiment already exists at path: {}'.format(experiment_path))
-    avgavg_paths = glob.glob(experiment_path + '/a3c-avgavg-reward-*')
-    total_reward_paths = glob.glob(experiment_path + '/a3c-total-*')
-    episode_length_paths = glob.glob(experiment_path + '/episode-lengths-*')
+    experiment_path = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}'.format(args.experiment_id)
+    if not os.path.exists(experiment_path):
+        print('Could not find experiment folder: {}'.format(experiment_path))
+    else:
+        print('Experiment already exists at path: {}'.format(experiment_path))
 
-    # todo add action probabilities and losses
+        avgavg_paths = glob.glob(experiment_path + '/a3c-avgavg-reward-*')
+        total_reward_paths = glob.glob(experiment_path + '/a3c-total-*')
+        episode_length_paths = glob.glob(experiment_path + '/episode-lengths-*')
+        value_losses = glob.glob(experiment_path + '/value-loss-*')
+        policy_losses = glob.glob(experiment_path + '/policy-loss-*')
 
-    fp1 = get_path_of_latest_plot(avgavg_paths)
-    fp2 = get_path_of_latest_plot(total_reward_paths)
-    fp3 = get_path_of_latest_plot(episode_length_paths)
+        fp1 = get_path_of_latest_plot(avgavg_paths)
+        fp2 = get_path_of_latest_plot(total_reward_paths)
+        fp3 = get_path_of_latest_plot(episode_length_paths)
+        fp4 = get_path_of_latest_plot(value_losses)
+        fp5 = get_path_of_latest_plot(policy_losses)
 
-    figsize = (12, 12)
-    img = mpimg.imread(fp3)
-    plt.figure(figsize=figsize)
-    plt.imshow(img)
-    plt.show()
+        # todo could put everything into a list or... could go visdom or tensorboard route
 
-    img = mpimg.imread(fp2)
-    plt.figure(figsize=figsize)
-    plt.imshow(img)
-    plt.show()
+        if not fp3:
+            figsize = (12, 12)
+            img = mpimg.imread(fp3)
+            plt.figure(figsize=figsize)
+            plt.imshow(img)
+            plt.show()
+        else:
+            print('No fp3')
 
-    img = mpimg.imread(fp1)
-    plt.figure(figsize=figsize)
-    plt.imshow(img)
-    plt.show()
+        if not fp2:
+            img = mpimg.imread(fp2)
+            plt.figure(figsize=figsize)
+            plt.imshow(img)
+            plt.show()
+        else:
+            print('No fp2')
+
+        if not fp1:
+            img = mpimg.imread(fp1)
+            plt.figure(figsize=figsize)
+            plt.imshow(img)
+            plt.show()
+        else:
+            print('No fp1')
+
+        if not fp4:
+            img = mpimg.imread(fp4)
+            plt.figure(figsize=figsize)
+            plt.imshow(img)
+            plt.show()
+        else:
+            print('No fp4')
+
+        if not fp5:
+            img = mpimg.imread(fp5)
+            plt.figure(figsize=figsize)
+            plt.imshow(img)
+            plt.show()
+        else:
+            print('No fp5')

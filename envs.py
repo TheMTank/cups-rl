@@ -38,8 +38,8 @@ class ThorWrapperEnv():
 
         self.controller.reset(self.scene_id)
         self.event = self.controller.step(dict(action='Initialize', gridSize=0.25,
-                                               renderDepthImage=True,
-                                               renderClassImage=True,
+                                               # renderDepthImage=True,
+                                               # renderClassImage=True
                                                renderObjectImage=True
                                                ))
 
@@ -155,9 +155,11 @@ class ThorWrapperEnv():
         self.t = 0
         self.controller.reset(self.scene_id)
         # todo check to see if inventory properly reset
-        self.event = self.controller.step(dict(action='Initialize', gridSize=0.25, renderDepthImage=True,
-                                               renderClassImage=True,
-                                               renderObjectImage=True))
+        self.event = self.controller.step(dict(action='Initialize', gridSize=0.25,
+                                               #renderDepthImage=True,
+                                               #renderClassImage=True,
+                                               renderObjectImage=True
+                                            ))
         self.mugs_ids_collected_and_placed = set()
         self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
         self.done = False
@@ -298,6 +300,7 @@ class ThorWrapperEnv():
         bool_list = []
         for idx, obj in enumerate(all_objects_for_object_type):
             bounds = self.event.instance_detections2D.get(obj['objectId'])
+            # bounds = self.event.class_detections2D.get(obj['objectId']) # doesnt work
             if bounds is None:
                 continue
 
