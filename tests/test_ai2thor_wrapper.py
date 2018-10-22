@@ -1,8 +1,6 @@
 """
 Tests related to the ai2thor environment wrapper.
 """
-import sys
-sys.path.append('..')
 import random
 import threading
 import time
@@ -10,31 +8,35 @@ import unittest
 
 
 import ai2thor.controller
-from ai2thor_wrapper.envs import ThorWrapperEnv
+from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 
 
-
-class TestAI2ThorWrapperEnv(unittest.TestCase):
-    def test_environments_runs_and_check_speed(self):
+class TestAI2AI2ThorEnv(unittest.TestCase):
+    """
+    General environment generation tests
+    """
+    def test_environments_runs(self):
         """
         Checks to see if the environment still runs and nothing breaks. Useful for continuous
         deployment and keeping master stable. Also, we check how much time 10 steps takes within
         the environment. Final assert checks if max_episode_length is equal to the number of steps
         taken and no off-by-one errors.
+
+        Prints the execution time at the end of the test for performance check.
         """
 
         num_steps = 10
-        env = ThorWrapperEnv(max_episode_length=num_steps)
+        env = AI2ThorEnv(max_episode_length=num_steps)
         start = time.time()
         all_step_times = []
-        s = env.reset()
-        for t in range(num_steps):
+        env.reset()
+        for step_n in range(num_steps):
             start_of_step = time.time()
-            a = random.randint(0, len(env.ACTION_SPACE) - 1)
-            s, r, done = env.step(a)
+            action = random.randint(0, len(env.ACTION_SPACE) - 1)
+            state, reward, done = env.step(action)
 
             time_for_step = time.time() - start_of_step
-            print('Step: {}. env.t: {}. Time taken for step: {:.3f}'.format(t,
+            print('Step: {}. env.t: {}. Time taken for step: {:.3f}'.format(step_n,
                                                                             env.t,
                                                                             time_for_step))
             all_step_times.append(time_for_step)
@@ -47,13 +49,11 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
 
         self.assertTrue(len(all_step_times) == num_steps)
 
-    def test_ai2thor_example_1(self):
+    @staticmethod
+    def test_simple_example():
         """
-        Taken from here:
-        :return:
+        Taken from here: http://ai2thor.allenai.org/tutorials/examples
         """
-
-        import ai2thor.controller
         controller = ai2thor.controller.Controller()
         controller.start()
 
@@ -76,14 +76,13 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
         # current metadata dictionary that includes the state of the scene
         event.metadata
 
-    def test_ai2thor_example_2(self):
+    @staticmethod
+    def test_calling_complex_actions():
         """
         Examples of how to interact with environment internals e.g. picking up, placing and
         opening objects.
         Taken from here: http://ai2thor.allenai.org/tutorials/examples
         """
-
-        import ai2thor.controller
         controller = ai2thor.controller.Controller()
         controller.start()
 
@@ -94,22 +93,22 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
         controller.step(dict(action='LookDown'))
         event = controller.step(dict(action='Rotate', rotation=90))
         # In FloorPlan28, the agent should now be looking at a mug
-        for o in event.metadata['objects']:
-            if o['visible'] and o['pickupable'] and o['objectType'] == 'Mug':
-                event = controller.step(dict(action='PickupObject', objectId=o['objectId']),
+        for obj in event.metadata['objects']:
+            if obj['visible'] and obj['pickupable'] and obj['objectType'] == 'Mug':
+                event = controller.step(dict(action='PickupObject', objectId=obj['objectId']),
                                         raise_for_failure=True)
-                mug_object_id = o['objectId']
+                mug_object_id = obj['objectId']
                 break
 
         # the agent now has the Mug in its inventory
         # to put it into the Microwave, we need to open the microwave first
 
         event = controller.step(dict(action='LookUp'))
-        for o in event.metadata['objects']:
-            if o['visible'] and o['openable'] and o['objectType'] == 'Microwave':
-                event = controller.step(dict(action='OpenObject', objectId=o['objectId']),
+        for obj in event.metadata['objects']:
+            if obj['visible'] and obj['openable'] and obj['objectType'] == 'Microwave':
+                event = controller.step(dict(action='OpenObject', objectId=obj['objectId']),
                                         raise_for_failure=True)
-                receptacle_object_id = o['objectId']
+                receptacle_object_id = obj['objectId']
                 break
 
         event = controller.step(dict(action='MoveRight'), raise_for_failure=True)
@@ -123,9 +122,11 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
             action='CloseObject',
             objectId=receptacle_object_id), raise_for_failure=True)
 
-    def test_ai2thor_example_3_stress_test_and_object_speed_test(self):
+    @staticmethod
+    def test_multithreaded():
         """
-        Stress test and also shows how multi-threading can be used to greatly speed up processing.
+        Stress test and also shows how multi-threading can be used to greatly speed up processing,
+        specially to support the rendering of class, object and depth images.
         Adapted from here: http://ai2thor.allenai.org/tutorials/examples
 
         Extra analysis done on adding unity information. Important for training models to know.
@@ -142,12 +143,16 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
         thread_count = 1
 
         def run(thread_num):
+            """
+            Runs 5 iterations of 10 steps of the environment with the different rendering options
+            :param thread_num: (int) Number of threads to launch
+            """
             env = ai2thor.controller.Controller()
             env.start()
 
             render_depth_image, render_class_image, render_object_image = False, False, False
 
-            # 100 is an arbritary number
+            # 50 is an arbritary number
             for i in range(5):
                 t_start = time.time()
                 env.reset('FloorPlan1')
@@ -155,15 +160,13 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
 
                 # Compare the performance with all the extra added information
                 # Big take away is that Object instance information makes it much slower
-                """
-                """
                 if i == 2:
                     render_class_image = True
                     print('Thread num: {}. Added Class info'.format(thread_num))
-                if i == 3:
+                elif i == 3:
                     render_object_image = True
                     print('Thread num: {}. Added Object info'.format(thread_num))
-                if i == 4:
+                elif i == 4:
                     render_depth_image = True
                     print('Thread num: {}. Added Depth info'.format(thread_num))
 
@@ -178,21 +181,21 @@ class TestAI2ThorWrapperEnv(unittest.TestCase):
                     env.step({'action': 'MoveAhead'})
                     env.step({'action': 'RotateRight'})
                 total_time = time.time() - t_start_total
-                print('Thread num: {}. Total time for 20 steps: {}. {:.2f} fps'.
-                      format(thread_num, total_time, 20 / total_time))
+                print('Thread num: {}. Total time for 10 steps: {}. {:.2f} fps'.
+                      format(thread_num, total_time, 50 / total_time))
 
         threads = [threading.Thread(target=run, args=(thread_num, ))
                    for thread_num in range(thread_count)]
-        for t in threads:
-            t.daemon = True
-            t.start()
+        for thread in threads:
+            thread.daemon = True
+            thread.start()
             time.sleep(1)
 
-        for t in threads:
+        for thread in threads:
             # calling join() in a loop/timeout to allow for Python 2.7
             # to be interrupted with SIGINT
-            while t.isAlive():
-                t.join(1)
+            while thread.isAlive():
+                thread.join(1)
 
         print('done')
 

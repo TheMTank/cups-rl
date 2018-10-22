@@ -2,3 +2,5 @@
 \.idea/
 
 ai2thor_wrapper/__pycache__/
+
+gym_ai2thor/__pycache__/
