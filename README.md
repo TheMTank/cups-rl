@@ -17,11 +17,6 @@ approaches to the problem:
 - [Gated-Attention Architectures for Task-Oriented Language Grounding](https://arxiv.org/abs/1706.07230) -- 
 *Original code available on [DeepRL-Grounding](https://github.com/devendrachaplot/DeepRL-Grounding)*
 
-## License
-
-This project is released under the [MIT license](https://github.com/TheMTank/ai2thor-experiments/master/LICENSE).
-
-
 ## Installation
 
 Clone ai2thor-experiments repository:
@@ -41,7 +36,7 @@ This section will be updated soon to show how to run examples using the provided
 example task in which the goal of the agent is to place a cup in the microwave.
 
 <div align="center">
-  <img src="examples/cup_into_microwave.gif" width="294px" />
+  <img src="docs/cup_into_microwave.gif" width="294px" />
   <p>Example of task "place cup in microwave"</p>
 </div>
 
@@ -53,3 +48,7 @@ advancements. Through the creation of unique resources, the combination of ideas
 this project hopes to encourage the dialogue which is beginning to take place globally. 
 
 To produce value for the individual, for researchers, for institutions and for the world.
+
+## License
+
+This project is released under the [MIT license](https://github.com/TheMTank/ai2thor-experiments/master/LICENSE).
