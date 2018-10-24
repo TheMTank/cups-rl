@@ -23,15 +23,20 @@ import utils
 def get_path_of_latest_plot(list_of_paths):
     # path_filename_ints = [int(x.split('/')[-1].split('.pth.tar')[0].split('_')[-1]) for x in list_of_paths]
     path_filename_ints = [int(x.split('-')[-1].split('.png')[0]) for x in list_of_paths]
-    idx_of_latest = path_filename_ints.index(max(path_filename_ints))
-    path_to_return = list_of_paths[idx_of_latest]
-    print('Found latest plot to show: {}'.format(path_to_return))
+    if path_filename_ints:
+        idx_of_latest = path_filename_ints.index(max(path_filename_ints))
+        path_to_return = list_of_paths[idx_of_latest]
+        print('Found latest plot to show: {}'.format(path_to_return))
+    else:
+        print('Did not find path with input list as: {}'.format(list_of_paths))
+        path_to_return = False
     return path_to_return
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Show latest plots for experiment id')
     parser.add_argument('--experiment-id',
-                        type=str, default='test-experiment-id',
+                        # type=str, default='testing',
+                        type=str, default='microwave_or_cup_two_one_word_sentence_1.5million_steps',
                         # type=str, default='77d9f492-8f1e-4dff-b588-2d4cbee85591',
                         help='experiment-id')
     args = parser.parse_args()
@@ -56,7 +61,7 @@ if __name__ == '__main__':
 
         # todo could put everything into a list or... could go visdom or tensorboard route
 
-        if not fp3:
+        if fp3:
             figsize = (12, 12)
             img = mpimg.imread(fp3)
             plt.figure(figsize=figsize)
@@ -65,7 +70,7 @@ if __name__ == '__main__':
         else:
             print('No fp3')
 
-        if not fp2:
+        if fp2:
             img = mpimg.imread(fp2)
             plt.figure(figsize=figsize)
             plt.imshow(img)
@@ -73,7 +78,7 @@ if __name__ == '__main__':
         else:
             print('No fp2')
 
-        if not fp1:
+        if fp1:
             img = mpimg.imread(fp1)
             plt.figure(figsize=figsize)
             plt.imshow(img)
@@ -81,7 +86,7 @@ if __name__ == '__main__':
         else:
             print('No fp1')
 
-        if not fp4:
+        if fp4:
             img = mpimg.imread(fp4)
             plt.figure(figsize=figsize)
             plt.imshow(img)
@@ -89,7 +94,7 @@ if __name__ == '__main__':
         else:
             print('No fp4')
 
-        if not fp5:
+        if fp5:
             img = mpimg.imread(fp5)
             plt.figure(figsize=figsize)
             plt.imshow(img)

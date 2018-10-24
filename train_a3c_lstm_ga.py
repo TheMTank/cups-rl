@@ -103,7 +103,7 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
         entropies = []
 
         for step in range(args.num_steps):
-            if total_length > 0 and total_length % 1000 == 0:
+            if total_length > 0 and total_length % 100000 == 0:
                 fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
                 checkpoint_dict = {
                     'total_length': total_length,
