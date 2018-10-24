@@ -12,6 +12,8 @@ from skimage import transform
 import gym
 from gym import error, spaces
 from gym.utils import seeding
+from gym_ai2thor.envs.utils import read_config
+from gym_ai2thor.tasks import TaskFactory
 
 POSSIBLE_ACTIONS = [
     'MoveAhead',
@@ -34,52 +36,34 @@ class AI2ThorEnv(gym.Env):
     """
     Wrapper base class
     """
-    def __init__(self, scene_id='FloorPlan28', seed=None, task=0, max_episode_length=1000,
-                 current_task_object='Mug', grayscale=True, interaction=True,
-                 config_path='gym_ai2thor/config_example.ini', movement_reward=0):
+    def __init__(self, scene_id='FloorPlan28',
+                 seed=None,
+                 grayscale=True,
+                 config_path='gym_ai2thor/config_example.ini'):
         """
         :param scene_id:                ()    Scene
         :param seed:                    ()    Random seed
         :param task:                    (str) Task descriptor
-        :param max_episode_length:      (int) Max number of steps per episode
-        :param current_task_object:     (object) bla
         :param grayscale:
-        :param interaction:
-        :param config_path:
-        :param movement_reward:
         """
         # Loads config file from path relative to gym_ai2thor python package folder
-        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), config_path)
-        self.config = configparser.ConfigParser()
-        self.config_output = self.config.read(config_path)
-        if not self.config_output:
-            raise error.Error('No config file found at: {}. Exiting'.format(config_path))
+        self.config = read_config(config_path)
         self.scene_id = scene_id
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
+
         self.np_random = None
         if seed:
             self.seed(seed)
 
-        self.controller.reset(self.scene_id)
-        self.event = self.controller.step(dict(action='Initialize',
-                                               gridSize=0.25,
-                                               renderDepthImage=True,
-                                               renderClassImage=True,
-                                               renderObjectImage=True))
-
-        self.current_task_object = current_task_object
-        self.max_episode_length = max_episode_length
         self.step_n = 0
         self.done = False
-        self.task = task
-        self.movement_reward = movement_reward
-        self.interaction = interaction
+        self.task = TaskFactory(self.config['task'])
 
         # action dictionary from int to dict action to pass to event.controller.step()
-        self.valid_actions = POSSIBLE_ACTIONS if self.interaction else POSSIBLE_ACTIONS[:-4]
-        self.action_tuple = tuple(action_str for action_str in self.valid_actions)
-        self.action_space = spaces.Tuple((spaces.Discrete(len(self.action_tuple))))
+        self.valid_actions = POSSIBLE_ACTIONS if self.config['interaction'] else POSSIBLE_ACTIONS[:-4]
+        self.action_names = tuple(action_str for action_str in self.valid_actions)
+        self.action_space = spaces.Tuple((spaces.Discrete(len(self.action_names))))
 
         # acceptable objects taken from config.ini file. Stripping to allow spaces
         self.pickup_object_types = \
@@ -103,6 +87,8 @@ class AI2ThorEnv(gym.Env):
 
         self.goal_objects_collected_and_placed = []
         self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
+
+        self.reset()
 
     def step(self, a):
         if self.action_tuple[a] == 'PickupObject':
@@ -148,7 +134,6 @@ class AI2ThorEnv(gym.Env):
                         self.goal_objects_collected_and_placed = []
                         print('Placed', inventory_object_id, ' onto', obj['objectId'],
                               ' Inventory: ', self.event.metadata['inventoryObjects'])
-                        break
         elif self.action_tuple[a] == 'OpenObject':
             for obj in self.event.metadata['objects']:
                 # loop through objects that are visible, openable, closed
@@ -161,7 +146,6 @@ class AI2ThorEnv(gym.Env):
                         dict(action='OpenObject',
                              objectId=obj['objectId']),
                         raise_for_failure=True)
-                    break
         elif self.action_tuple[a] == 'CloseObject':
             for obj in self.event.metadata['objects']:
                 # loop through objects that are visible, openable, open
@@ -172,7 +156,6 @@ class AI2ThorEnv(gym.Env):
                     self.event = self.controller.step(
                         dict(action='CloseObject', objectId=obj['objectId']),
                         raise_for_failure=True)
-                    break
         else:
             action = self.action_tuple[a]
             self.event = self.controller.step(dict(action=action))
@@ -192,34 +175,6 @@ class AI2ThorEnv(gym.Env):
 
     def rgb2gray(self, rgb):
         return np.dot(rgb[..., :3], [0.299, 0.587, 0.114])
-
-    def calculate_reward(self):
-        """
-        This method is going to be moved outside the environment class
-        # TODO: move it to utils or something similar
-        :return:
-        """
-        reward = self.movement_reward
-        if self.task == 0:
-            if self.last_amount_of_goal_objects < len(self.goal_objects_collected_and_placed):
-                self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
-                # mug has been picked up
-                reward += 1
-                print('{} reward collected! Inventory: {}'.
-                      format(reward, self.goal_objects_collected_and_placed))
-            elif self.last_amount_of_goal_objects > len(self.goal_objects_collected_and_placed):
-                # placed mug onto/into receptacle
-                pass
-            self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
-        else:
-            raise NotImplementedError
-
-        return reward
-
-    def episode_finished(self):
-        if self.max_episode_length and self.t >= self.max_episode_length:
-            print('Reached maximum episode length: t: {}'.format(self.t))
-            return True
 
     def reset(self):
         print('Resetting environment and starting new episode')

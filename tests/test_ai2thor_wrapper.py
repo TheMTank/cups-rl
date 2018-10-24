@@ -11,7 +11,7 @@ import ai2thor.controller
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 
 
-class TestAI2AI2ThorEnv(unittest.TestCase):
+class TestAI2ThorEnv(unittest.TestCase):
     """
     General environment generation tests
     """
