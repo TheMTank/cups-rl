@@ -1,17 +1,17 @@
 # ai2thor-experiments
 
 This project will focus primarily on the implementation and benchmark of different approaches to domain and task 
-transfer learning in the frame of reinforcement learning. The focus lies on a diverse set of domestic robot tasks 
+transfer learning in reinforcement learning. The focus lies on a diverse set of domestic robot tasks 
 using [ai2thor](https://ai2thor.allenai.org/), a realistic household 3D environment. To provide an example, an agent 
 could learn to pick up a cup under particular conditions and then zero/few shot transfer to pick up many different 
 cups in many different situations.
 
-A wrapper will be included as well to support the modification of the tasks within an openAI gym interface, so that 
+We included our own wrapper for the environment as well to support the modification of the tasks within an openAI gym interface, so that 
 new and more complex tasks can be developed efficiently to train and test the agent.
 
 ## Overview
 
-This project will include implementations of the following papers as a benchmark of the current state of the art 
+This project will include implementations and adaptations of the following papers as a benchmark of the current state of the art 
 approaches to the problem:
 
 - [Gated-Attention Architectures for Task-Oriented Language Grounding](https://arxiv.org/abs/1706.07230) -- 
