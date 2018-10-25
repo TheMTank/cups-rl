@@ -2,9 +2,6 @@
 Base class implementation for ai2thor environments wrapper, which adds an openAI gym interface for
 inheriting the predefined methods and can be extended for particular tasks.
 """
-import os
-import configparser
-
 import ai2thor.controller
 import numpy as np
 from skimage import transform
@@ -36,137 +33,145 @@ class AI2ThorEnv(gym.Env):
     """
     Wrapper base class
     """
-    def __init__(self, scene_id='FloorPlan28',
+    def __init__(self,
+                 scene_id='FloorPlan28',
                  seed=None,
                  grayscale=True,
                  config_path='gym_ai2thor/config_example.ini'):
         """
-        :param scene_id:                ()    Scene
-        :param seed:                    ()    Random seed
-        :param task:                    (str) Task descriptor
-        :param grayscale:
+        :param scene_id:                (str)   Scene
+        :param seed:                    (int)   Random seed
+        :param grayscale:               (bool)  If True (default), transform RGB images to
+                                                grayscale as part of the preprocessing
+        :param config_path              (str)   Path to config file. Either absolute or relative to
+                                                the root of this repository
         """
-        # Loads config file from path relative to gym_ai2thor python package folder
+        # Loads config settings from file
         self.config = read_config(config_path)
         self.scene_id = scene_id
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
-
+        # Randomness settings
         self.np_random = None
         if seed:
             self.seed(seed)
 
-        self.step_n = 0
-        self.done = False
-        self.task = TaskFactory(self.config['task'])
-
-        # action dictionary from int to dict action to pass to event.controller.step()
-        self.valid_actions = POSSIBLE_ACTIONS if self.config['interaction'] else POSSIBLE_ACTIONS[:-4]
+        self.task = TaskFactory.create_task(self.config['task'])
+        # Action settings
+        if self.config['env']['interaction']:
+            self.valid_actions = POSSIBLE_ACTIONS.copy()
+        else:
+            self.valid_actions = [action for action in POSSIBLE_ACTIONS
+                                  if not action.endswith('Object')]
         self.action_names = tuple(action_str for action_str in self.valid_actions)
-        self.action_space = spaces.Tuple((spaces.Discrete(len(self.action_names))))
-
-        # acceptable objects taken from config.ini file. Stripping to allow spaces
-        self.pickup_object_types = \
-            [x.strip() for x in self.config['ENV_SPECIFIC']['PICKUP_OBJECTS'].split(',')]
-        self.receptacle_object_types = \
-            [x.strip() for x in self.config['ENV_SPECIFIC']['ACCEPTABLE_RECEPTACLES'].split(',')]
-        self.openable_objects = \
-            [x.strip() for x in self.config['ENV_SPECIFIC']['OPENABLE_OBJECTS'].split(',')]
-        if self.interaction:
-            print('Objects that can be picked up: \n{}'.format(self.pickup_object_types))
-            print('Objects that allow objects placed into/onto them (receptacles): \n{}'.
-                  format(self.receptacle_object_types))
-            print('Objects that can be opened: \n{}'.format(self.openable_objects))
-
+        self.action_space = spaces.Discrete(len(self.action_names))
+        # Image settings
+        self.event = None
         self.grayscale = grayscale
         self.resolution = (128, 128)  # (64, 64)
         if self.grayscale:
-            self.observation_space = np.array((1,) + self.resolution)
+            self.observation_space = spaces.Box(low=0,
+                                                high=255,
+                                                shape=(self.resolution[0], self.resolution[1], 1),
+                                                dtype=np.uint8)
         else:
-            self.observation_space = np.array((3,) + self.resolution)
+            self.observation_space = spaces.Box(low=0,
+                                                high=255,
+                                                shape=(self.resolution[0], self.resolution[1], 3),
+                                                dtype=np.uint8)
 
-        self.goal_objects_collected_and_placed = []
-        self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
-
+        # Object settings
+        # acceptable objects taken from config.ini file. Stripping to allow spaces
+        if self.config['env']['interaction']:
+            self.objects =\
+                {'pickupables': [x.strip() for x in self.config['env']['PICKUP_OBJECTS']
+                    .split(',')],
+                 'receptacles': [x.strip() for x in self.config['env']['ACCEPTABLE_RECEPTACLES']
+                     .split(',')],
+                 'openables':   [x.strip() for x in self.config['env']['OPENABLE_OBJECTS']
+                     .split(',')]}
         self.reset()
 
-    def step(self, a):
-        if self.action_tuple[a] == 'PickupObject':
-            if not self.event.metadata['inventoryObjects']:
-                for obj in self.event.metadata['objects']:
-                    # loop through objects that are visible, pickupable and there is a bounding
-                    # box visible
-                    if obj['visible'] and \
-                           obj['pickupable'] and \
-                           obj['objectType'] in self.pickup_object_types and \
-                           obj['objectId'] in self.event.instance_detections2D:
-                        object_id = obj['objectId']
-                        object_type = obj['objectType']
-                        self.event = self.controller.step(
-                            dict(action='PickupObject', objectId=object_id), raise_for_failure=True)
-                        if object_type == self.current_task_object:
-                            self.goal_objects_collected_and_placed.append(object_id)
-                        print('Picked up', self.event.metadata['inventoryObjects'])
-                        break
-        elif self.action_tuple[a] == 'PutObject':
-            if self.event.metadata['inventoryObjects']:
-                for obj in self.event.metadata['objects']:
-                    # loop through receptacles
-                    if obj['visible'] and \
-                            obj['receptacle'] and \
-                            obj['objectType'] in self.receptacle_object_types and \
-                            len(obj['receptacleObjectIds']) < obj['receptacleCount']:
-                        # todo might still crash.
-                        inventory_object_id = \
-                            self.event.metadata['inventoryObjects'][0]['objectId']
-                        inventory_object_type = \
-                            self.event.metadata['inventoryObjects'][0]['objectType']
-
-                        self.event = self.controller.step(
-                            dict(action='PutObject', objectId=inventory_object_id,
-                                 receptacleObjectId=obj['objectId']))  #, raise_for_failure=True)
-                        # if inventory_object_type == self.current_task_object:
-
-                        if self.goal_objects_collected_and_placed:
-                            pass
-                            # import pdb;pdb.set_trace() # todo why?
-                        # self.goal_objects_collected_and_placed.remove(inventory_object_id)
-                        self.goal_objects_collected_and_placed = []
-                        print('Placed', inventory_object_id, ' onto', obj['objectId'],
-                              ' Inventory: ', self.event.metadata['inventoryObjects'])
-        elif self.action_tuple[a] == 'OpenObject':
-            for obj in self.event.metadata['objects']:
-                # loop through objects that are visible, openable, closed
-                if obj['visible'] and obj['openable'] and \
-                        not obj['isopen'] and obj['objectType'] in self.openable_objects and \
-                        obj['objectId'] in self.event.instance_detections2D:
-                    print('Opened', obj['objectId'])
-
+    def step(self, action):
+        if not isinstance(action, int):
+            raise error.InvalidAction(f'Action must be an integer between '
+                                      f'0 and {self.action_space.n}!')
+        action = self.action_names[action]
+        valid_action = False
+        visible_objects = [obj for obj in self.event.metadata['objects'] if obj['visible']]
+        if action.endswith('Object'):
+            interaction_obj, distance = None, float('inf')
+            if action == 'PutObject':
+                closest_receptacle = None
+                for obj in visible_objects:
+                    if obj['receptacle'] and obj['distance'] < distance \
+                        and obj in self.objects['receptacles'] \
+                            and len(obj['receptacleObjectIds']) < obj['receptacleCount']:
+                        closest_receptacle = obj
+                        distance = closest_receptacle['distance']
+                if self.event.metadata['inventoryObjects'] and closest_receptacle:
+                    interaction_obj = closest_receptacle
                     self.event = self.controller.step(
-                        dict(action='OpenObject',
-                             objectId=obj['objectId']),
-                        raise_for_failure=True)
-        elif self.action_tuple[a] == 'CloseObject':
-            for obj in self.event.metadata['objects']:
-                # loop through objects that are visible, openable, open
-                if obj['visible'] and obj['openable'] and obj['isopen'] and \
-                        obj['objectType'] in self.openable_objects and \
-                        obj['objectId'] in self.event.instance_detections2D:
-                    print('Closed', obj['objectId'])
+                        dict(action=action,
+                             objectId=self.event.metadata['inventoryObjects'][0],
+                             receptacleObjectId=interaction_obj['objectId']))
+            elif action == 'PickupObject':
+                closest_pickupable = None
+                for obj in visible_objects:
+                    if obj['pickupable'] and obj['distance'] < distance and \
+                            obj['name'] in self.objects['pickupables']:
+                        closest_pickupable = obj
+                if closest_pickupable and not self.event.metadata['inventoryObjects']:
+                    interaction_obj = closest_pickupable
                     self.event = self.controller.step(
-                        dict(action='CloseObject', objectId=obj['objectId']),
-                        raise_for_failure=True)
+                        dict(action=action,
+                             objectId=interaction_obj['objectId']))
+            elif action == 'OpenObject':
+                closest_openable = None
+                for obj in visible_objects:
+                    if obj['openable'] and obj['distance'] < distance and \
+                            obj['name'] in self.objects['openables']:
+                        closest_openable = obj
+                        distance = closest_openable['distance']
+                    if closest_openable:
+                        interaction_obj = closest_openable
+                        self.event = self.controller.step(
+                            dict(action=action,
+                                 objectId=interaction_obj['objectId']))
+            elif action == 'CloseObject':
+                closest_openable = None
+                for obj in visible_objects:
+                    if obj['openable'] and obj['distance'] < distance and obj['isopen'] and \
+                            obj['name'] in self.objects['openables']:
+                        closest_openable = obj
+                        distance = closest_openable['distance']
+                    if closest_openable:
+                        interaction_obj = closest_openable
+                        self.event = self.controller.step(
+                            dict(action=action,
+                                 objectId=interaction_obj['objectId']))
+            else:
+                raise error.InvalidAction(f'Invalid action {action}. '
+                                          'You should never end up here anyways')
+            if interaction_obj:
+                valid_action = True
+                print(f"{action}: {interaction_obj}. "
+                      f"Inventory: {self.event.metadata['inventoryObjects']}")
         else:
-            action = self.action_tuple[a]
             self.event = self.controller.step(dict(action=action))
+            valid_action = True
 
-        self.step_n += 1
+        self.task.step_n += 1
         state = self.preprocess(self.event.frame)
-        reward = self.calculate_reward(self.done)
-        self.done = self.episode_finished()
-        return state, reward, self.done
+        if valid_action:
+            reward, done = self.task.calculate_reward(state)
+        else:
+            reward, done = None, False
+
+        return state, reward, done
 
     def preprocess(self, img):
+        # TODO: move this function to another script
         img = transform.resize(img, self.resolution)
         img = img.astype(np.float32)
         if self.grayscale:
@@ -174,20 +179,18 @@ class AI2ThorEnv(gym.Env):
         return img
 
     def rgb2gray(self, rgb):
+        # TODO: move this function to another script
         return np.dot(rgb[..., :3], [0.299, 0.587, 0.114])
 
     def reset(self):
         print('Resetting environment and starting new episode')
-        self.t = 0
         self.controller.reset(self.scene_id)
         self.event = self.controller.step(dict(action='Initialize',
                                                gridSize=0.25,
                                                renderDepthImage=True,
                                                renderClassImage=True,
                                                renderObjectImage=True))
-        self.goal_objects_collected_and_placed = []
-        self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
-        self.done = False
+        self.task.reset()
         state = self.preprocess(self.event.frame)
         return state
 

@@ -8,12 +8,14 @@ class TaskFactory:
     Base class and factory for tasks to be defined for a specific environment
     """
     def __init__(self, config):
-        self.max_episode_length = 1000
-        self.current_task_object = 'Mug'
-        self.interaction = True
-        self.env_config = config
-        self.movement_reward = 0
+        self.task_config = config
         self.task_name = config['task_name']
+
+        self.max_episode_length = 1000
+        self.movement_reward = 0
+        self.step_n = 0
+
+        self.reset()
 
     @staticmethod
     def create_task(config):
@@ -24,16 +26,24 @@ class TaskFactory:
         """
         task_name = config['task_name']
         if task_name == 'PickUp':
-            return PickupTask(task_name)
+            return PickupTask(**config)
         else:
             raise NotImplementedError(f'{task_name} is not yet implemented!')
 
-    def calculate_reward(self, info):
+    def calculate_reward(self, *args, **kwargs):
         """
         Returns the reward given the corresponding information (state, dictionary with objects
         collected, distance to goal, etc.) depending on the task.
-        :return: (int, bool) First elemnt represents the reward obtained at the step
-                             Second element represents if episode finished at this step
+        :return: (args, kwargs) First elemnt represents the reward obtained at the step
+                                Second element represents if episode finished at this step
+        """
+        raise NotImplementedError
+
+    def reset(self, *args, **kwargs):
+        """
+
+        :param args, kwargs: Configuration for task initialization
+        :return:
         """
         raise NotImplementedError
 
@@ -44,12 +54,13 @@ class PickupTask(TaskFactory):
     object was added to the inventory with the action PickUp (See gym_ai2thor.envs.ai2thor_env for
     details).
     """
-    def __init__(self, target_object, termination='first'):
+    def __init__(self, target_object, termination='first', **kwargs):
         self.target_object = target_object
         self.termination = termination
-        super().__init__()
+        super().__init__(kwargs)
 
-    def calculate_reward(self):
+    def calculate_reward(self, info):
+        #TODO: this function is not functional yet. Redo
         done = False
         reward = self.movement_reward
         if self.last_amount_of_goal_objects < len(self.goal_objects_collected_and_placed):
@@ -63,8 +74,13 @@ class PickupTask(TaskFactory):
             pass
         self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
 
-        if self.max_episode_length and self.t >= self.max_episode_length:
-            print('Reached maximum episode length: t: {}'.format(self.t))
+        if self.max_episode_length and self.step_n >= self.max_episode_length:
+            print('Reached maximum episode length: t: {}'.format(self.step_n))
             done = True
 
         return reward, done
+
+    def reset(self):
+        self.goal_objects_collected_and_placed = []
+        self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
+        self.step_n = 0

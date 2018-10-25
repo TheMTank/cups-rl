@@ -26,19 +26,18 @@ class TestAI2ThorEnv(unittest.TestCase):
         """
 
         num_steps = 10
-        env = AI2ThorEnv(max_episode_length=num_steps)
+        env = AI2ThorEnv()
         start = time.time()
         all_step_times = []
         env.reset()
         for step_n in range(num_steps):
             start_of_step = time.time()
-            action = random.randint(0, len(env.ACTION_SPACE) - 1)
+            action = env.action_space.sample()
             state, reward, done = env.step(action)
 
             time_for_step = time.time() - start_of_step
-            print('Step: {}. env.t: {}. Time taken for step: {:.3f}'.format(step_n,
-                                                                            env.t,
-                                                                            time_for_step))
+            print('Step: {}. env.task.step_n: {}. Time taken for step: {:.3f}'.
+                  format(step_n, env.task.step_n, time_for_step))
             all_step_times.append(time_for_step)
 
             if done:

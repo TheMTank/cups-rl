@@ -12,12 +12,12 @@ N_EPISODES = 20
 
 
 if __name__ == '__main__':
-    env = AI2ThorEnv(max_episode_length=MAX_EPISODE_LENGTH)
+    env = AI2ThorEnv()  # max_episode_length=MAX_EPISODE_LENGTH
     for episode in range(N_EPISODES):
         start = time.time()
         state = env.reset()
         for step_n in range(MAX_EPISODE_LENGTH):
-            action = random.choice(env.ACTION_SPACE)
+            action = env.action_space.sample()
             state, reward, done = env.step(action)
             if done:
                 break
