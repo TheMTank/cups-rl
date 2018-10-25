@@ -155,7 +155,7 @@ class AI2ThorEnv(gym.Env):
                                           'You should never end up here anyways')
             if interaction_obj:
                 valid_action = True
-                print(f"{action}: {interaction_obj}. "
+                print(f"{action}: {interaction_obj['name']}. "
                       f"Inventory: {self.event.metadata['inventoryObjects']}")
         else:
             self.event = self.controller.step(dict(action=action))
