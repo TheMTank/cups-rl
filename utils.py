@@ -9,7 +9,7 @@ mpl.use('Agg')  # or whatever other backend that you want
 import matplotlib.pyplot as plt
 
 def create_plots(experiment_id, avg_reward_for_num_steps_list, total_reward_for_num_steps_list, number_of_episodes,
-                 episode_total_rewards_list, episode_lengths, env, prob, p_losses, v_losses):
+                 episode_total_rewards_list, episode_lengths, env, prob, p_losses, v_losses, print_all):
 
     # Plotting of ery bad chart of average of rewards
     num_elements_avg = 5
@@ -70,6 +70,8 @@ def create_plots(experiment_id, avg_reward_for_num_steps_list, total_reward_for_
     x_pos = np.arange(len(x_tick_labels))
     probabilities = prob.data.numpy()[0]
 
+    # todo something went wrong with the x labels being floats and 0.5
+
     fig = plt.figure(4)
     plt.clf()
     plt.bar(x_pos, probabilities, align='center', alpha=0.5)
@@ -79,12 +81,12 @@ def create_plots(experiment_id, avg_reward_for_num_steps_list, total_reward_for_
     fp = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}/action-probabilities-{}.png'.format(experiment_id,
                                                                                                    number_of_episodes)
     plt.savefig(fp)
-    print('Saved episode lengths to: {}'.format(fp))
+    print('Saved action probabilities to: {}'.format(fp))
     plt.close(fig)
 
     # print(x_pos)
-    print(x_tick_labels)
-    print(probabilities)
+    # print(x_tick_labels)
+    # print(probabilities)
 
     # plot policy loss charts
     x1 = range(len(p_losses))

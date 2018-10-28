@@ -32,14 +32,14 @@ def ensure_shared_grads(model, shared_model):
         shared_param._grad = param.grad
 
 
-def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
+def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None, print_all=False):
     torch.manual_seed(args.seed + rank)
 
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True, natural_language_instruction=True)
     env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True, grayscale=False,
-                              max_episode_length=args.max_episode_length, interaction=False)
+                              max_episode_length=args.max_episode_length, interaction=False, scene_id='FloorPlan26')
 
     env.seed(args.seed + rank)
 
@@ -83,10 +83,13 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
     # plt.ion()
     # plt.ioff()  # turn of interactive plotting mode
 
+    # todo check if args is thread safe? i think so
     total_length = args.total_length if args.total_length else 0
     episode_length = 0
     num_backprops = 0
     while True:
+        # if total_length > 833: # only for timing purposes
+        #     break
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
 
@@ -102,13 +105,16 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
         rewards = []
         entropies = []
 
+        interaction_start_time = time.time()
         for step in range(args.num_steps):
-            if total_length > 0 and total_length % 100000 == 0:
+            if rank == 0 and total_length > 0 and total_length % (100000 // args.num_processes) == 0:
                 fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
                 checkpoint_dict = {
                     'total_length': total_length,
                     'number_of_episodes': number_of_episodes,
-                    # todo save more stuff
+                    'counter': counter.value,
+                    # todo save more stuff Need to save lists of all rewards and other info
+                    # todo do it nicely and in a more extensible way?
                     'state_dict': model.state_dict(),
                     'optimizer': optimizer.state_dict()
                 }
@@ -145,8 +151,8 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
                 counter.value += 1
 
             if done:
-                print('Episode over. Last reward: {}'.format(reward))
-                print('Episode number: {}. Total minutes elapsed: {:.3f}'.format(number_of_episodes,
+                print('Rank: {}. Episode over. Last reward: {}'.format(rank, reward))
+                print('Rank: {}. Episode number: {}. Total minutes elapsed: {:.3f}'.format(rank, number_of_episodes,
                                                                                  (time.time() - start) / 60.0))
                 number_of_episodes += 1
                 episode_lengths.append(episode_length)
@@ -159,19 +165,22 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
                 instruction_idx = np.array(instruction_idx)
                 instruction_idx = torch.from_numpy(
                     instruction_idx).view(1, -1)
-                print('Instruction turned to tensors: ', instruction_idx)
+                if print_all:
+                    print('Instruction turned to tensors: ', instruction_idx)
 
                 # todo bug here with sums seeming wrong over the long term
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
                 all_rewards_in_episode = []
 
-                utils.create_plots(args.experiment_id, avg_reward_for_num_steps_list, total_reward_for_num_steps_list,
-                                   number_of_episodes,
-                                   episode_total_rewards_list, episode_lengths, env, prob, p_losses, v_losses)
+                if rank == 0:
+                    utils.create_plots(args.experiment_id, avg_reward_for_num_steps_list,
+                                       total_reward_for_num_steps_list, number_of_episodes,
+                                       episode_total_rewards_list, episode_lengths, env, prob,
+                                       p_losses, v_losses, print_all)
 
 
-                print('Total Length: {}. Total reward for episode: {}'.format(total_length, total_reward_for_episode))
+                print('Total Length: {}. Counter across all processes: {}. Total reward for episode: {}'.format(total_length, counter, total_reward_for_episode))
 
             image = torch.from_numpy(image)
             values.append(value)
@@ -182,7 +191,6 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
             if done:
                 break
 
-        print('Step no: {}. total length: {}'.format(episode_length, total_length))
         # Everything below doesn't contain interaction with the environment
         R = torch.zeros(1, 1)
         if not done:
@@ -246,3 +254,9 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None):
 
         ensure_shared_grads(model, shared_model)
         optimizer.step()
+        if rank == 0:
+            print('Step no: {}. total length: {}. Time taken for args.steps ({}): {}'.format(episode_length,
+                                                                                             total_length,
+                                                                                             args.num_steps,
+                                                                    round(time.time() - interaction_start_time, 3)))
+            # print('Time taken for args.steps ({}): {}'.format(args.num_steps, round(time.time() - interaction_start_time, 3)))

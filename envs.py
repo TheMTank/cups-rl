@@ -111,7 +111,7 @@ class ThorWrapperEnv():
                         self.event = self.controller.step(
                             dict(action='PickupObject', objectId=mug_id), raise_for_failure=True)
                         self.mugs_ids_collected_and_placed.add(mug_id)
-                        print(self.mugs_ids_collected_and_placed, self.event.metadata['inventoryObjects'])
+                        print(self.mugs_ids_collected_and_placed, self.event.metadata['inventoryObjects']) # todo shouldn't print anywhere
                         break
         elif action_int == 9: # action = dict(action='PutObject', )
             if len(self.event.metadata['inventoryObjects']) > 0:
@@ -127,7 +127,7 @@ class ThorWrapperEnv():
                             self.event = self.controller.step(dict(action='PutObject', objectId=mug_id, receptacleObjectId=o['objectId']),
                                                     raise_for_failure=True)
                             self.mugs_ids_collected_and_placed.remove(mug_id)
-                            print(self.mugs_ids_collected_and_placed, self.event.metadata['inventoryObjects'])
+                            print(self.mugs_ids_collected_and_placed, self.event.metadata['inventoryObjects']) # todo shouldn't print
                         except Exception as e:
                             # sometimes crashes here for placing mug onto table top which should be fine except distance?
                             # import pdb;pdb.set_trace()
@@ -164,11 +164,11 @@ class ThorWrapperEnv():
         self.last_amount_of_mugs = len(self.mugs_ids_collected_and_placed)
         self.done = False
         self.check_n_last_actions = []
-        print('Just resetted. Current self.event.metadata["inventory"]: {}'.format(self.event.metadata['inventoryObjects']))
+        print('Just resetted. Current self.event.metadata["inventory"]: {}'.format(self.event.metadata['inventoryObjects'])) # todo shouldn't print
 
         if self.natural_language_instruction:
             self.current_instruction_idx = random.randint(0, len(self.train_instructions) - 1)
-            print('Current natural language task: {}'.format(self.train_instructions[self.current_instruction_idx]))
+            print('Current natural language task: {}'.format(self.train_instructions[self.current_instruction_idx])) # todo shouldn't print anywhere
             self.current_object_type = 'Microwave' if self.current_instruction_idx == 0 else 'Mug'
             state = (self.preprocess(self.event.frame), self.train_instructions[self.current_instruction_idx])
         else:
@@ -194,7 +194,7 @@ class ThorWrapperEnv():
             if done:
                 num_objects_in_view_and_close = self.check_if_focus_and_close_enough_to_object_type(self.current_object_type)
                 if num_objects_in_view_and_close > 0:
-                    print('Stared at object and is close enough. Num objects in view and close: {}'.format(num_objects_in_view_and_close))
+                    print('Stared at object and is close enough. Num objects in view and close: {}'.format(num_objects_in_view_and_close)) # todo shouldn't print anywhere
                     return 20
                 else:
                     return -5
@@ -274,7 +274,7 @@ class ThorWrapperEnv():
                     episode_over = True
             # episode_over = all([a == 3 for a in self.last_actions[-3:]])
             if episode_over:
-                print('Task successful at step number: {}'.format(self.t))
+                print('Task successful at step number: {}'.format(self.t)) # todo shouldn't print anywhere
                 time.sleep(1)
             return episode_over
         elif self.task == 6:

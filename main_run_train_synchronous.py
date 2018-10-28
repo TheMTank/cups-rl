@@ -50,8 +50,8 @@ parser.add_argument('--no-shared', default=False,
 
 
 if __name__ == '__main__':
-    os.environ['OMP_NUM_THREADS'] = '1'
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0' #"" # todo change, try GPU batch?
+    os.environ['OMP_NUM_THREADS'] = '1' # todo try multiple threads
+    os.environ['CUDA_VISIBLE_DEVICES'] = '' #"" # todo change, try GPU batch? or off-policy algorithm
 
     args = parser.parse_args()
 
@@ -99,6 +99,9 @@ if __name__ == '__main__':
             if checkpoint['number_of_episodes']:
                 args.number_of_episodes = checkpoint['number_of_episodes']
 
+            if checkpoint['counter']:
+                checkpoint_counter = checkpoint['counter']
+
             for param_group in optimizer.param_groups:
                 print('Learning rate: ', param_group['lr']) # oh it doesn't
 
@@ -109,7 +112,7 @@ if __name__ == '__main__':
 
     shared_model.share_memory()
     processes = []
-    counter = mp.Value('i', 0)
+    counter = mp.Value('i', 0 if not checkpoint_counter else checkpoint_counter)
     lock = mp.Lock()
 
     # p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
@@ -117,4 +120,4 @@ if __name__ == '__main__':
     # processes.append(p)
     rank = 0
     # train(rank, args, shared_model, counter, lock, optimizer)
-    train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer)
+    train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer, print_all=True)

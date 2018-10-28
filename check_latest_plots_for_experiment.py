@@ -36,7 +36,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Show latest plots for experiment id')
     parser.add_argument('--experiment-id',
                         # type=str, default='testing',
-                        type=str, default='microwave_or_cup_two_one_word_sentence_1.5million_steps',
+                        # type=str, default='microwave_or_cup_two_one_word_sentence_1.5million_steps',
+                        # type=str, default='FloorPlan27-over-1mil-steps-almost-optimal', # first time new room
+                        type=str, default='First-Time-FloorPlan26-8-processes-all-night',
                         # type=str, default='77d9f492-8f1e-4dff-b588-2d4cbee85591',
                         help='experiment-id')
     args = parser.parse_args()
