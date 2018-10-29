@@ -7,7 +7,7 @@ import configparser
 from gym import error
 
 
-def read_config(config_path):
+def read_config(config_path, config_dict=None):
     """
     Returns the parsed information from the config file
     """
@@ -17,9 +17,12 @@ def read_config(config_path):
     if not config_output:
         raise error.Error('No config file found at: {}. Exiting'.format(config_path))
     config_output = {'env': {'interaction': True,
-                             'PICKUP_OBJECTS': 'Mug,Apple,Book',
-                             'ACCEPTABLE_RECEPTACLES': 'CounterTop,TableTop,Sink',
-                             'OPENABLE_OBJECTS': 'Microwave'},
+                             'pickup_objects': ['Mug', 'Apple', 'Book'],
+                             'acceptable_receptacles': ['CounterTop', 'TableTop', 'Sink'],
+                             'openable_objects': ['Microwave'],
+                             'scene_id': 'FloorPlan28',
+                             'grayscale': True,
+                             'resolution': (300, 300)},
                      'task': {'task_name': 'PickUp',
                               'target_object': 'Mug'}}
     return config_output

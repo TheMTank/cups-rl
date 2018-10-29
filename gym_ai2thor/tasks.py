@@ -5,18 +5,8 @@ Different task implementations that can be defined inside an ai2thor environment
 
 class TaskFactory:
     """
-    Base class and factory for tasks to be defined for a specific environment
+    Factory for tasks to be defined for a specific environment
     """
-    def __init__(self, config):
-        self.task_config = config
-        self.task_name = config['task_name']
-
-        self.max_episode_length = 1000
-        self.movement_reward = 0
-        self.step_n = 0
-
-        self.reset()
-
     @staticmethod
     def create_task(config):
         """
@@ -28,7 +18,22 @@ class TaskFactory:
         if task_name == 'PickUp':
             return PickupTask(**config)
         else:
-            raise NotImplementedError(f'{task_name} is not yet implemented!')
+            raise NotImplementedError('{} is not yet implemented!'.format(task_name))
+
+
+class BaseTask:
+    """
+    Base class and factory for tasks to be defined for a specific environment
+    """
+    def __init__(self, config):
+        self.task_config = config
+        self.task_name = config['task_name']
+
+        self.max_episode_length = 1000
+        self.movement_reward = 0
+        self.step_n = 0
+
+        self.reset()
 
     def calculate_reward(self, *args, **kwargs):
         """
@@ -48,7 +53,7 @@ class TaskFactory:
         raise NotImplementedError
 
 
-class PickupTask(TaskFactory):
+class PickupTask(BaseTask):
     """
     This task consists on picking up an target object. Rewards are only collected if the right
     object was added to the inventory with the action PickUp (See gym_ai2thor.envs.ai2thor_env for
@@ -67,8 +72,7 @@ class PickupTask(TaskFactory):
             self.last_amount_of_goal_objects = len(self.goal_objects_collected_and_placed)
             # mug has been picked up
             reward += 1
-            print('{} reward collected! Inventory: {}'.
-                  format(reward, self.goal_objects_collected_and_placed))
+            print('{} reward collected! Inventory: {}'.format(reward, self.goal_objects_collected_and_placed))
         elif self.last_amount_of_goal_objects > len(self.goal_objects_collected_and_placed):
             # placed mug onto/into receptacle
             pass
