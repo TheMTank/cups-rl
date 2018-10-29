@@ -26,3 +26,10 @@ def read_config(config_path, config_dict=None):
                      'task': {'task_name': 'PickUp',
                               'target_object': 'Mug'}}
     return config_output
+
+
+class InvalidTaskParams(Exception):
+    """
+    Raised when the user inputs the wrong parameters for creating a task.
+    """
+    pass

@@ -5,6 +5,7 @@ inheriting the predefined methods and can be extended for particular tasks.
 import ai2thor.controller
 import numpy as np
 from skimage import transform
+from copy import deepcopy
 
 import gym
 from gym import error, spaces
@@ -50,7 +51,7 @@ class AI2ThorEnv(gym.Env):
         if seed:
             self.seed(seed)
         # Create task from config
-        self.task = TaskFactory.create_task(self.config['task'])
+        self.task = TaskFactory.create_task(self.config)
         # Object settings
         # acceptable objects taken from config file.
         if self.config['env']['interaction']:
@@ -78,6 +79,7 @@ class AI2ThorEnv(gym.Env):
         if not self.action_space.contains(action):
             raise error.InvalidAction(f'Action must be an integer between '
                                       f'0 and {self.action_space.n}!')
+        prev_state = deepcopy(self.event)
         action_str = self.action_names[action]
         visible_objects = [obj for obj in self.event.metadata['objects'] if obj['visible']]
 
@@ -151,11 +153,12 @@ class AI2ThorEnv(gym.Env):
             self.event = self.controller.step(dict(action=action_str))
 
         self.task.step_n += 1
-        state = self.preprocess(self.event.frame)
-        reward, done = self.task.calculate_reward(state)
+        state_image = self.preprocess(self.event.frame)
+        post_state = deepcopy(self.event)
+        reward, done = self.task.transition_reward(prev_state, post_state)
         info = {}
 
-        return state, reward, done, info
+        return state_image, reward, done, info
 
     def preprocess(self, img):
         """
