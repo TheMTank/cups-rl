@@ -1,10 +1,4 @@
 
 \.idea/
 
-ai2thor_wrapper/__pycache__/
-
-gym_ai2thor/__pycache__/
-
-gym_ai2thor/envs/__pycache__/
-
 *.pyc
