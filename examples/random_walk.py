@@ -1,17 +1,16 @@
 """
-Example of use for the ai2thor wrapper. It runs N_EPISODES episodes in the Environment picking
+Example use case of ai2thor wrapper. It runs N_EPISODES episodes in the Environment picking
 random actions.
 """
 import time
 
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 
-
 N_EPISODES = 20
 
 
 if __name__ == '__main__':
-    env = AI2ThorEnv()  # max_episode_length=MAX_EPISODE_LENGTH
+    env = AI2ThorEnv()
     max_episode_length = env.task.max_episode_length
     for episode in range(N_EPISODES):
         start = time.time()
