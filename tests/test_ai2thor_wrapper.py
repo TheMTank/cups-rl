@@ -33,7 +33,7 @@ class TestAI2ThorEnv(unittest.TestCase):
         for step_n in range(num_steps):
             start_of_step = time.time()
             action = env.action_space.sample()
-            state, reward, done = env.step(action)
+            state, reward, done, _ = env.step(action)
 
             time_for_step = time.time() - start_of_step
             print('Step: {}. env.task.step_n: {}. Time taken for step: {:.3f}'.
@@ -70,7 +70,7 @@ class TestAI2ThorEnv(unittest.TestCase):
         event.frame
 
         # Numpy Array in BGR order suitable for use with OpenCV
-        event.cv2image()
+        event.cv2img
 
         # current metadata dictionary that includes the state of the scene
         event.metadata
