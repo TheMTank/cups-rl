@@ -35,7 +35,7 @@ class AI2ThorEnv(gym.Env):
     """
     Wrapper base class
     """
-    def __init__(self, seed=None, config_file='gym_ai2thor/config_example.ini', config_dict=None):
+    def __init__(self, seed=None, config_file='config_files/config_example.ini', config_dict=None):
         """
         :param seed:         (int)   Random seed
         :param config_file:  (str)   Path to environment configuration file. Either absolute or
@@ -77,8 +77,8 @@ class AI2ThorEnv(gym.Env):
 
     def step(self, action, verbose=True):
         if not self.action_space.contains(action):
-            raise error.InvalidAction(f'Action must be an integer between '
-                                      f'0 and {self.action_space.n}!')
+            raise error.InvalidAction('Action must be an integer between '
+                                      '0 and {}!'.format(self.action_space.n))
         prev_state = deepcopy(self.event)
         action_str = self.action_names[action]
         visible_objects = [obj for obj in self.event.metadata['objects'] if obj['visible']]

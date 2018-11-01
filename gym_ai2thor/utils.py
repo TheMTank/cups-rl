@@ -11,7 +11,7 @@ def read_config(config_path, config_dict=None):
     """
     Returns the parsed information from the config file
     """
-    config_path = r'/media/feru/HDD/house_envs/ai2thor/ai2thor-experiments/gym_ai2thor/config_example.ini'   # os.path.join(os.path.dirname(os.path.abspath(__file__)), config_path)))
+    config_path = os.path.join(os.path.dirname(__file__), config_path)
     config = configparser.ConfigParser()
     config_output = config.read(config_path)
     if not config_output:
@@ -26,7 +26,6 @@ def read_config(config_path, config_dict=None):
                      'task': {'task_name': 'PickUp',
                               'target_object': 'Mug'}}
     return config_output
-
 
 class InvalidTaskParams(Exception):
     """
