@@ -110,7 +110,7 @@ class AI2ThorEnv(gym.Env):
                 for obj in visible_objects:
                     # look for closest object to pick up
                     if obj['pickupable'] and obj['distance'] < distance and \
-                            obj['name'] in self.objects['pickupables']:
+                            obj['objectType'] in self.objects['pickupables']:
                         closest_pickupable = obj
                 if closest_pickupable and not self.event.metadata['inventoryObjects']:
                     interaction_obj = closest_pickupable
@@ -122,7 +122,7 @@ class AI2ThorEnv(gym.Env):
                 for obj in visible_objects:
                     # look for closest closed receptacle to open it
                     if obj['openable'] and obj['distance'] < distance and \
-                            obj['name'] in self.objects['openables']:
+                            obj['objectType'] in self.objects['openables']:
                         closest_openable = obj
                         distance = closest_openable['distance']
                     if closest_openable:
@@ -135,7 +135,7 @@ class AI2ThorEnv(gym.Env):
                 for obj in visible_objects:
                     # look for closest opened receptacle to close it
                     if obj['openable'] and obj['distance'] < distance and obj['isopen'] and \
-                            obj['name'] in self.objects['openables']:
+                            obj['objectType'] in self.objects['openables']:
                         closest_openable = obj
                         distance = closest_openable['distance']
                     if closest_openable:
@@ -154,7 +154,7 @@ class AI2ThorEnv(gym.Env):
             # Move, Look or Rotate actions
             self.event = self.controller.step(dict(action=action_str))
 
-        self.task.step_n += 1
+        self.task.step_num += 1
         state_image = self.preprocess(self.event.frame)
         post_state = deepcopy(self.event)
         reward, done = self.task.transition_reward(prev_state, post_state)

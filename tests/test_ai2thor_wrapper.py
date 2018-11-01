@@ -30,14 +30,14 @@ class TestAI2ThorEnv(unittest.TestCase):
         start = time.time()
         all_step_times = []
         env.reset()
-        for step_n in range(num_steps):
+        for step_num in range(num_steps):
             start_of_step = time.time()
             action = env.action_space.sample()
             state, reward, done, _ = env.step(action)
 
             time_for_step = time.time() - start_of_step
-            print('Step: {}. env.task.step_n: {}. Time taken for step: {:.3f}'.
-                  format(step_n, env.task.step_n, time_for_step))
+            print('Step: {}. env.task.step_num: {}. Time taken for step: {:.3f}'.
+                  format(step_num, env.task.step_num, time_for_step))
             all_step_times.append(time_for_step)
 
             if done:
@@ -47,6 +47,25 @@ class TestAI2ThorEnv(unittest.TestCase):
             time.time() - start, sum(all_step_times) / len(all_step_times)))
 
         self.assertTrue(len(all_step_times) == num_steps)
+
+    def test_cup_picking_works(self):
+        """
+        Check if picking up cup works and agent receives reward of 1. Also implicitly checks there
+        is no random initialisation and that the same actions in the same environment will achieve
+        the same each time.
+        """
+
+        actions_to_look_at_cup = [6, 6, 0, 0, 6, 0, 0, 7, 0, 0, 0, 7, 5, 10]
+
+        env = AI2ThorEnv(config_dict={'env': {'scene_id': 'FloorPlan28'}})
+
+        for episode in range(2):  # twice to make sure no random initialisation
+            env.reset()
+            for action in actions_to_look_at_cup:
+                state, reward, done, _ = env.step(action)
+                if done:
+                    break
+            self.assertTrue(reward == 1)
 
     def test_config(self):
         """

@@ -15,14 +15,14 @@ if __name__ == '__main__':
     for episode in range(N_EPISODES):
         start = time.time()
         state = env.reset()
-        for step_n in range(max_episode_length):
+        for step_num in range(max_episode_length):
             action = env.action_space.sample()
             state, reward, done, _ = env.step(action)
             if done:
                 break
 
-            if step_n + 1 > 0 and (step_n + 1) % 100 == 0:
+            if step_num + 1 > 0 and (step_num + 1) % 100 == 0:
                 print('Episode: {}. Step: {}/{}. Time taken: {:.3f}s'.format(episode + 1,
-                                                    (step_n + 1) + (episode * max_episode_length),
+                                                    (step_num + 1) + (episode * max_episode_length),
                                                      max_episode_length, time.time() - start))
                 start = time.time()

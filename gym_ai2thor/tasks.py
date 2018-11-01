@@ -35,7 +35,7 @@ class BaseTask:
         self.max_episode_length = config['max_episode_length'] \
             if 'max_episode_length' in config else 1000
         self.movement_reward = config['movement_reward'] if 'movement_reward' in config else 0
-        self.step_n = 0
+        self.step_num = 0
 
         self.reset()
 
@@ -93,12 +93,12 @@ class PickupTask(BaseTask):
             print('{}: {}. {} reward collected!'.format(post_state.metadata['lastAction'],
                                                         interacted_obj, reward))
 
-        if self.max_episode_length and self.step_n >= self.max_episode_length:
-            print('Reached maximum episode length: {}'.format(self.step_n))
+        if self.max_episode_length and self.step_num >= self.max_episode_length:
+            print('Reached maximum episode length: {}'.format(self.step_num))
             done = True
 
         return reward, done
 
     def reset(self):
         self.moved_objects = {obj: 0 for obj in self.target_objects}
-        self.step_n = 0
+        self.step_num = 0

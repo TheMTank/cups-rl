@@ -48,7 +48,7 @@ env = AI2ThorEnv()
 max_episode_length = env.task.max_episode_length
 for episode in range(N_EPISODES):
     state = env.reset()
-    for step_n in range(max_episode_length):
+    for step_num in range(max_episode_length):
         action = env.action_space.sample()
         state, reward, done, info = env.step(action)
         if done:
@@ -105,7 +105,7 @@ class MoveAheadTask(BaseTask):
         return reward, done
 
     def reset(self):
-        self.step_n = 0
+        self.step_num = 0
 ``` 
 
 We encouarge you to explore the scripts on the `examples` folder to guide you on the wrapper
