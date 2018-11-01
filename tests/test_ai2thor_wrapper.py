@@ -5,7 +5,7 @@ import random
 import threading
 import time
 import unittest
-
+import warnings
 
 import ai2thor.controller
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
@@ -47,6 +47,21 @@ class TestAI2ThorEnv(unittest.TestCase):
             time.time() - start, sum(all_step_times) / len(all_step_times)))
 
         self.assertTrue(len(all_step_times) == num_steps)
+
+    def test_config(self):
+        """
+        Check if reading both a config file and a config dict at the same time works and that the
+        correct warning occurs for overwriting. Afterwards, check if scene_id was correctly
+        changed from overwriting
+        """
+        with warnings.catch_warnings(record=True) as warning_objs:
+            env = AI2ThorEnv(config_file='config_files/config_example.json',
+                             config_dict={'env': {'scene_id': 'FloorPlan27'}})
+            # checking if correct warning appears (there could be multiple depending on user)
+            self.assertTrue([w for w in warning_objs if
+                             'Key: scene_id already in config file' in w.message.args[0]])
+
+        self.assertTrue(env.scene_id == 'FloorPlan27')
 
     @staticmethod
     def test_simple_example():

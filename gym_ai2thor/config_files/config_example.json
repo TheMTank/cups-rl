@@ -1,0 +1,25 @@
+{
+    "env": {
+        "interaction": true,
+        "pickup_objects": [
+            "Mug",
+            "Apple",
+            "Book"
+        ],
+        "acceptable_receptacles": [
+            "CounterTop",
+            "TableTop",
+            "Sink"
+        ],
+        "openable_objects": [
+            "Microwave"
+        ],
+        "scene_id": "FloorPlan28",
+        "grayscale": true,
+        "resolution": [128, 128]
+    },
+    "task": {
+        "task_name": "PickUp",
+        "target_object": "Mug"
+    }
+}

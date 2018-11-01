@@ -35,7 +35,7 @@ class AI2ThorEnv(gym.Env):
     """
     Wrapper base class
     """
-    def __init__(self, seed=None, config_file='config_files/config_example.ini', config_dict=None):
+    def __init__(self, seed=None, config_file='config_files/config_example.json', config_dict=None):
         """
         :param seed:         (int)   Random seed
         :param config_file:  (str)   Path to environment configuration file. Either absolute or
@@ -44,8 +44,7 @@ class AI2ThorEnv(gym.Env):
         """
         # Loads config settings from file
         self.config = read_config(config_file, config_dict)
-        self.controller = ai2thor.controller.Controller()
-        self.controller.start()
+        self.scene_id = self.config['env']['scene_id']
         # Randomness settings
         self.np_random = None
         if seed:
@@ -73,6 +72,9 @@ class AI2ThorEnv(gym.Env):
                                             shape=(self.config['env']['resolution'][0],
                                                    self.config['env']['resolution'][1], channels),
                                             dtype=np.uint8)
+        # Start ai2thor
+        self.controller = ai2thor.controller.Controller()
+        self.controller.start()
         self.reset()
 
     def step(self, action, verbose=True):
@@ -172,7 +174,7 @@ class AI2ThorEnv(gym.Env):
 
     def reset(self):
         print('Resetting environment and starting new episode')
-        self.controller.reset(self.config['env']['scene_id'])
+        self.controller.reset(self.scene_id)
         self.event = self.controller.step(dict(action='Initialize', gridSize=0.25,
                                                renderDepthImage=True, renderClassImage=True,
                                                renderObjectImage=True))
