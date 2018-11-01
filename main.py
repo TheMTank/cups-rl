@@ -83,6 +83,7 @@ if __name__ == '__main__':
         optimizer = my_optim.SharedAdam(shared_model.parameters(), lr=args.lr)
         optimizer.share_memory()
 
+    checkpoint_counter = None
     experiment_path = '/home/beduffy/all_projects/ai2thor-testing/experiments/{}'.format(args.experiment_id)
     if not os.path.exists(experiment_path):
         print('Creating experiment folder: {}'.format(experiment_path))

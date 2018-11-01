@@ -39,23 +39,18 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None, p
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True, natural_language_instruction=True)
     env = envs.ThorWrapperEnv(current_object_type='Microwave', natural_language_instruction=True, grayscale=False,
-                              max_episode_length=args.max_episode_length, interaction=False, scene_id='FloorPlan26')
+                              max_episode_length=args.max_episode_length, interaction=False, scene_id='FloorPlan28')
 
     env.seed(args.seed + rank)
 
-    # model = ActorCritic(env.observation_space.shape[0], env.action_space)
-    # model = ActorCritic(1, env.action_space)
-
-    # model = A3C_LSTM_GA(1, env.action_space).double()
+    # model = A3C_LSTM_GA(1, env.action_space).double() # grayscale
     model = A3C_LSTM_GA(3, env.action_space).double()
-    # model = ActorCritic(3, env.action_space)
 
     if optimizer is None:
         optimizer = optim.Adam(shared_model.parameters(), lr=args.lr)
 
     model.train()
 
-    # state = env.reset()
     (image, instruction) = env.reset()
     instruction_idx = []
     for word in instruction.split(" "):
@@ -80,8 +75,6 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None, p
     if args.number_of_episodes is not None:
         number_of_episodes = args.number_of_episodes
     start = time.time()
-    # plt.ion()
-    # plt.ioff()  # turn of interactive plotting mode
 
     # todo check if args is thread safe? i think so
     total_length = args.total_length if args.total_length else 0
@@ -108,6 +101,7 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None, p
         interaction_start_time = time.time()
         for step in range(args.num_steps):
             if rank == 0 and total_length > 0 and total_length % (100000 // args.num_processes) == 0:
+                # todo make function
                 fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
                 checkpoint_dict = {
                     'total_length': total_length,
@@ -180,7 +174,9 @@ def train_a3c_lstm_ga(rank, args, shared_model, counter, lock, optimizer=None, p
                                        p_losses, v_losses, print_all)
 
 
-                print('Total Length: {}. Counter across all processes: {}. Total reward for episode: {}'.format(total_length, counter, total_reward_for_episode))
+                print('Rank: {}. Total Length: {}. Counter across all processes: {}. '
+                      'Total reward for episode: {}'.format(rank, total_length, counter,
+                                                            total_reward_for_episode))
 
             image = torch.from_numpy(image)
             values.append(value)
