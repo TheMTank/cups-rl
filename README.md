@@ -2,14 +2,17 @@
 
 This project will focus primarily on the implementation and benchmark of different approaches to 
 domain and task transfer learning in reinforcement learning. The focus lies on a diverse set of 
-domestic robot tasks using [ai2thor](https://ai2thor.allenai.org/), a realistic household 3D 
-environment. To provide an example, an agent could learn to pick up a cup under particular 
+simplified domestic robot tasks using [ai2thor](https://ai2thor.allenai.org/), a realistic household 
+3D environment. To provide an example, an agent could learn to pick up a cup under particular 
 conditions and then zero/few shot transfer to pick up many different cups in many different 
 situations.
 
 We included our own wrapper for the environment as well to support the modification of the tasks 
 within an openAI gym interface, so that new and more complex tasks can be developed efficiently to 
 train and test the agent.
+
+More detailed information on ai2thor environment can be found on their 
+[tutorial](http://ai2thor.allenai.org/tutorials/installation).
 
 ## Overview
 
@@ -50,11 +53,6 @@ for episode in range(N_EPISODES):
         state, reward, done, info = env.step(action)
         if done:
             break
-
-        if step_n + 1 > 0 and (step_n + 1) % 100 == 0:
-            print('Episode: {}. Step: {}/{}.'.format(episode + 1,
-                                                (step_n + 1) + (episode * max_episode_length),
-                                                 max_episode_length, time.time() - start))
 ```
 
 ### Environment and Task configurations
@@ -77,8 +75,8 @@ as well:
  ```
  
 For experimentation it is important to be able to make slight modifications of the environment 
- without having to create a new config each time. The class `AI2ThorEnv` includes the keyword 
- argument `config_dict`, that allows to input a python dictionary **in additon to** the config file 
+ without having to create a new config file each time. The class `AI2ThorEnv` includes the keyword 
+ argument `config_dict`, that allows to input a python dictionary **in addition to** the config file 
  that overrides the parameters described in the config.
 
 The tasks are defined in `envs/tasks.py` and allow for particular configurations regarding the 
@@ -90,19 +88,19 @@ Here an example of a new task definition:
 # envs/tasks.py
 class TaskFactory:
     ...
-    elif task_name == 'KeepMovingTask':
-        return KeepMovingTask(**config['task'])
+    elif task_name == 'MoveAheadTask':
+        return MoveAheadTask(**config['task'])
     ...
 ```
 
 ```
 # envs/tasks.py
-class KeepMovingTask(BaseTask):
+class MoveAheadTask(BaseTask):
     def __init__(self, *args, **kwargs):
         super().__init__(kwargs)
 
     def transition_reward(self, prev_state, post_state):
-        reward = -1 if prev_state == post_state else 1 
+        reward = -1 if post_state.metadata['lastAction'] == 'MoveAhead' else 1 
         done = reward > 100 or self.max_episode_length
         return reward, done
 
