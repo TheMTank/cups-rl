@@ -6,7 +6,7 @@ import time
 
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 
-N_EPISODES = 20
+N_EPISODES = 3
 
 
 if __name__ == '__main__':
@@ -23,6 +23,5 @@ if __name__ == '__main__':
 
             if step_num + 1 > 0 and (step_num + 1) % 100 == 0:
                 print('Episode: {}. Step: {}/{}. Time taken: {:.3f}s'.format(episode + 1,
-                                                    (step_num + 1) + (episode * max_episode_length),
-                                                     max_episode_length, time.time() - start))
+                                         (step_num + 1), max_episode_length, time.time() - start))
                 start = time.time()

@@ -30,7 +30,8 @@ if __name__ == '__main__':
     # Therefore, a few warnings will occur
     env = AI2ThorEnv(config_dict=config_dict)
     max_episode_length = env.task.max_episode_length
-    for episode in range(3):
+    N_EPISODES = 3
+    for episode in range(N_EPISODES):
         start = time.time()
         state = env.reset()
         for step_num in range(max_episode_length):
@@ -41,6 +42,5 @@ if __name__ == '__main__':
 
             if step_num + 1 > 0 and (step_num + 1) % 100 == 0:
                 print('Episode: {}. Step: {}/{}. Time taken: {:.3f}s'.format(episode + 1,
-                                             (step_num + 1) + (episode * max_episode_length),
-                                             max_episode_length, time.time() - start))
+                                         (step_num + 1), max_episode_length, time.time() - start))
                 start = time.time()

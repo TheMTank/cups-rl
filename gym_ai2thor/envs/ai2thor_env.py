@@ -121,7 +121,7 @@ class AI2ThorEnv(gym.Env):
                 closest_openable = None
                 for obj in visible_objects:
                     # look for closest closed receptacle to open it
-                    if obj['openable'] and obj['distance'] < distance and \
+                    if obj['openable'] and obj['distance'] < distance and not obj['isopen'] and \
                             obj['objectType'] in self.objects['openables']:
                         closest_openable = obj
                         distance = closest_openable['distance']
@@ -149,7 +149,7 @@ class AI2ThorEnv(gym.Env):
                 inventory_after = self.event.metadata['inventoryObjects'][0]['objectType'] \
                     if self.event.metadata['inventoryObjects'] else []
                 print('{}: {}. Inventory before/after: {}/{}'.format(
-                    action_str, interaction_obj['name'], inventory_before, inventory_after))
+                    action_str, interaction_obj['objectType'], inventory_before, inventory_after))
         else:
             # Move, Look or Rotate actions
             self.event = self.controller.step(dict(action=action_str))

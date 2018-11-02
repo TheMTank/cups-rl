@@ -35,6 +35,8 @@ Install Python dependencies:
 
 `pip install -r $AI2THOR_EXPERIMENTS/requirements.txt`
 
+Finally, add `AI2THOR_EXPERIMENTS` to your PYTHONPATH environment variable and you are done.
+
 ## How to use
 
 The wrapper is based on OpenAI gym interfaces as described in [gym documentation](https://gym.openai.com/docs/).
