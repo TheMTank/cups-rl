@@ -75,13 +75,11 @@ class AI2ThorEnv(gym.Env):
         # Start ai2thor
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
-        self.reset()
 
     def step(self, action, verbose=True):
         if not self.action_space.contains(action):
             raise error.InvalidAction('Action must be an integer between '
                                       '0 and {}!'.format(self.action_space.n))
-        prev_state = deepcopy(self.event)
         action_str = self.action_names[action]
         visible_objects = [obj for obj in self.event.metadata['objects'] if obj['visible']]
 
@@ -156,8 +154,7 @@ class AI2ThorEnv(gym.Env):
 
         self.task.step_num += 1
         state_image = self.preprocess(self.event.frame)
-        post_state = deepcopy(self.event)
-        reward, done = self.task.transition_reward(prev_state, post_state)
+        reward, done = self.task.transition_reward(self.event)
         info = {}
 
         return state_image, reward, done, info

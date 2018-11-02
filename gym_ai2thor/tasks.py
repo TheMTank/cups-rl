@@ -1,6 +1,8 @@
 """
 Different task implementations that can be defined inside an ai2thor environment
 """
+from collections import Counter
+
 from gym_ai2thor.utils import InvalidTaskParams
 
 
@@ -20,8 +22,8 @@ class TaskFactory:
             if config['task']['target_object'] in config['env']['pickup_objects']:
                 return PickupTask(**config['task'])
             else:
-                raise InvalidTaskParams('Error initializing PickUpTask. {} is not ' \
-                          'pickupable!'.format(config['task']['target_object']))
+                raise InvalidTaskParams('Error initializing PickUpTask. {} is not '
+                                        'pickupable!'.format(config['task']['target_object']))
         else:
             raise NotImplementedError('{} is not yet implemented!'.format(task_name))
 
@@ -39,7 +41,7 @@ class BaseTask:
 
         self.reset()
 
-    def transition_reward(self, *args, **kwargs):
+    def transition_reward(self, state):
         """
         Returns the reward given the corresponding information (state, dictionary with objects
         collected, distance to goal, etc.) depending on the task.
@@ -48,7 +50,7 @@ class BaseTask:
         """
         raise NotImplementedError
 
-    def reset(self, *args, **kwargs):
+    def reset(self):
         """
 
         :param args, kwargs: Configuration for task initialization
@@ -63,42 +65,38 @@ class PickupTask(BaseTask):
     object was added to the inventory with the action PickUp (See gym_ai2thor.envs.ai2thor_env for
     details).
     """
-    def __init__(self, target_objects=('Mug',), terminations=(1,), **kwargs):
+    def __init__(self, target_objects=('Mug',), goal=None, **kwargs):
         self.target_objects = target_objects
-        self.terminations = terminations
-        self.moved_objects = {obj: 0 for obj in self.target_objects}
-        self.object_rewards = {obj: 1 for obj in self.target_objects}
+        self.goal = Counter(goal if goal else {obj: float('inf') for obj in self.target_objects})
+        self.pickedup_objects = Counter()
+        self.object_rewards = Counter(self.target_objects)  # all target objects give reward 1
+        self.prev_inventory = []
         super().__init__(kwargs)
 
-    def transition_reward(self, prev_state, post_state):
-        done = False
-        interacted_obj = None
-        reward = self.movement_reward
-        picked_target = not prev_state.metadata['inventoryObjects'] and \
-                        post_state.metadata['inventoryObjects'] and \
-                        post_state.metadata['inventoryObjects'][0]['objectType'] \
-                        in self.target_objects
-        put_target = prev_state.metadata['inventoryObjects'] and \
-                     not post_state.metadata['inventoryObjects'] and \
-                     prev_state.metadata['inventoryObjects']['objectType'] in self.target_objects
+    def transition_reward(self, state):
+        reward, done = self.movement_reward, False
+        curr_inventory = state.metadata['inventoryObjects']
+        object_picked_up = not self.prev_inventory and curr_inventory and \
+                           curr_inventory[0]['objectType'] in self.target_objects
 
-        if picked_target:
-            interacted_obj = post_state.metadata['inventoryObjects'][0]['objectType']
-        elif put_target:
-            interacted_obj = prev_state.metadata['inventoryObjects'][0]['objectType']
-            # Target object has been picked up or put on a receptacle
-        if interacted_obj:
-            self.moved_objects[interacted_obj] += 1
-            reward += self.object_rewards[interacted_obj]
-            print('{}: {}. {} reward collected!'.format(post_state.metadata['lastAction'],
-                                                        interacted_obj, reward))
+        if object_picked_up:
+            # One of the Target objects has been picked up
+            self.pickedup_objects[curr_inventory[0]['objectType']] += 1
+            # Add reward from the specific object
+            reward += self.object_rewards[curr_inventory[0]['objectType']]
+            print('{} reward collected!'.format(reward))
 
         if self.max_episode_length and self.step_num >= self.max_episode_length:
             print('Reached maximum episode length: {}'.format(self.step_num))
             done = True
+        if self.goal == self.pickedup_objects:
+            print('Reached goal at step {}'.format(self.step_num))
+            done = True
 
+        self.prev_inventory = state.metadata['inventoryObjects']
         return reward, done
 
     def reset(self):
-        self.moved_objects = {obj: 0 for obj in self.target_objects}
+        self.pickedup_objects = Counter()
+        self.prev_inventory = []
         self.step_num = 0

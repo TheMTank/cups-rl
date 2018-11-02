@@ -102,8 +102,8 @@ class MoveAheadTask(BaseTask):
     def __init__(self, *args, **kwargs):
         super().__init__(kwargs)
 
-    def transition_reward(self, prev_state, post_state):
-        reward = -1 if post_state.metadata['lastAction'] == 'MoveAhead' else 1 
+    def transition_reward(self, state):
+        reward = -1 if state.metadata['lastAction'] == 'MoveAhead' else 1 
         done = reward > 100 or self.max_episode_length
         return reward, done
 
