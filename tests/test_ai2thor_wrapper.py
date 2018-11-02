@@ -24,7 +24,6 @@ class TestAI2ThorEnv(unittest.TestCase):
 
         Prints the execution time at the end of the test for performance check.
         """
-
         num_steps = 10
         env = AI2ThorEnv()
         start = time.time()
@@ -54,20 +53,22 @@ class TestAI2ThorEnv(unittest.TestCase):
         is no random initialisation and that the same actions in the same environment will achieve
         the same each time.
         """
-
-        actions_to_look_at_cup = [6, 6, 0, 0, 6, 0, 0, 7, 0, 0, 0, 7, 5, 10]
+        actions_to_look_at_cup = ['RotateRight', 'RotateRight', 'MoveAhead', 'MoveAhead',
+            'RotateRight', 'MoveAhead', 'MoveAhead', 'RotateLeft', 'MoveAhead', 'MoveAhead',
+            'MoveAhead', 'RotateLeft', 'LookDown', 'PickupObject']
 
         env = AI2ThorEnv(config_dict={'env': {'scene_id': 'FloorPlan28'}})
 
         for episode in range(2):  # twice to make sure no random initialisation
             env.reset()
-            for action in actions_to_look_at_cup:
+            for action_str in actions_to_look_at_cup:
+                action = env.action_names.index(action_str)
                 state, reward, done, _ = env.step(action)
                 if done:
                     break
             self.assertTrue(reward == 1)
 
-    def test_config(self):
+    def test_config_override(self):
         """
         Check if reading both a config file and a config dict at the same time works and that the
         correct warning occurs for overwriting. Afterwards, check if scene_id was correctly
