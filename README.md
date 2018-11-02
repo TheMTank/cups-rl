@@ -32,7 +32,7 @@ Clone ai2thor-experiments repository:
 git clone https://github.com/TheMTank/ai2thor-experiments.git $AI2THOR_EXPERIMENTS
 ```
 
-Install Python dependencies:
+Install Python dependencies (Currently only supporting python 3.5+):
 
 `pip install -r $AI2THOR_EXPERIMENTS/requirements.txt`
 
