@@ -1,6 +1,7 @@
 """
 Adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/model.py
 """
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -39,9 +40,12 @@ class ActorCritic(torch.nn.Module):
         self.conv3 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
         self.conv4 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
 
-        self.lstm = nn.LSTMCell(32 * 3 * 3, 256)
 
-        num_outputs = action_space.n
+        # self.lstm = nn.LSTMCell(32 * 3 * 3, 256)
+        # self.lstm = nn.LSTMCell(512, 256) # todo calculate automatically
+        self.lstm = nn.LSTMCell(32 * 8 * 8, 256)  # for 128x128 input
+
+        num_outputs = action_space
         self.critic_linear = nn.Linear(256, 1)
         self.actor_linear = nn.Linear(256, num_outputs)
 
@@ -60,12 +64,15 @@ class ActorCritic(torch.nn.Module):
 
     def forward(self, inputs):
         inputs, (hx, cx) = inputs
+        if len(inputs.size()) == 3:
+            inputs = inputs.unsqueeze(0)
         x = F.elu(self.conv1(inputs))
         x = F.elu(self.conv2(x))
         x = F.elu(self.conv3(x))
         x = F.elu(self.conv4(x))
 
-        x = x.view(-1, 32 * 3 * 3)
+        # x = x.view(-1, 32 * 3 * 3)
+        x = x.view(-1, 2048)  # 32 * 8 * 8 = 2048
         hx, cx = self.lstm(x, (hx, cx))
         x = hx
 
