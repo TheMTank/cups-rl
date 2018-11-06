@@ -35,9 +35,11 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', interaction=False)
     # env = envs.ThorWrapperEnv(current_object_type='Microwave', dense_reward=True)
-    env = envs.ThorWrapperEnv(current_object_type='Mug', max_episode_length=args.max_episode_length)
+    env = envs.ThorWrapperEnv(current_object_type='Mug', max_episode_length=args.max_episode_length,
+                              grayscale=False)
     # env = envs.ThorWrapperEnv(current_object_type='Mug', max_episode_length=args.max_episode_length)
     env.seed(args.seed + rank)
+    # model = ActorCritic(1, 8)
     # model = ActorCritic(env.observation_space[0], env.action_space)
     model = ActorCriticExtraInput(env.observation_space[0], env.action_space)
 
@@ -91,8 +93,9 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
             episode_length += 1
             total_length += 1
             if env.entity_feats:
-                value, logit, (hx, cx) = model(((Variable(state.unsqueeze(0).float()), torch.from_numpy(entity_feats).float()),
-                                                (hx, cx)))
+                value, logit, (hx, cx) = model(((Variable(state.unsqueeze(0).float()),
+                                                 torch.from_numpy(entity_feats).float()),
+                                                 (hx, cx)))
             else:
                 value, logit, (hx, cx) = model((Variable(state.unsqueeze(0).float()),
                                                 (hx, cx)))
@@ -147,6 +150,8 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 break
 
         print('Step no: {}. total length: {}'.format(episode_length, total_length))
+
+        # Actual backpropagation happens below
         # Everything below doesn't contain interaction with the environment
         R = torch.zeros(1, 1)
         if not done: # to change last reward to predicted value to ....
@@ -157,6 +162,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 value, _, _ = model((Variable(state.unsqueeze(0).float()), (hx, cx)))
             R = value.data
 
+        # monitoring/bookkeeping
         total_reward_for_num_steps = sum(rewards)
         avg_reward_for_num_steps = total_reward_for_num_steps / len(rewards)
         total_reward_for_num_steps_list.append(total_reward_for_num_steps)
@@ -188,3 +194,12 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
         ensure_shared_grads(model, shared_model)
         optimizer.step()
+
+
+# Should monitoring be done outside of the agent's functions?
+# Possible parts/functions:
+' setup env'
+# setup_model()
+# experience()
+# backpropagate(). Uses rewards, log_probs, values
+# get_action_from_logit() get_action()
