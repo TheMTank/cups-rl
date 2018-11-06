@@ -18,7 +18,7 @@ def test(rank, args, shared_model, counter):
     torch.manual_seed(args.seed + rank)
 
     # env = create_atari_env(args.env_name)
-    env = AI2ThorEnv(config_dict={'max_episode_length': args.max_episode_length})
+    env = AI2ThorEnv(config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
     model = ActorCritic(env.observation_space.shape[0], env.action_space.n)
@@ -56,6 +56,7 @@ def test(rank, args, shared_model, counter):
         reward_sum += reward
 
         # a quick hack to prevent the agent from stucking
+        # i.e. in test mode an agent can repeat an action ad infinitum
         actions.append(action[0, 0])
         if actions.count(actions[0]) == actions.maxlen:
             done = True

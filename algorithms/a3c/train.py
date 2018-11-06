@@ -24,7 +24,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     torch.manual_seed(args.seed + rank)
 
     # env = create_atari_env(args.env_name)
-    env = AI2ThorEnv(config_dict={'max_episode_length': args.max_episode_length})
+    env = AI2ThorEnv(config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
     model = ActorCritic(env.observation_space.shape[0], env.action_space.n)

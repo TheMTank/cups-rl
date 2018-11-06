@@ -44,7 +44,8 @@ parser.add_argument('--num-steps', type=int, default=20,
 parser.add_argument('--max-episode-length', type=int, default=1000,
                     help='maximum length of an episode (default: 1000000)')
 # parser.add_argument('--env-name', default='PongDeterministic-v4',
-                    # todo have option to change to atari?
+                      # todo have option to change to atari or not?
+                      # Would be a good example of keeping code modular
 #                     help='environment to train on (default: PongDeterministic-v4)')
 parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
@@ -63,12 +64,12 @@ if __name__ == '__main__':
 
     torch.manual_seed(args.seed)
     # env = create_atari_env(args.env_name)
-    # todo pass all same config_dicts to all processes!!!
-    env = AI2ThorEnv(config_dict={'max_episode_length': args.max_episode_length})
+    args.config_dict = {'max_episode_length': args.max_episode_length}
+    env = AI2ThorEnv(config_dict=args.config_dict)
     shared_model = ActorCritic(env.observation_space.shape[0], env.action_space.n)
     shared_model.share_memory()
 
-    env.close()
+    env.close()  # todo close properly
 
     if args.no_shared:
         optimizer = None
@@ -82,18 +83,17 @@ if __name__ == '__main__':
     lock = mp.Lock()
 
     if not args.synchronous:
-        # todo still crashing here
         p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
         p.start()
         processes.append(p)
 
-        # for rank in range(0, args.num_processes):
-        #     p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, optimizer))
-        #     p.start()
-        #     processes.append(p)
-        # for p in processes:
-        #     p.join()
+        for rank in range(0, args.num_processes):
+            p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, optimizer))
+            p.start()
+            processes.append(p)
+        for p in processes:
+            p.join()
     else:
         rank = 0
-        # test(args.num_processes, args, shared_model, counter)
+        # test(args.num_processes, args, shared_model, counter)  # for checking test functionality
         train(rank, args, shared_model, counter, lock, optimizer)
