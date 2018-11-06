@@ -10,7 +10,8 @@ import torch
 import torch.multiprocessing as mp
 
 import my_optim
-from envs import create_atari_env
+# from envs import create_atari_env
+from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 from model import ActorCritic
 from test import test
 from train import train
@@ -33,8 +34,8 @@ parser.add_argument('--max-grad-norm', type=float, default=50,
                     help='value loss coefficient (default: 50)')
 parser.add_argument('--seed', type=int, default=1,
                     help='random seed (default: 1)')
-parser.add_argument('--num-processes', type=int, default=4,
-                    help='how many training processes to use (default: 4)')
+parser.add_argument('--num-processes', type=int, default=1,
+                    help='how many training processes to use (default: 1)')
 parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
 parser.add_argument('--max-episode-length', type=int, default=1000000,
@@ -52,10 +53,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
-    env = create_atari_env(args.env_name)
+    # env = create_atari_env(args.env_name)
+    env = AI2ThorEnv()
     shared_model = ActorCritic(
         env.observation_space.shape[0], env.action_space)
     shared_model.share_memory()
+
+    env.close()
 
     if args.no_shared:
         optimizer = None

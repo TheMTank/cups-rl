@@ -6,7 +6,8 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-from envs import create_atari_env
+# from envs import create_atari_env
+from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 from model import ActorCritic
 
 
@@ -21,7 +22,8 @@ def ensure_shared_grads(model, shared_model):
 def train(rank, args, shared_model, counter, lock, optimizer=None):
     torch.manual_seed(args.seed + rank)
 
-    env = create_atari_env(args.env_name)
+    # env = create_atari_env(args.env_name)
+    env = AI2ThorEnv()
     env.seed(args.seed + rank)
 
     model = ActorCritic(env.observation_space.shape[0], env.action_space)
