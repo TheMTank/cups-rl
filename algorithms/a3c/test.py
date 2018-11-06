@@ -1,11 +1,13 @@
 """
-Adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/test.py
+Adapted from https://github.com/ikostrikov/pytorch-a3c
 """
+
 import time
 from collections import deque
 
 import torch
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 # from envs import create_atari_env
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
@@ -16,10 +18,10 @@ def test(rank, args, shared_model, counter):
     torch.manual_seed(args.seed + rank)
 
     # env = create_atari_env(args.env_name)
-    env = AI2ThorEnv()
+    env = AI2ThorEnv(config_dict={'max_episode_length': args.max_episode_length})
     env.seed(args.seed + rank)
 
-    model = ActorCritic(env.observation_space.shape[0], env.action_space)
+    model = ActorCritic(env.observation_space.shape[0], env.action_space.n)
 
     model.eval()
 
@@ -38,16 +40,16 @@ def test(rank, args, shared_model, counter):
         # Sync with the shared model
         if done:
             model.load_state_dict(shared_model.state_dict())
-            cx = torch.zeros(1, 256)
-            hx = torch.zeros(1, 256)
+            cx = Variable(torch.zeros(1, 256), volatile=True)
+            hx = Variable(torch.zeros(1, 256), volatile=True)
         else:
-            cx = cx.detach()
-            hx = hx.detach()
+            cx = Variable(cx.data, volatile=True)
+            hx = Variable(hx.data, volatile=True)
 
-        with torch.no_grad():
-            value, logit, (hx, cx) = model((state.unsqueeze(0), (hx, cx)))
-        prob = F.softmax(logit, dim=-1)
-        action = prob.max(1, keepdim=True)[1].numpy()
+        value, logit, (hx, cx) = model((Variable(state.unsqueeze(0).float(), volatile=True),
+                                        (hx, cx)))
+        prob = F.softmax(logit)
+        action = prob.max(1, keepdim=True)[1].data.numpy()
 
         state, reward, done, _ = env.step(action[0, 0])
         done = done or episode_length >= args.max_episode_length
@@ -68,6 +70,6 @@ def test(rank, args, shared_model, counter):
             episode_length = 0
             actions.clear()
             state = env.reset()
-            time.sleep(60)
+            time.sleep(args.test_sleep_time)
 
         state = torch.from_numpy(state)

@@ -35,6 +35,8 @@ parser.add_argument('--max-grad-norm', type=float, default=50,
                     help='value loss coefficient (default: 50)')
 parser.add_argument('--seed', type=int, default=1,
                     help='random seed (default: 1)')
+parser.add_argument('--test-sleep-time', type=int, default=200,
+                    help='number of seconds to wait before testing again (default: 200)')
 parser.add_argument('--num-processes', type=int, default=1,
                     help='how many training processes to use (default: 1)')
 parser.add_argument('--num-steps', type=int, default=20,
@@ -46,10 +48,10 @@ parser.add_argument('--max-episode-length', type=int, default=1000,
 #                     help='environment to train on (default: PongDeterministic-v4)')
 parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
-parser.add_argument('--synchronous', dest='synchronous', action='store_true',
+parser.add_argument('-sync', '--synchronous', dest='synchronous', action='store_true',
                     help='Useful for debugging purposes e.g. import pdb; pdb.set_trace(). '
                          'Overwrites args.num_processes as everything is in main thread')
-parser.add_argument('--asynchronous', dest='synchronous', action='store_false')
+parser.add_argument('-async', '--asynchronous', dest='synchronous', action='store_false')
 parser.set_defaults(feature=True)
 
 
@@ -93,4 +95,5 @@ if __name__ == '__main__':
         #     p.join()
     else:
         rank = 0
+        # test(args.num_processes, args, shared_model, counter)
         train(rank, args, shared_model, counter, lock, optimizer)
