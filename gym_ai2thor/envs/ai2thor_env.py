@@ -69,8 +69,8 @@ class AI2ThorEnv(gym.Env):
         self.event = None
         channels = 1 if self.config['env']['grayscale'] else 3
         self.observation_space = spaces.Box(low=0, high=255,
-                                            shape=(self.config['env']['resolution'][0],
-                                                   self.config['env']['resolution'][1], channels),
+                                            shape=(channels, self.config['env']['resolution'][0],
+                                                   self.config['env']['resolution'][1]),
                                             dtype=np.uint8)
         # Start ai2thor
         self.controller = ai2thor.controller.Controller()
@@ -165,7 +165,7 @@ class AI2ThorEnv(gym.Env):
         """
         img = transform.resize(img, self.config['env']['resolution'])
         img = img.astype(np.float32)
-        if self.observation_space.shape[-1] == 1:
+        if self.observation_space.shape[0] == 1:
             img = rgb2gray(img)  # todo cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         return img
 
