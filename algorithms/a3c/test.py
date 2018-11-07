@@ -59,6 +59,8 @@ def test(rank, args, shared_model, counter):
         # i.e. in test mode an agent can repeat an action ad infinitum
         actions.append(action[0, 0])
         if actions.count(actions[0]) == actions.maxlen:
+            print('In test. Episode over because agent repeated action {} times'.format(
+                                                                                actions.maxlen))
             done = True
 
         if done:

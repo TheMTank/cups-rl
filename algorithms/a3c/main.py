@@ -83,6 +83,7 @@ if __name__ == '__main__':
     lock = mp.Lock()
 
     if not args.synchronous:
+        # test runs continuously and if episode ends, sleeps for args.test_sleep_time seconds
         p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
         p.start()
         processes.append(p)
