@@ -1,10 +1,9 @@
 {
     "env": {
         "interaction": true,
+        "interaction_open_close": true,
         "pickup_objects": [
-            "Mug",
-            "Apple",
-            "Book"
+            "Mug"
         ],
         "acceptable_receptacles": [
             "CounterTop",
