@@ -8,6 +8,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+def calculate_lstm_input_size_after_4_conv_layers(frame_dim, stride=2, kernel_size=3, padding=1,
+                                     num_filters=32):
+    """
+    Assumes square resolution image. Find LSTM size after 4 conv layers below in A3C. For example:
+    42x42 -> (42 − 3 + 2)÷ 2 + 1 = 21 after 1 layer
+    11 after 2 -> 6 -> and finally width 3
+    Therefore lstm input size would be (3 * 3 * num_filters)
+    """
+
+    width = (frame_dim - kernel_size + 2 * padding) // stride + 1
+    width = (width - kernel_size + 2 * padding) // stride + 1
+    width = (width - kernel_size + 2 * padding) // stride + 1
+    width = (width - kernel_size + 2 * padding) // stride + 1
+
+    return width * width * num_filters
+
 def normalized_columns_initializer(weights, std=1.0):
     out = torch.randn(weights.size())
     out *= std / torch.sqrt(out.pow(2).sum(1, keepdim=True))
@@ -33,17 +49,17 @@ def weights_init(m):
 
 
 class ActorCritic(torch.nn.Module):
-    def __init__(self, num_inputs, action_space):
+    def __init__(self, num_inputs, action_space, frame_dim):
         super(ActorCritic, self).__init__()
         self.conv1 = nn.Conv2d(num_inputs, 32, 3, stride=2, padding=1)
         self.conv2 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
         self.conv3 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
         self.conv4 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
 
+        # assumes square image
+        self.lstm_cell_size = calculate_lstm_input_size_after_4_conv_layers(frame_dim)
 
-        # self.lstm = nn.LSTMCell(32 * 3 * 3, 256)
-        # self.lstm = nn.LSTMCell(512, 256) # todo calculate automatically
-        self.lstm = nn.LSTMCell(32 * 8 * 8, 256)  # for 128x128 input
+        self.lstm = nn.LSTMCell(self.lstm_cell_size, 256)  # for 128x128 input
 
         num_outputs = action_space
         self.critic_linear = nn.Linear(256, 1)
@@ -64,15 +80,14 @@ class ActorCritic(torch.nn.Module):
 
     def forward(self, inputs):
         inputs, (hx, cx) = inputs
-        if len(inputs.size()) == 3:
+        if len(inputs.size()) == 3:  # if batch forgotten
             inputs = inputs.unsqueeze(0)
         x = F.elu(self.conv1(inputs))
         x = F.elu(self.conv2(x))
         x = F.elu(self.conv3(x))
         x = F.elu(self.conv4(x))
 
-        # x = x.view(-1, 32 * 3 * 3)
-        x = x.view(-1, 2048)  # 32 * 8 * 8 = 2048
+        x = x.view(-1, self.lstm_cell_size)
         hx, cx = self.lstm(x, (hx, cx))
         x = hx
 

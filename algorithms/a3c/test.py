@@ -24,7 +24,7 @@ def test(rank, args, shared_model, counter):
         env = AI2ThorEnv(config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
-    model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_width)
+    model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
 
     model.eval()
 

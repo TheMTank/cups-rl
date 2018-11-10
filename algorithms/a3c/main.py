@@ -75,12 +75,12 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     if args.atari:
         env = create_atari_env(args.atari_env_name)
-        args.frame_width = 42
+        args.frame_dim = 42  # fixed to be 42x42 in envs.py _process_frame42()
     else:
         args.config_dict = {'max_episode_length': args.max_episode_length}
         env = AI2ThorEnv(config_dict=args.config_dict)
-        args.frame_width = env.config['env']['resolution'][-1]
-    shared_model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_width)
+        args.frame_dim = env.config['env']['resolution'][-1]
+    shared_model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
     shared_model.share_memory()
 
     env.close()  # above env initialisation was only to find certain params needed
