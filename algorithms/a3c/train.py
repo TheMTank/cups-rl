@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 
-# from envs import create_atari_env
+from envs import create_atari_env
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 from model import ActorCritic
 
@@ -23,11 +23,14 @@ def ensure_shared_grads(model, shared_model):
 def train(rank, args, shared_model, counter, lock, optimizer=None):
     torch.manual_seed(args.seed + rank)
 
-    # env = create_atari_env(args.env_name)
-    env = AI2ThorEnv(config_dict=args.config_dict)
+    if args.atari:
+        env = create_atari_env(args.atari_env_name)
+    else:
+        args.config_dict = {'max_episode_length': args.max_episode_length}
+        env = AI2ThorEnv(config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
-    model = ActorCritic(env.observation_space.shape[0], env.action_space.n)
+    model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_width)
 
     if optimizer is None:
         optimizer = optim.Adam(shared_model.parameters(), lr=args.lr)
@@ -86,6 +89,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 total_length -= 1
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
+                all_rewards_in_episode = []
                 state = env.reset()
                 print('Episode Over. Total Length: {}. Total reward for episode: {}'.format(
                                             total_length,  total_reward_for_episode))
@@ -100,16 +104,18 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
             if done:
                 break
 
-        # Backprop and no interaction with environment below,
-        R = torch.zeros(1, 1)
-        if not done:  # to change last reward to predicted value to ....
-            value, _, _ = model((Variable(state.unsqueeze(0).float()), (hx, cx)))
-            R = value.data
-
+        # No interaction with environment below.
+        # Monitoring
         total_reward_for_num_steps = sum(rewards)
         total_reward_for_num_steps_list.append(total_reward_for_num_steps)
         avg_reward_for_num_steps = total_reward_for_num_steps / len(rewards)
         avg_reward_for_num_steps_list.append(avg_reward_for_num_steps)
+
+        # Backprop and optimisation
+        R = torch.zeros(1, 1)
+        if not done:  # to change last reward to predicted value to ....
+            value, _, _ = model((Variable(state.unsqueeze(0).float()), (hx, cx)))
+            R = value.data
 
         values.append(Variable(R))
         policy_loss = 0

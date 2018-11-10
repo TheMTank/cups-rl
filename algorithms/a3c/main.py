@@ -11,7 +11,7 @@ import torch
 import torch.multiprocessing as mp
 
 import my_optim
-# from envs import create_atari_env
+from envs import create_atari_env
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 from model import ActorCritic
 from test import test
@@ -43,33 +43,47 @@ parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
 parser.add_argument('--max-episode-length', type=int, default=1000,
                     help='maximum length of an episode (default: 1000000)')
-# parser.add_argument('--env-name', default='PongDeterministic-v4',
-                      # todo have option to change to atari or not?
-                      # Would be a good example of keeping code modular
-#                     help='environment to train on (default: PongDeterministic-v4)')
 parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
 parser.add_argument('-sync', '--synchronous', dest='synchronous', action='store_true',
                     help='Useful for debugging purposes e.g. import pdb; pdb.set_trace(). '
-                         'Overwrites args.num_processes as everything is in main thread')
+                         'Overwrites args.num_processes as everything is in main thread. 1 train()')
 parser.add_argument('-async', '--asynchronous', dest='synchronous', action='store_false')
 parser.set_defaults(feature=True)
+
+# Atari arguments. Good example of keeping code modular and allowing algorithms to run everywhere
+parser.add_argument('--atari', dest='atari', action='store_true',
+                    help='Run atari env instead with name below instead of ai2thor')
+parser.add_argument('--atari-render', dest='atari_render', action='store_true',
+                    help='Render atari')
+parser.add_argument('--atari-env-name', default='PongDeterministic-v4',
+                    help='environment to train on (default: PongDeterministic-v4)')
+#
+parser.set_defaults(atari=False)
 
 
 if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
+    # TODO resolve if env wrapper/factory is needed instead of env if statements
+    # TODO gym ai2thor changes (channel first (done) and remove env in config?)
+    # TODO README.md
+
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
-    # env = create_atari_env(args.env_name)
-    args.config_dict = {'max_episode_length': args.max_episode_length}
-    env = AI2ThorEnv(config_dict=args.config_dict)
-    shared_model = ActorCritic(env.observation_space.shape[0], env.action_space.n)
+    if args.atari:
+        env = create_atari_env(args.atari_env_name)
+        args.frame_width = 42
+    else:
+        args.config_dict = {'max_episode_length': args.max_episode_length}
+        env = AI2ThorEnv(config_dict=args.config_dict)
+        args.frame_width = env.config['env']['resolution'][-1]
+    shared_model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_width)
     shared_model.share_memory()
 
-    env.close()  # todo close properly
+    env.close()  # above env initialisation was only to find certain params needed
 
     if args.no_shared:
         optimizer = None
@@ -97,4 +111,4 @@ if __name__ == '__main__':
     else:
         rank = 0
         # test(args.num_processes, args, shared_model, counter)  # for checking test functionality
-        train(rank, args, shared_model, counter, lock, optimizer)
+        train(rank, args, shared_model, counter, lock, optimizer)  # run train on main thread

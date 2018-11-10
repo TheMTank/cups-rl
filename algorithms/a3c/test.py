@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-# from envs import create_atari_env
+from envs import create_atari_env
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 from model import ActorCritic
 
@@ -17,11 +17,14 @@ from model import ActorCritic
 def test(rank, args, shared_model, counter):
     torch.manual_seed(args.seed + rank)
 
-    # env = create_atari_env(args.env_name)
-    env = AI2ThorEnv(config_dict=args.config_dict)
+    if args.atari:
+        env = create_atari_env(args.atari_env_name)
+    else:
+        args.config_dict = {'max_episode_length': args.max_episode_length}
+        env = AI2ThorEnv(config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
-    model = ActorCritic(env.observation_space.shape[0], env.action_space.n)
+    model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_width)
 
     model.eval()
 
@@ -37,6 +40,8 @@ def test(rank, args, shared_model, counter):
     episode_length = 0
     while True:
         episode_length += 1
+        if args.atari and args.atari_render:
+            env.render()
         # Sync with the shared model
         if done:
             model.load_state_dict(shared_model.state_dict())
