@@ -60,6 +60,7 @@ parser.add_argument('--atari-env-name', default='PongDeterministic-v4',
                     help='environment to train on (default: PongDeterministic-v4)')
 #
 parser.set_defaults(atari=False)
+parser.set_defaults(atari_render=False)
 
 
 if __name__ == '__main__':
@@ -69,6 +70,7 @@ if __name__ == '__main__':
     # TODO resolve if env wrapper/factory is needed instead of env if statements
     # TODO gym ai2thor changes (channel first (done) and remove env in config?)
     # TODO README.md
+    # TODO docstrings at the top of the file and import problem?
 
     args = parser.parse_args()
 
