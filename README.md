@@ -73,14 +73,14 @@ as well:
 
 ```
 # gym_ai2thor/config_files/myconfig.json
-{'env': {'interaction': True,
-         'interaction_open_close': true,
-         'pickup_objects': ['Mug', 'Apple', 'Book'],
-         'acceptable_receptacles': ['CounterTop', 'TableTop', 'Sink'],
-         'openable_objects': ['Microwave'],
-         'scene_id': 'FloorPlan28',
-         'grayscale': True,
-         'resolution': (300, 300)},
+{'pickup_put_interaction': True,
+ 'open_close_interaction': true,
+ 'pickup_objects': ['Mug', 'Apple', 'Book'],
+ 'acceptable_receptacles': ['CounterTop', 'TableTop', 'Sink'],
+ 'openable_objects': ['Microwave'],
+ 'scene_id': 'FloorPlan28',
+ 'grayscale': True,
+ 'resolution': (300, 300),
  'task': {'task_name': 'PickUp',
           'target_object': 'Mug'}} 
  ```

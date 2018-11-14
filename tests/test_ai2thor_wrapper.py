@@ -60,10 +60,10 @@ class TestAI2ThorEnv(unittest.TestCase):
             'MoveAhead', 'RotateLeft', 'LookDown', 'PickupObject', 'PutObject', 'LookUp',
             'MoveRight', 'OpenObject', 'PutObject', 'PickupObject', 'CloseObject']
 
-        env = AI2ThorEnv(config_dict={'env': {'scene_id': 'FloorPlan28',
-                                              'acceptable_receptacles': [
-                                                    'Microwave'  # the used receptacle below
-                                                ]}})
+        env = AI2ThorEnv(config_dict={'scene_id': 'FloorPlan28',
+                                      'acceptable_receptacles': [
+                                        'Microwave'  # the used receptacle below
+                                      ]})
 
         for episode in range(2):  # twice to make sure no random initialisation
             env.reset()
@@ -84,7 +84,7 @@ class TestAI2ThorEnv(unittest.TestCase):
         """
         with warnings.catch_warnings(record=True) as warning_objs:
             env = AI2ThorEnv(config_file='config_files/config_example.json',
-                             config_dict={'env': {'scene_id': 'FloorPlan27'}})
+                             config_dict={'scene_id': 'FloorPlan27'})
             # checking if correct warning appears (there could be multiple depending on user)
             self.assertTrue([w for w in warning_objs if
                              'Key: scene_id already in config file' in w.message.args[0]])
