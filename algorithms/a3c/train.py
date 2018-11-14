@@ -1,7 +1,7 @@
 """
 Adapted from https://github.com/ikostrikov/pytorch-a3c/blob/master/train.py
 
-This contains the train code run by each A3C process on either Atari or AI2ThorEnv.
+Contains the train code run by each A3C process on either Atari or AI2ThorEnv.
 For initialisation, we set up the environment, seeds, shared model and optimizer.
 In the main training loop, we always ensure the weights of the current model are equal to the
 shared model. Then the algorithm interacts with the environment args.num_steps at a time,

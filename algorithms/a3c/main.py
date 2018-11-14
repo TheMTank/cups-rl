@@ -1,13 +1,12 @@
 """
 Adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/main.py
-This is the main file needed within a3c and runs of the train and test functions from
-their respective files.
-Example use case:
+The main file needed within a3c. Runs of the train and test functions from their respective files.
+Example of use:
 `cd algorithms/a3c`
 `python main.py`
 
-This runs A3C on our AI2ThorEnv wrapper with default params (4 processes). Optionally it can be
-run on any atari environment as well with the --atari and --atari-env-name params.
+Runs A3C on our AI2ThorEnv wrapper with default params (4 processes). Optionally it can be
+run on any atari environment as well using the --atari and --atari-env-name params.
 """
 
 from __future__ import print_function
@@ -87,7 +86,7 @@ if __name__ == '__main__':
     else:
         args.config_dict = {'max_episode_length': args.max_episode_length}
         env = AI2ThorEnv(config_dict=args.config_dict)
-        args.frame_dim = env.config['env']['resolution'][-1]
+        args.frame_dim = env.config['resolution'][-1]
     shared_model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
     shared_model.share_memory()
 

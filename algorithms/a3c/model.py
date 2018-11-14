@@ -1,8 +1,8 @@
 """
 Adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/model.py
 
-This code contains the main A3C model which outputs predicted value, action logits and hidden state.
-Some helper functions too for weight initialisation and dynamically computing LSTM/flatten input
+Main A3C model which outputs predicted value, action logits and hidden state.
+Includes helper functions too for weight initialisation and dynamically computing LSTM/flatten input
 size.
 """
 
@@ -56,14 +56,15 @@ def weights_init(m):
 class ActorCritic(torch.nn.Module):
     """
     Mainly Ikostrikov's implementation of A3C (https://arxiv.org/abs/1602.01783).
-    The algorithm processes an input image (with num_input_channels) with 4 conv layers,
+
+    Processes an input image (with num_input_channels) with 4 conv layers,
     interspersed with 4 elu activation functions. The output of the final layer is then flattened
     and passed to an LSTM (with previous or initial hidden and cell states (hx and cx)).
     The new hidden state is used as an input to the critic and value nn.Linear layer heads,
     The final output is then predicted value, action logits, hx and cx.
     """
 
-    def __init__(self, num_input_channels, action_space, frame_dim):
+    def __init__(self, num_input_channels, num_outputs, frame_dim):
         super(ActorCritic, self).__init__()
         self.conv1 = nn.Conv2d(num_input_channels, 32, 3, stride=2, padding=1)
         self.conv2 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
@@ -75,7 +76,6 @@ class ActorCritic(torch.nn.Module):
 
         self.lstm = nn.LSTMCell(self.lstm_cell_size, 256)  # for 128x128 input
 
-        num_outputs = action_space
         self.critic_linear = nn.Linear(256, 1)
         self.actor_linear = nn.Linear(256, num_outputs)
 

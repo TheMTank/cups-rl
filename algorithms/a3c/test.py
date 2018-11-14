@@ -1,7 +1,7 @@
 """
 Adapted from https://github.com/ikostrikov/pytorch-a3c/blob/master/test.py
 
-This code contains the testing loop of the shared model within A3C (no optimisation/backprop needed)
+Contains the testing loop of the shared model within A3C (no optimisation/backprop needed)
 Usually this is run concurrently while training occurs and is useful for tracking progress. But to
 save resources we can choose to only test every args.test_sleep_time seconds.
 """
