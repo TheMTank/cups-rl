@@ -10,19 +10,18 @@ from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 if __name__ == '__main__':
     # Here we only allow apples to picked up and this our target object to pick up
     config_dict = {
-        "env": {
-            "interaction": True,
-            "pickup_objects": [
-                "Apple"
-            ],
-            "openable_objects": [],  # disable opening objects
-            "scene_id": "FloorPlan27",  # we try a different room
-            "grayscale": True,
-            "resolution": [128, 128]
-        },
-        "task": {
-            "task_name": "PickUp",
-            "target_object": "Apple"  # target object changed to Apple
+        'pickup_put_interaction': True,
+        'open_close_interaction': False,  # disable opening/closing objects
+        'openable_objects': [],  # disable opening objects another way
+        'pickup_objects': [
+            "Apple"
+        ],
+        'scene_id': 'FloorPlan27',  # let's try a different room
+        'grayscale': True,
+        'resolution': [128, 128],
+        'task': {
+            'task_name': 'PickUp',
+            'target_object': 'Apple'  # target object changed to Apple
         }
     }
 

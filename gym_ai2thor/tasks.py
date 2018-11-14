@@ -19,7 +19,7 @@ class TaskFactory:
         """
         task_name = config['task']['task_name']
         if task_name == 'PickUp':
-            if config['task']['target_object'] in config['env']['pickup_objects']:
+            if config['task']['target_object'] in config['pickup_objects']:
                 return PickupTask(**config['task'])
             else:
                 raise InvalidTaskParams('Error initializing PickUpTask. {} is not '
