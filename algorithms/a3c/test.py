@@ -11,10 +11,9 @@ from collections import deque
 
 import torch
 import torch.nn.functional as F
-from torch.autograd import Variable
 
-from envs import create_atari_env
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
+from algorithms.a3c.envs import create_atari_env
 from algorithms.a3c.model import ActorCritic
 
 
@@ -49,16 +48,16 @@ def test(rank, args, shared_model, counter):
         # Sync with the shared model
         if done:
             model.load_state_dict(shared_model.state_dict())
-            cx = Variable(torch.zeros(1, 256), volatile=True)
-            hx = Variable(torch.zeros(1, 256), volatile=True)
+            cx = torch.zeros(1, 256)
+            hx = torch.zeros(1, 256)
         else:
-            cx = Variable(cx.data, volatile=True)
-            hx = Variable(hx.data, volatile=True)
+            cx = cx.detach()
+            hx = hx.detach()
 
-        value, logit, (hx, cx) = model((Variable(state.unsqueeze(0).float(), volatile=True),
-                                        (hx, cx)))
-        prob = F.softmax(logit)
-        action = prob.max(1, keepdim=True)[1].data.numpy()
+        with torch.no_grad():
+            value, logit, (hx, cx) = model((state.unsqueeze(0).float(), (hx, cx)))
+        prob = F.softmax(logit, dim=-1)
+        action = prob.max(1, keepdim=True)[1].numpy()
 
         state, reward, done, _ = env.step(action[0, 0])
         done = done or episode_length >= args.max_episode_length

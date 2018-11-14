@@ -18,12 +18,12 @@ import os
 import torch
 import torch.multiprocessing as mp
 
-import my_optim
-from envs import create_atari_env
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
+from algorithms.a3c.envs import create_atari_env
+from algorithms.a3c import my_optim
 from algorithms.a3c.model import ActorCritic
-from test import test
-from train import train
+from algorithms.a3c.test import test
+from algorithms.a3c.train import train
 
 # Based on
 # https://github.com/pytorch/examples/tree/master/mnist_hogwild
@@ -76,9 +76,7 @@ if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
-    # TODO resolve if env wrapper/factory is needed instead of env if statements
     # TODO gym ai2thor changes (channel first (done) and remove env in config?)
-    # TODO import problem?
 
     args = parser.parse_args()
 

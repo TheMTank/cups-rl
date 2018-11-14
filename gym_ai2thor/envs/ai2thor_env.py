@@ -166,7 +166,7 @@ class AI2ThorEnv(gym.Env):
         """
         Compute image operations to generate state representation
         """
-        img = transform.resize(img, self.config['env']['resolution'])
+        img = transform.resize(img, self.config['env']['resolution'], mode='reflect')
         img = img.astype(np.float32)
         if self.observation_space.shape[0] == 1:
             img = rgb2gray(img)  # todo cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
