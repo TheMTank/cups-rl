@@ -79,7 +79,6 @@ if __name__ == '__main__':
     # TODO resolve if env wrapper/factory is needed instead of env if statements
     # TODO gym ai2thor changes (channel first (done) and remove env in config?)
     # TODO import problem?
-    # TODO add test case for each action.
 
     args = parser.parse_args()
 

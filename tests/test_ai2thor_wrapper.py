@@ -47,26 +47,34 @@ class TestAI2ThorEnv(unittest.TestCase):
 
         self.assertTrue(len(all_step_times) == num_steps)
 
-    def test_cup_picking_works(self):
+    def test_cup_task_and_interaction_actions(self):
         """
-        Check if picking up cup works and agent receives reward of 1. Also implicitly checks there
-        is no random initialisation and that the same actions in the same environment will achieve
-        the same each time.
+        Check if picking up and putting down cup works and agent receives reward of 2 for doing it
+        twice. For putting the cup down, the agent places it in the microwave and then picks it up
+        again. Also this implicitly checks there is no random initialisation and that the same
+        actions in the same environment will achieve the same reward each time.
         """
+
         actions_to_look_at_cup = ['RotateRight', 'RotateRight', 'MoveAhead', 'MoveAhead',
             'RotateRight', 'MoveAhead', 'MoveAhead', 'RotateLeft', 'MoveAhead', 'MoveAhead',
-            'MoveAhead', 'RotateLeft', 'LookDown', 'PickupObject']
+            'MoveAhead', 'RotateLeft', 'LookDown', 'PickupObject', 'PutObject', 'LookUp',
+            'MoveRight', 'OpenObject', 'PutObject', 'PickupObject', 'CloseObject']
 
-        env = AI2ThorEnv(config_dict={'env': {'scene_id': 'FloorPlan28'}})
+        env = AI2ThorEnv(config_dict={'env': {'scene_id': 'FloorPlan28',
+                                              'acceptable_receptacles': [
+                                                    'Microwave'  # the used receptacle below
+                                                ]}})
 
         for episode in range(2):  # twice to make sure no random initialisation
             env.reset()
+            rewards = []
             for action_str in actions_to_look_at_cup:
                 action = env.action_names.index(action_str)
                 state, reward, done, _ = env.step(action)
+                rewards.append(reward)
                 if done:
                     break
-            self.assertTrue(reward == 1)
+            self.assertTrue(sum(rewards) == 2)
 
     def test_config_override(self):
         """
