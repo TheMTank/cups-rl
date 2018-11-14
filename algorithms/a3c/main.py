@@ -75,8 +75,6 @@ if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
-    # TODO gym ai2thor changes (channel first (done) and remove env in config?)
-
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)

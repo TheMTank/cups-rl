@@ -31,9 +31,8 @@ def calculate_lstm_input_size_after_4_conv_layers(frame_dim, stride=2, kernel_si
 
 def normalized_columns_initializer(weights, std=1.0):
     """
-    Weights are normalized over their column. Also, allows more fine-grained control over
-    std which is useful for initialising action logits so that all actions are equally
-    probable at the start
+    Weights are normalized over their column. Also, allows control over std which is useful for
+    initialising action logit output so that all actions have similar likelihood
     """
 
     out = torch.randn(weights.size())
