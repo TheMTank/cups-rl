@@ -1,5 +1,11 @@
 """
 Adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/my_optim.py
+
+In the original A3C paper (https://arxiv.org/abs/1602.01783) the authors compared 3 different
+optimizers i.e. Momentum SGD, RMSProp and Shared RMSProp (check final part of section 4). The
+difference between the 3rd compared to the 2nd was whether to compute shared statistics across all
+threads and this was found to be more robust. It seems the equivalent was implemented for Adam
+below.
 """
 
 import math

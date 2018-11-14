@@ -22,8 +22,13 @@ the current state of the art approaches to the problem:
 - [Ikostrikov's A3C](https://github.com/ikostrikov/pytorch-a3c)
 - [Gated-Attention Architectures for Task-Oriented Language Grounding](https://arxiv.org/abs/1706.07230) 
 -- *Original code available on [DeepRL-Grounding](https://github.com/devendrachaplot/DeepRL-Grounding)* 
-and happens to use Ikostrikov's A3C as well
+also based on Ikostrikov's A3C
 
+Implementations of these can be found in the algorithms folder and a3c can be run on AI2ThorEnv with:  
+`python algorithms/a3c/main.py`
+
+Check the argparse help for more details and variations of running the algorithm with different 
+hyperparams and on the atari environment as well.
 
 ## Installation
 
@@ -104,10 +109,14 @@ class TaskFactory:
 class MoveAheadTask(BaseTask):
     def __init__(self, *args, **kwargs):
         super().__init__(kwargs)
+        self.rewards = []
 
     def transition_reward(self, state):
         reward = 1 if state.metadata['lastAction'] == 'MoveAhead' else -1 
-        done = reward > 100 or self.step_num > self.max_episode_length
+        self.rewards.append(reward)
+        done = sum(rewards) > 100 or self.step_num > self.max_episode_length
+        if done:
+            self.rewards = []
         return reward, done
 
     def reset(self):

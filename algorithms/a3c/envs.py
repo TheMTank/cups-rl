@@ -1,5 +1,8 @@
 """
-Adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/train.py
+Adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/envs.py
+
+This contains auxiliary wrappers for the atari openAI gym environment e.g. proper resizing of the
+input frame and a running average normalisation of said frame after resizing
 """
 import cv2
 import gym

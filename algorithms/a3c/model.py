@@ -1,5 +1,9 @@
 """
 Adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/model.py
+
+This code contains the main A3C model which outputs predicted value, action logits and hidden state.
+Some helper functions too for weight initialisation and dynamically computing LSTM/flatten input
+size.
 """
 
 import numpy as np
@@ -11,10 +15,11 @@ import torch.nn.functional as F
 def calculate_lstm_input_size_after_4_conv_layers(frame_dim, stride=2, kernel_size=3, padding=1,
                                      num_filters=32):
     """
-    Assumes square resolution image. Find LSTM size after 4 conv layers below in A3C. For example:
-    42x42 -> (42 − 3 + 2)÷ 2 + 1 = 21 after 1 layer
-    11 after 2 -> 6 -> and finally width 3
-    Therefore lstm input size would be (3 * 3 * num_filters)
+    Assumes square resolution image. Find LSTM size after 4 conv layers below in A3C using regular
+    Convolution math. For example:
+    42x42 -> (42 − 3 + 2)÷ 2 + 1 = 21x21 after 1 layer
+    11x11 after 2 layers -> 6x6 after 3 -> and finally 3x3 after 4 layers
+    Therefore lstm input size after flattening would be (3 * 3 * num_filters)
     """
 
     width = (frame_dim - kernel_size + 2 * padding) // stride + 1
@@ -49,9 +54,18 @@ def weights_init(m):
 
 
 class ActorCritic(torch.nn.Module):
-    def __init__(self, num_inputs, action_space, frame_dim):
+    """
+    Mainly Ikostrikov's implementation of A3C (https://arxiv.org/abs/1602.01783).
+    The algorithm processes an input image (with num_input_channels) with 4 conv layers,
+    interspersed with 4 elu activation functions. The output of the final layer is then flattened
+    and passed to an LSTM (with previous or initial hidden and cell states (hx and cx)).
+    The new hidden state is used as an input to the critic and value nn.Linear layer heads,
+    The final output is then predicted value, action logits, hx and cx.
+    """
+
+    def __init__(self, num_input_channels, action_space, frame_dim):
         super(ActorCritic, self).__init__()
-        self.conv1 = nn.Conv2d(num_inputs, 32, 3, stride=2, padding=1)
+        self.conv1 = nn.Conv2d(num_input_channels, 32, 3, stride=2, padding=1)
         self.conv2 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
         self.conv3 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
         self.conv4 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
@@ -67,10 +81,10 @@ class ActorCritic(torch.nn.Module):
 
         self.apply(weights_init)
         self.actor_linear.weight.data = normalized_columns_initializer(
-            self.actor_linear.weight.data, 0.01)
+                                            self.actor_linear.weight.data, 0.01)
         self.actor_linear.bias.data.fill_(0)
         self.critic_linear.weight.data = normalized_columns_initializer(
-            self.critic_linear.weight.data, 1.0)
+                                            self.critic_linear.weight.data, 1.0)
         self.critic_linear.bias.data.fill_(0)
 
         self.lstm.bias_ih.data.fill_(0)

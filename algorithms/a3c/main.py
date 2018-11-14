@@ -1,5 +1,13 @@
 """
 Adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/main.py
+This is the main file needed within a3c and runs of the train and test functions from
+their respective files.
+Example use case:
+`cd algorithms/a3c`
+`python main.py`
+
+This runs A3C on our AI2ThorEnv wrapper with default params (4 processes). Optionally it can be
+run on any atari environment as well with the --atari and --atari-env-name params.
 """
 
 from __future__ import print_function
@@ -13,7 +21,7 @@ import torch.multiprocessing as mp
 import my_optim
 from envs import create_atari_env
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
-from model import ActorCritic
+from algorithms.a3c.model import ActorCritic
 from test import test
 from train import train
 
@@ -37,7 +45,7 @@ parser.add_argument('--seed', type=int, default=1,
                     help='random seed (default: 1)')
 parser.add_argument('--test-sleep-time', type=int, default=200,
                     help='number of seconds to wait before testing again (default: 200)')
-parser.add_argument('--num-processes', type=int, default=1,
+parser.add_argument('--num-processes', type=int, default=4,
                     help='how many training processes to use (default: 1)')
 parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
@@ -47,9 +55,10 @@ parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
 parser.add_argument('-sync', '--synchronous', dest='synchronous', action='store_true',
                     help='Useful for debugging purposes e.g. import pdb; pdb.set_trace(). '
-                         'Overwrites args.num_processes as everything is in main thread. 1 train()')
+                         'Overwrites args.num_processes as everything is in main thread. '
+                         '1 train() function is run and no test()')
 parser.add_argument('-async', '--asynchronous', dest='synchronous', action='store_false')
-parser.set_defaults(feature=True)
+parser.set_defaults(synchronous=False)
 
 # Atari arguments. Good example of keeping code modular and allowing algorithms to run everywhere
 parser.add_argument('--atari', dest='atari', action='store_true',
@@ -69,8 +78,8 @@ if __name__ == '__main__':
 
     # TODO resolve if env wrapper/factory is needed instead of env if statements
     # TODO gym ai2thor changes (channel first (done) and remove env in config?)
-    # TODO README.md
-    # TODO docstrings at the top of the file and import problem?
+    # TODO import problem?
+    # TODO add test case for each action.
 
     args = parser.parse_args()
 

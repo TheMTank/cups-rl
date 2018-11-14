@@ -1,5 +1,16 @@
 """
-Adapted from https://github.com/ikostrikov/pytorch-a3c
+Adapted from https://github.com/ikostrikov/pytorch-a3c/blob/master/train.py
+
+This contains the train code run by each A3C process on either Atari or AI2ThorEnv.
+For initialisation, we set up the environment, seeds, shared model and optimizer.
+In the main training loop, we always ensure the weights of the current model are equal to the
+shared model. Then the algorithm interacts with the environment args.num_steps at a time,
+i.e it sends an action to the env for each state and stores predicted values, rewards, log probs
+and entropies to be used for loss calculation and backpropagation.
+After args.num_steps has passed, we calculate advantages, value losses and policy losses using
+Generalized Advantage Estimation (GAE) with the entropy loss added onto policy loss to encourage
+exploration. Once these losses have been calculated, we add them all together, backprop to find all
+gradients and then optimise with Adam and we go back to the start of the main training loop.
 """
 
 import torch
@@ -9,7 +20,7 @@ from torch.autograd import Variable
 
 from envs import create_atari_env
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
-from model import ActorCritic
+from algorithms.a3c.model import ActorCritic
 
 
 def ensure_shared_grads(model, shared_model):

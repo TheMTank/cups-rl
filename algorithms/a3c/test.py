@@ -1,5 +1,9 @@
 """
-Adapted from https://github.com/ikostrikov/pytorch-a3c
+Adapted from https://github.com/ikostrikov/pytorch-a3c/blob/master/test.py
+
+This code contains the testing loop of the shared model within A3C (no optimisation/backprop needed)
+Usually this is run concurrently while training occurs and is useful for tracking progress. But to
+save resources we can choose to only test every args.test_sleep_time seconds.
 """
 
 import time
@@ -11,7 +15,7 @@ from torch.autograd import Variable
 
 from envs import create_atari_env
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
-from model import ActorCritic
+from algorithms.a3c.model import ActorCritic
 
 
 def test(rank, args, shared_model, counter):
@@ -69,7 +73,7 @@ def test(rank, args, shared_model, counter):
             done = True
 
         if done:
-            print("Time {}, num steps {}, FPS {:.0f}, episode reward {}, episode length {}".format(
+            print("Time {}, num steps over all threads {}, FPS {:.0f}, episode reward {}, episode length {}".format(
                 time.strftime("%Hh %Mm %Ss",
                               time.gmtime(time.time() - start_time)),
                 counter.value, counter.value / (time.time() - start_time),
