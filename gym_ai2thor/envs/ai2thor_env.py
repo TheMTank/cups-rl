@@ -175,6 +175,7 @@ class AI2ThorEnv(gym.Env):
         img = img.astype(np.float32)
         if self.observation_space.shape[0] == 1:
             img = rgb2gray(img)  # todo cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img = np.moveaxis(img, 2, 0)
         return img
 
     def reset(self):
@@ -184,7 +185,7 @@ class AI2ThorEnv(gym.Env):
                                                renderDepthImage=True, renderClassImage=True,
                                                renderObjectImage=True))
         self.task.reset()
-        state = self.preprocess(self.event.frame)
+        state = self.preprocess(self.event.frame) # TODO: reset state puts the channel at the beginning!
         return state
 
     def render(self, mode='human'):

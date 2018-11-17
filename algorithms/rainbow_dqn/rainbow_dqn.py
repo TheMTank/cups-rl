@@ -125,7 +125,7 @@ def compute_td_loss(batch_size):
     reward = torch.FloatTensor(reward)
     done = torch.FloatTensor(np.float32(done))
 
-    next_state = next_state.unsqueeze(1).float()
+    next_state = next_state.float()
     proj_dist = projection_distribution(next_state, reward, done)
 
     dist = pred_net(state)
@@ -222,7 +222,7 @@ class RainbowCnnDQN(nn.Module):
 if __name__ == '__main__':
     USE_CUDA = torch.cuda.is_available()
     # Initialize ai2thor environment
-    env = AI2ThorEnv(config_dict={'env': {'resolution': (128, 128)}})
+    env = AI2ThorEnv(config_dict={'resolution': (128, 128), 'grayscale': False})
     max_episode_length = env.task.max_episode_length
 
 
@@ -232,9 +232,8 @@ if __name__ == '__main__':
     # Initialize RainbowDQN prediction and target networks (including replay buffer)
     num_atoms, Vmin, Vmax = 51, -10, 10
 
-    observation_shape = (env.observation_space.shape[2], env.observation_space.shape[1], env.observation_space.shape[0])
-    pred_net = RainbowCnnDQN(observation_shape, env.action_space.n, num_atoms, Vmin, Vmax)
-    trgt_net = RainbowCnnDQN(observation_shape, env.action_space.n, num_atoms, Vmin, Vmax)
+    pred_net = RainbowCnnDQN(env.observation_space.shape, env.action_space.n, num_atoms, Vmin, Vmax)
+    trgt_net = RainbowCnnDQN(env.observation_space.shape, env.action_space.n, num_atoms, Vmin, Vmax)
 
     if USE_CUDA:
         pred_net = pred_net.cuda()
@@ -250,7 +249,7 @@ if __name__ == '__main__':
     for episode in range(N_EPISODES):
         state = env.reset()
         for step_num in range(max_episode_length):
-            state = torch.from_numpy(state).unsqueeze(0).float()
+            state = torch.from_numpy(state).float()
             action = pred_net.act(state)
             print(env.action_names[action])
             next_state, reward, done, _ = env.step(action)
