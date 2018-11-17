@@ -14,25 +14,23 @@ def read_config(config_path, config_dict=None):
     overwritten with the config_dict. Full example below:
 
     {
-        "env": {
-            "interaction": true,
-            "pickup_objects": [
-                "Mug",
-                "Apple",
-                "Book"
-            ],
-            "acceptable_receptacles": [
-                "CounterTop",
-                "TableTop",
-                "Sink"
-            ],
-            "openable_objects": [
-                "Microwave"
-            ],
-            "scene_id": "FloorPlan28",
-            "grayscale": true,
-            "resolution": [128, 128]
-        },
+        "pickup_put_interaction": true,
+        "pickup_objects": [
+            "Mug",
+            "Apple",
+            "Book"
+        ],
+        "acceptable_receptacles": [
+            "CounterTop",
+            "TableTop",
+            "Sink"
+        ],
+        "openable_objects": [
+            "Microwave"
+        ],
+        "scene_id": "FloorPlan28",
+        "grayscale": true,
+        "resolution": [128, 128],
         "task": {
             "task_name": "PickUp",
             "target_object": "Mug"
@@ -48,16 +46,21 @@ def read_config(config_path, config_dict=None):
         raise error.Error('No config file found at: {}. Exiting'.format(config_path))
 
     if config_dict:
-        high_level_keys = [x for x in ['env', 'task'] if x in config_dict]
-        if not high_level_keys:
-            raise error.Error('keys "env" or "task" were not found in config_dict'.
-                              format(config_path))
-        for high_level_key in high_level_keys:
-            for key in config_dict[high_level_key]:
-                if key in config[high_level_key]:
-                    warnings.warn('Key: {} already in config file for {}. Overwriting with value: '
-                                  '{}'.format(key, high_level_key, config_dict[high_level_key][key]))
-                config[high_level_key][key] = config_dict[high_level_key][key]
+        for key in config_dict:
+            # if key is task, need to loop through inner task obj and check for overwrites
+            if key == 'task':
+                for task_key in config_dict[key]:
+                    if task_key in config[key]:
+                        warnings.warn('Key: [\'{}\'][\'{}\'] already in config file with value {}. '
+                                      'Overwriting with value: {}'.format(key, task_key,
+                                                config[key][task_key], config_dict[key][task_key]))
+                        config[key][task_key] = config_dict[key][task_key]
+            # else just a regular check
+            elif key in config:
+                warnings.warn('Key: {} already in config file with value {}. '
+                              'Overwriting with value: {}'.format(key, config[key],
+                                                                  config_dict[key]))
+                config[key] = config_dict[key]
 
     return config
 

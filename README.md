@@ -19,9 +19,16 @@ More detailed information on ai2thor environment can be found on their
 This project will include implementations and adaptations of the following papers as a benchmark of 
 the current state of the art approaches to the problem:
 
+- [Ikostrikov's A3C](https://github.com/ikostrikov/pytorch-a3c)
 - [Gated-Attention Architectures for Task-Oriented Language Grounding](https://arxiv.org/abs/1706.07230) 
--- *Original code available on [DeepRL-Grounding](https://github.com/devendrachaplot/DeepRL-Grounding)*
+-- *Original code available on [DeepRL-Grounding](https://github.com/devendrachaplot/DeepRL-Grounding)* 
+also based on Ikostrikov's A3C
 
+Implementations of these can be found in the algorithms folder and a3c can be run on AI2ThorEnv with:  
+`python algorithms/a3c/main.py`
+
+Check the argparse help for more details and variations of running the algorithm with different 
+hyperparams and on the atari environment as well.
 
 ## Installation
 
@@ -60,19 +67,20 @@ for episode in range(N_EPISODES):
 
 ### Environment and Task configurations
 
-The environment is typically defined by a JSON configuration file located on the `envs/config` 
+The environment is typically defined by a JSON configuration file located on the `gym_ai2thor/config_files` 
 folder. You can find an example `config_example.json` to see how to customize it. Here there is one
 as well:
 
 ```
-# envs/configs/myconfig.json
-{'env': {'interaction': True,
-         'pickup_objects': ['Mug', 'Apple', 'Book'],
-         'acceptable_receptacles': ['CounterTop', 'TableTop', 'Sink'],
-         'openable_objects': ['Microwave'],
-         'scene_id': 'FloorPlan28',
-         'grayscale': True,
-         'resolution': (300, 300)},
+# gym_ai2thor/config_files/myconfig.json
+{'pickup_put_interaction': True,
+ 'open_close_interaction': true,
+ 'pickup_objects': ['Mug', 'Apple', 'Book'],
+ 'acceptable_receptacles': ['CounterTop', 'TableTop', 'Sink'],
+ 'openable_objects': ['Microwave'],
+ 'scene_id': 'FloorPlan28',
+ 'grayscale': True,
+ 'resolution': (300, 300),
  'task': {'task_name': 'PickUp',
           'target_object': 'Mug'}} 
  ```
@@ -101,21 +109,25 @@ class TaskFactory:
 class MoveAheadTask(BaseTask):
     def __init__(self, *args, **kwargs):
         super().__init__(kwargs)
+        self.rewards = []
 
     def transition_reward(self, state):
-        reward = -1 if state.metadata['lastAction'] == 'MoveAhead' else 1 
-        done = reward > 100 or self.max_episode_length
+        reward = 1 if state.metadata['lastAction'] == 'MoveAhead' else -1 
+        self.rewards.append(reward)
+        done = sum(rewards) > 100 or self.step_num > self.max_episode_length
+        if done:
+            self.rewards = []
         return reward, done
 
     def reset(self):
         self.step_num = 0
 ``` 
 
-We encouarge you to explore the scripts on the `examples` folder to guide you on the wrapper
+We encourage you to explore the scripts on the `examples` folder to guide you on the wrapper
  functionalities and explore how to create more customized versions of ai2thor environments and 
  tasks. 
 
-Here is the result of an example task in which the goal of the agent is to place a cup in the 
+Here is the desired result of an example task in which the goal of the agent is to place a cup in the 
 microwave.
 
 <div align="center">

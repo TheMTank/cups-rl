@@ -44,34 +44,38 @@ class AI2ThorEnv(gym.Env):
         """
         # Loads config settings from file
         self.config = read_config(config_file, config_dict)
-        self.scene_id = self.config['env']['scene_id']
+        self.scene_id = self.config['scene_id']
         # Randomness settings
         self.np_random = None
         if seed:
             self.seed(seed)
-        # Create task from config
-        self.task = TaskFactory.create_task(self.config)
         # Object settings
         # acceptable objects taken from config file.
-        if self.config['env']['interaction']:
-            self.objects = {'pickupables': self.config['env']['pickup_objects'],
-                            'receptacles': self.config['env']['acceptable_receptacles'],
-                            'openables':   self.config['env']['openable_objects']}
+        if self.config['pickup_put_interaction'] or \
+                            self.config['open_close_interaction']:
+            self.objects = {'pickupables': self.config['pickup_objects'],
+                            'receptacles': self.config['acceptable_receptacles'],
+                            'openables':   self.config['openable_objects']}
         # Action settings
-        if self.config['env']['interaction']:
-            self.action_names = tuple(ALL_POSSIBLE_ACTIONS.copy())
-        else:
-            self.action_names = tuple([action for action in ALL_POSSIBLE_ACTIONS
-                                       if not action.endswith('Object')])
-            # interactions end in 'Object'
+        self.action_names = tuple(ALL_POSSIBLE_ACTIONS.copy())
+        # remove open/close and pickup/put actions if respective interaction bool is set to False
+        if not self.config['open_close_interaction']:
+            # Don't allow opening and closing if set to False
+            self.action_names = tuple([action_name for action_name in self.action_names if 'Open'
+                                       not in action_name and 'Close' not in action_name])
+        if not self.config['pickup_put_interaction']:
+            self.action_names = tuple([action_name for action_name in self.action_names if 'Pickup'
+                                       not in action_name and 'Put' not in action_name])
         self.action_space = spaces.Discrete(len(self.action_names))
         # Image settings
         self.event = None
-        channels = 1 if self.config['env']['grayscale'] else 3
+        channels = 1 if self.config['grayscale'] else 3
         self.observation_space = spaces.Box(low=0, high=255,
-                                            shape=(self.config['env']['resolution'][0],
-                                                   self.config['env']['resolution'][1], channels),
+                                            shape=(channels, self.config['resolution'][0],
+                                                   self.config['resolution'][1]),
                                             dtype=np.uint8)
+        # Create task from config
+        self.task = TaskFactory.create_task(self.config)
         # Start ai2thor
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
@@ -93,16 +97,16 @@ class AI2ThorEnv(gym.Env):
                 for obj in visible_objects:
                     # look for closest receptacle to put object from inventory
                     if obj['receptacle'] and obj['distance'] < distance \
-                        and obj in self.objects['receptacles'] \
+                        and obj['objectType'] in self.objects['receptacles'] \
                             and len(obj['receptacleObjectIds']) < obj['receptacleCount']:
                         closest_receptacle = obj
                         distance = closest_receptacle['distance']
                 if self.event.metadata['inventoryObjects'] and closest_receptacle:
                     interaction_obj = closest_receptacle
                     self.event = self.controller.step(
-                        dict(action=action_str,
-                             objectId=self.event.metadata['inventoryObjects'][0],
-                             receptacleObjectId=interaction_obj['objectId']))
+                            dict(action=action_str,
+                                 objectId=self.event.metadata['inventoryObjects'][0]['objectId'],
+                                 receptacleObjectId=interaction_obj['objectId']))
             elif action_str == 'PickupObject':
                 closest_pickupable = None
                 for obj in visible_objects:
@@ -113,8 +117,7 @@ class AI2ThorEnv(gym.Env):
                 if closest_pickupable and not self.event.metadata['inventoryObjects']:
                     interaction_obj = closest_pickupable
                     self.event = self.controller.step(
-                        dict(action=action_str,
-                             objectId=interaction_obj['objectId']))
+                        dict(action=action_str, objectId=interaction_obj['objectId']))
             elif action_str == 'OpenObject':
                 closest_openable = None
                 for obj in visible_objects:
@@ -146,8 +149,13 @@ class AI2ThorEnv(gym.Env):
             if interaction_obj and verbose:
                 inventory_after = self.event.metadata['inventoryObjects'][0]['objectType'] \
                     if self.event.metadata['inventoryObjects'] else []
-                print('{}: {}. Inventory before/after: {}/{}'.format(
-                    action_str, interaction_obj['objectType'], inventory_before, inventory_after))
+                if action_str in ['PutObject', 'PickupObject']:
+                    inventory_changed_str = 'Inventory before/after: {}/{}.'.format(
+                                                            inventory_before, inventory_after)
+                else:
+                    inventory_changed_str = ''
+                print('{}: {}. {}'.format(
+                    action_str, interaction_obj['objectType'], inventory_changed_str))
         else:
             # Move, Look or Rotate actions
             self.event = self.controller.step(dict(action=action_str))
@@ -163,9 +171,9 @@ class AI2ThorEnv(gym.Env):
         """
         Compute image operations to generate state representation
         """
-        img = transform.resize(img, self.config['env']['resolution'])
+        img = transform.resize(img, self.config['resolution'], mode='reflect')
         img = img.astype(np.float32)
-        if self.observation_space.shape[-1] == 1:
+        if self.observation_space.shape[0] == 1:
             img = rgb2gray(img)  # todo cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         return img
 
@@ -190,7 +198,7 @@ class AI2ThorEnv(gym.Env):
         return seed1
 
     def close(self):
-        pass
+        self.controller.stop()
 
 
 if __name__ == '__main__':
