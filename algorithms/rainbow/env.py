@@ -3,9 +3,11 @@ import random
 import atari_py
 import torch
 import cv2  # Note that importing cv2 before torch may cause segfaults?
+import gym
+from gym import spaces
 
 
-class Env():
+class Env:
     def __init__(self, args):
         self.device = args.device
         self.ale = atari_py.ALEInterface()
@@ -17,6 +19,7 @@ class Env():
         self.ale.loadROM(atari_py.get_game_path(args.game))  # ROM loading must be done after setting options
         actions = self.ale.getMinimalActionSet()
         self.actions = dict([i, e] for i, e in zip(range(len(actions)), actions))
+        self.action_space = spaces.Discrete(len(self.actions))
         self.lives = 0  # Life counter (used in DeepMind training)
         self.life_termination = False  # Used to check if resetting only from loss of life
         self.window = args.history_length  # Number of frames to concatenate
@@ -72,8 +75,9 @@ class Env():
                 self.life_termination = not done  # Only set flag when not truly done
                 done = True
             self.lives = lives
-        # Return state, reward, done
-        return torch.stack(list(self.state_buffer), 0), reward, done
+        info = None
+        # Return state, reward, done, info
+        return torch.stack(list(self.state_buffer), 0), reward, done, info
 
     # Uses loss of life as terminal signal
     def train(self):
@@ -83,12 +87,46 @@ class Env():
     def eval(self):
         self.training = False
 
-    def action_space(self):
-        return len(self.actions)
-
     def render(self):
         cv2.imshow('screen', self.ale.getScreenRGB()[:, :, ::-1])
         cv2.waitKey(1)
 
     def close(self):
         cv2.destroyAllWindows()
+
+
+class MultipleStepsEnv(gym.Wrapper):
+    """
+    Wraps gym environment to execute history_length steps every time its step function is called
+    :param environment:
+    :return:
+    """
+    def __init__(self, env, n_steps, device):
+        gym.Wrapper.__init__(self, env)
+        self.env = env
+        self.n_steps = n_steps
+        self.device = device
+        h, w = self.env.config['resolution'][0], self.env.config['resolution'][1]
+        self.frame_buffer = torch.zeros((2, h, w), device=self.device, dtype=torch.float32)
+        self.state_buffer = deque([], maxlen=n_steps)
+
+    def step(self, action):
+        # Repeat action n_step times, max pool over last 2 frames
+        reward, done, info = 0, False, {}
+        for t in range(self.n_steps):
+            state, reward, done, info = self.env.step(action)
+            if t == self.n_steps - 2:
+                self.frame_buffer[0] = torch.from_numpy(state)
+            elif t == self.n_steps - 1:
+                self.frame_buffer[1] = torch.from_numpy(state)
+            if done:
+                break
+        observation = self.frame_buffer.max(0)[0]
+        self.state_buffer.append(observation)
+        # Return state, reward, done, info
+        return torch.stack(list(self.state_buffer), 0), reward, done, info
+
+    def reset(self):
+        _ = self.env.reset()
+        state, _, _, _ = self.step(self.env.action_space.sample())
+        return state

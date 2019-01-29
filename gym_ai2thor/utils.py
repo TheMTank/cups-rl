@@ -64,6 +64,7 @@ def read_config(config_path, config_dict=None):
 
     return config
 
+
 class InvalidTaskParams(Exception):
     """
     Raised when the user inputs the wrong parameters for creating a task.

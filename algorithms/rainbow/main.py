@@ -7,16 +7,17 @@ import random
 import torch
 
 from algorithms.rainbow.agent import Agent
-from algorithms.rainbow.env import Env
+from algorithms.rainbow.env import Env, MultipleStepsEnv
 from algorithms.rainbow.memory import ReplayMemory
 from algorithms.rainbow.test import test
 
+from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Rainbow')
     parser.add_argument('--seed', type=int, default=123, help='Random seed')
     parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
-    parser.add_argument('--game', type=str, default='space_invaders', help='ATARI game')
+    parser.add_argument('--game', type=str, default='ai2thor', help='ATARI game')  # space_invaders
     parser.add_argument('--T-max', type=int, default=int(50e6), metavar='STEPS',
                         help='Number of training steps (4x number of frames)')
     parser.add_argument('--max-episode-length', type=int, default=int(108e3), metavar='LENGTH',
@@ -34,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--V-max', type=float, default=10, metavar='V',
                         help='Maximum of value distribution support')
     parser.add_argument('--model', type=str, metavar='PARAMS', help='Pretrained model (state dict)')
-    parser.add_argument('--memory-capacity', type=int, default=int(1e6), metavar='CAPACITY',
+    parser.add_argument('--memory-capacity', type=int, default=int(1e3), metavar='CAPACITY',
                         help='Experience replay memory capacity')
     parser.add_argument('--replay-frequency', type=int, default=4, metavar='k',
                         help='Frequency of sampling from memory')
@@ -67,7 +68,8 @@ if __name__ == '__main__':
                         help='Number of transitions to use for validating Q')
     parser.add_argument('--log-interval', type=int, default=25000, metavar='STEPS',
                         help='Number of training steps between logging status')
-    parser.add_argument('--render', action='store_true', help='Display screen (testing only)')
+    parser.add_argument('--render', action='store_true', default=False,
+                        help='Display screen (testing only)')
 
     # Setup
     args = parser.parse_args()
@@ -77,10 +79,12 @@ if __name__ == '__main__':
     random.seed(args.seed)
     torch.manual_seed(random.randint(1, 10000))
     if torch.cuda.is_available() and not args.disable_cuda:
-        args.device = torch.device('cuda')
-        torch.cuda.manual_seed(random.randint(1, 10000))
-        # Disable non deterministic ops (not sure if critical but better safe than sorry)
-        torch.backends.cudnn.enabled = False
+        # TODO: Use with cuda doesn't work
+        raise NotImplementedError('CUDA capabilities not implemented')
+        # args.device = torch.device('cuda')
+        # torch.cuda.manual_seed(random.randint(1, 10000))
+        # # Disable non deterministic ops (not sure if critical but better safe than sorry)
+        # torch.backends.cudnn.enabled = False
     else:
         args.device = torch.device('cpu')
 
@@ -89,9 +93,12 @@ if __name__ == '__main__':
         print('[' + str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S')) + '] ' + s)
 
     # Environment
-    env = Env(args)
-    env.train()
-    action_space = env.action_space()
+    if args.game == 'ai2thor':
+        env = MultipleStepsEnv(AI2ThorEnv(), args.history_length, args.device)
+    else:
+        env = Env(args)
+        env.train()
+    action_space = env.action_space
 
     # Agent
     dqn = Agent(args, env)
@@ -104,8 +111,9 @@ if __name__ == '__main__':
     while T < args.evaluation_size:
         if done:
             state, done = env.reset(), False
-
-        next_state, _, done = env.step(random.randint(0, action_space - 1))
+            # state = torch.FloatTensor(state)
+        next_state, _, done, _ = env.step(env.action_space.sample())
+        # next_state = torch.FloatTensor(next_state)
         val_mem.append(state, None, None, done)
         state = next_state
         T += 1
@@ -121,12 +129,13 @@ if __name__ == '__main__':
         while T < args.T_max:
             if done:
                 state, done = env.reset(), False
-
+                # state = torch.FloatTensor(state)
             if T % args.replay_frequency == 0:
                 dqn.reset_noise()  # Draw a new set of noisy weights
 
             action = dqn.act(state)  # Choose an action greedily (with noisy weights)
-            next_state, reward, done = env.step(action)  # Step
+            next_state, reward, done, _ = env.step(action)  # Step
+            # 99next_state = torch.FloatTensor(next_state)
             if args.reward_clip > 0:
                 reward = max(min(reward, args.reward_clip), -args.reward_clip)  # Clip rewards
             mem.append(state, action, reward, done)  # Append transition to memory

@@ -29,23 +29,23 @@ class RainbowDQN(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, 4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, 3)
         # Dueling branches with Noisy layers
-        self.fc_h_v = NoisyLinear(3136, args.hidden_size, std_init=args.noisy_std)
+        self.fc_h_v = NoisyLinear(9216, args.hidden_size, std_init=args.noisy_std)
         self.fc_z_v = NoisyLinear(args.hidden_size, self.atoms, std_init=args.noisy_std)
 
-        self.fc_h_a = NoisyLinear(3136, args.hidden_size, std_init=args.noisy_std)
-        self.fc_z_a = NoisyLinear(args.hidden_size, action_space * self.atoms,
+        self.fc_h_a = NoisyLinear(9216, args.hidden_size, std_init=args.noisy_std)
+        self.fc_z_a = NoisyLinear(args.hidden_size, action_space.n * self.atoms,
                                   std_init=args.noisy_std)
 
     def forward(self, x, log=False):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
-        x = x.view(-1, 3136)
+        x = x.view(-1, 9216)
 
-        v = self.fc_z_val(F.relu(self.fc_h_v(x)))  # Value stream
+        v = self.fc_z_v(F.relu(self.fc_h_v(x)))  # Value stream
         v = v.view(-1, 1, self.atoms)
-        a = self.fc_z_adv(F.relu(self.fc_h_a(x)))  # Advantage stream
-        a = a.view(-1, self.action_space, self.atoms)
+        a = self.fc_z_a(F.relu(self.fc_h_a(x)))  # Advantage stream
+        a = a.view(-1, self.action_space.n, self.atoms)
         q = v + a - a.mean(1, keepdim=True)  # Combine streams
 
         if log:  # Use log softmax for numerical stability

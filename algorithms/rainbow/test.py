@@ -1,10 +1,10 @@
 import os
-import plotly
-from plotly.graph_objs import Scatter
-from plotly.graph_objs.scatter import Line
+# import plotly
+# from plotly.graph_objs import Scatter
+# from plotly.graph_objs.scatter import Line
 import torch
 
-from env import Env
+from algorithms.rainbow.env import Env
 
 
 # Globals

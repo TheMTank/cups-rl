@@ -185,7 +185,7 @@ class AI2ThorEnv(gym.Env):
                                                renderDepthImage=True, renderClassImage=True,
                                                renderObjectImage=True))
         self.task.reset()
-        state = self.preprocess(self.event.frame) # TODO: reset state puts the channel at the beginning!
+        state = self.preprocess(self.event.frame)
         return state
 
     def render(self, mode='human'):

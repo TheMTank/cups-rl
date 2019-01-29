@@ -63,7 +63,7 @@ class SegmentTree:
         return self.sum_tree[0]
 
 
-class ReplayMemory():
+class ReplayMemory:
     def __init__(self, args, capacity):
         self.device = args.device
         self.capacity = capacity
