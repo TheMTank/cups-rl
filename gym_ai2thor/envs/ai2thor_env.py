@@ -74,10 +74,20 @@ class AI2ThorEnv(gym.Env):
                                             shape=(channels, self.config['resolution'][0],
                                                    self.config['resolution'][1]),
                                             dtype=np.uint8)
+        # ai2thor initialise settings
+        self.scene_id = 'FloorPlan1'  # todo overriding above!
+        self.cameraY = self.config.get('cameraY', -0.85)  # todo
+        self.gridSize = self.config.get('gridSize', 0.01)  # todo?
+        # rotation settings
+        self.incremental_rotation_mode = self.config.get('incremental_rotation', True)  # todo change
+        self.absolute_rotation = 0.0
+        self.rotation_amount = 10.0
         # Create task from config
         self.task = TaskFactory.create_task(self.config)
         # Start ai2thor
         self.controller = ai2thor.controller.Controller()
+        self.controller.local_executable_path = self.config.get('build_path',
+            '/home/beduffy/all_projects/ai2thor/unity/build-test.x86_64')
         self.controller.start()
 
     def step(self, action, verbose=True):
@@ -156,8 +166,23 @@ class AI2ThorEnv(gym.Env):
                     inventory_changed_str = ''
                 print('{}: {}. {}'.format(
                     action_str, interaction_obj['objectType'], inventory_changed_str))
+        elif 'Rotate' in action_str:
+            import pdb;pdb.set_trace()
+            if self.incremental_rotation_mode:
+                # Rotate actions
+                if 'Left' in action_str:
+                    self.absolute_rotation -= self.rotation_amount
+                    self.event = self.controller.step(
+                        dict(action='Rotate', rotation=self.absolute_rotation))
+                elif 'Right' in action_str:
+                    self.absolute_rotation += self.rotation_amount
+                    self.event = self.controller.step(
+                        dict(action='Rotate', rotation=self.absolute_rotation))
+            else:
+                # Do normal RotateLeft command
+                self.event = self.controller.step(dict(action=action_str))
         else:
-            # Move, Look or Rotate actions
+            # Move and Look actions
             self.event = self.controller.step(dict(action=action_str))
 
         self.task.step_num += 1
@@ -180,9 +205,9 @@ class AI2ThorEnv(gym.Env):
     def reset(self):
         print('Resetting environment and starting new episode')
         self.controller.reset(self.scene_id)
-        self.event = self.controller.step(dict(action='Initialize', gridSize=0.25,
-                                               renderDepthImage=True, renderClassImage=True,
-                                               renderObjectImage=True))
+        self.event = self.controller.step(dict(action='Initialize', gridSize=self.gridSize,
+                                               cameraY=self.cameraY, renderDepthImage=True,
+                                               renderClassImage=True, renderObjectImage=True))
         self.task.reset()
         state = self.preprocess(self.event.frame)
         return state
