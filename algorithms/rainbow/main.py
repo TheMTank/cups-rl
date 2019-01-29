@@ -35,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--V-max', type=float, default=10, metavar='V',
                         help='Maximum of value distribution support')
     parser.add_argument('--model', type=str, metavar='PARAMS', help='Pretrained model (state dict)')
-    parser.add_argument('--memory-capacity', type=int, default=int(1e3), metavar='CAPACITY',
+    parser.add_argument('--memory-capacity', type=int, default=int(1e7), metavar='CAPACITY',
                         help='Experience replay memory capacity')
     parser.add_argument('--replay-frequency', type=int, default=4, metavar='k',
                         help='Frequency of sampling from memory')
@@ -47,7 +47,7 @@ if __name__ == '__main__':
                         help='Number of steps for multi-step return')
     parser.add_argument('--discount', type=float, default=0.99, metavar='γ',
                         help='Discount factor')
-    parser.add_argument('--target-update', type=int, default=int(32e3), metavar='τ',
+    parser.add_argument('--target-update', type=int, default=int(1e2), metavar='τ',  # 32e3
                         help='Number of steps after which to update target network')
     parser.add_argument('--reward-clip', type=int, default=1, metavar='VALUE',
                         help='Reward clipping (0 to disable)')
@@ -57,14 +57,14 @@ if __name__ == '__main__':
                         help='Adam epsilon')
     parser.add_argument('--batch-size', type=int, default=32, metavar='SIZE',
                         help='Batch size')
-    parser.add_argument('--learn-start', type=int, default=int(80e3), metavar='STEPS',
+    parser.add_argument('--learn-start', type=int, default=int(2e2), metavar='STEPS',  # 80e3
                         help='Number of steps before starting training')
     parser.add_argument('--evaluate', action='store_true', help='Evaluate only')
     parser.add_argument('--evaluation-interval', type=int, default=100000, metavar='STEPS',
                         help='Number of training steps between evaluations')
     parser.add_argument('--evaluation-episodes', type=int, default=10, metavar='N',
                         help='Number of evaluation episodes to average over')
-    parser.add_argument('--evaluation-size', type=int, default=500, metavar='N',
+    parser.add_argument('--evaluation-size', type=int, default=50, metavar='N',  # 500
                         help='Number of transitions to use for validating Q')
     parser.add_argument('--log-interval', type=int, default=25000, metavar='STEPS',
                         help='Number of training steps between logging status')
@@ -79,12 +79,10 @@ if __name__ == '__main__':
     random.seed(args.seed)
     torch.manual_seed(random.randint(1, 10000))
     if torch.cuda.is_available() and not args.disable_cuda:
-        # TODO: Use with cuda doesn't work
-        raise NotImplementedError('CUDA capabilities not implemented')
-        # args.device = torch.device('cuda')
-        # torch.cuda.manual_seed(random.randint(1, 10000))
-        # # Disable non deterministic ops (not sure if critical but better safe than sorry)
-        # torch.backends.cudnn.enabled = False
+        args.device = torch.device('cuda')
+        torch.cuda.manual_seed(random.randint(1, 10000))
+        # Disable non deterministic ops (not sure if critical but better safe than sorry)
+        torch.backends.cudnn.enabled = False
     else:
         args.device = torch.device('cpu')
 
@@ -111,9 +109,7 @@ if __name__ == '__main__':
     while T < args.evaluation_size:
         if done:
             state, done = env.reset(), False
-            # state = torch.FloatTensor(state)
         next_state, _, done, _ = env.step(env.action_space.sample())
-        # next_state = torch.FloatTensor(next_state)
         val_mem.append(state, None, None, done)
         state = next_state
         T += 1
@@ -126,16 +122,18 @@ if __name__ == '__main__':
         # Training loop
         dqn.train()
         T, done = 0, True
+
         while T < args.T_max:
+            print("Iteration {}".format(T))
+
             if done:
                 state, done = env.reset(), False
-                # state = torch.FloatTensor(state)
             if T % args.replay_frequency == 0:
                 dqn.reset_noise()  # Draw a new set of noisy weights
 
             action = dqn.act(state)  # Choose an action greedily (with noisy weights)
+            print(env.env.action_names[action])
             next_state, reward, done, _ = env.step(action)  # Step
-            # 99next_state = torch.FloatTensor(next_state)
             if args.reward_clip > 0:
                 reward = max(min(reward, args.reward_clip), -args.reward_clip)  # Clip rewards
             mem.append(state, action, reward, done)  # Append transition to memory
@@ -150,6 +148,7 @@ if __name__ == '__main__':
                 mem.priority_weight = min(mem.priority_weight + priority_weight_increase, 1)
 
                 if T % args.replay_frequency == 0:
+                    print("learn")
                     dqn.learn(mem)  # Train with n-step distributional double-Q learning
 
                 if T % args.evaluation_interval == 0:
@@ -161,7 +160,7 @@ if __name__ == '__main__':
 
                 # Update target network
                 if T % args.target_update == 0:
+                    print("update")
                     dqn.update_target_net()
-
             state = next_state
     env.close()
