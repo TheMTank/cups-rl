@@ -79,7 +79,7 @@ class ActorCritic(torch.nn.Module):
         # assumes square image
         self.lstm_cell_size = calculate_lstm_input_size_after_4_conv_layers(frame_dim)
 
-        self.lstm = nn.LSTMCell(self.lstm_cell_size, 256)  # for 128x128 input
+        self.lstm = nn.LSTMCell(self.lstm_cell_size, 256)  # for any square input
 
         self.critic_linear = nn.Linear(256, 1)
         self.actor_linear = nn.Linear(256, num_outputs)

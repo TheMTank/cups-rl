@@ -13,13 +13,16 @@ exploration. Once these losses have been calculated, we add them all together, b
 gradients and then optimise with Adam and we go back to the start of the main training loop.
 """
 
+import time
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 from algorithms.a3c.envs import create_atari_env
-from algorithms.a3c.model import ActorCritic
+from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
 
 
 def ensure_shared_grads(model, shared_model):
@@ -36,11 +39,13 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     if args.atari:
         env = create_atari_env(args.atari_env_name)
     else:
-        args.config_dict = {'max_episode_length': args.max_episode_length}
         env = AI2ThorEnv(config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
-    model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
+    if args.natural_language:
+        model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
+    else:
+        model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
 
     if optimizer is None:
         optimizer = optim.Adam(shared_model.parameters(), lr=args.lr)
@@ -49,6 +54,13 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
     state = env.reset()
     state = torch.from_numpy(state)
+    # (image, instruction) = env.reset()
+    # instruction_idx = []
+    # for word in instruction.split(" "):
+    #     instruction_idx.append(env.word_to_idx[word])
+    # instruction_idx = np.array(instruction_idx)
+    # image = torch.from_numpy(image)
+    # instruction_idx = torch.from_numpy(instruction_idx).view(1, -1)
     done = True
 
     # monitoring
@@ -56,9 +68,14 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     episode_total_rewards_list = []
     all_rewards_in_episode = []
     avg_reward_for_num_steps_list = []
+    episode_lengths = []
+    p_losses = []
+    v_losses = []
 
+    start = time.time()
     total_length = 0
     episode_length = 0
+    num_backprops = 0
     while True:
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
@@ -74,6 +91,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         rewards = []
         entropies = []
 
+        interaction_start_time = time.time()
         for step in range(args.num_steps):
             episode_length += 1
             total_length += 1
@@ -88,6 +106,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
             action_int = action.numpy()[0][0].item()
             state, reward, done, _ = env.step(action_int)
+            # (image, _), reward, done = env.step(action)
 
             done = done or episode_length >= args.max_episode_length
 

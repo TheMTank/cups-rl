@@ -19,10 +19,10 @@ More detailed information on ai2thor environment can be found on their
 This project will include implementations and adaptations of the following papers as a benchmark of 
 the current state of the art approaches to the problem:
 
-- [Ikostrikov's A3C](https://github.com/ikostrikov/pytorch-a3c)
+- [A3C](https://arxiv.org/abs/1602.01783) [Code from Ikostrikov](https://github.com/ikostrikov/pytorch-a3c)
 - [Gated-Attention Architectures for Task-Oriented Language Grounding](https://arxiv.org/abs/1706.07230) 
 -- *Original code available on [DeepRL-Grounding](https://github.com/devendrachaplot/DeepRL-Grounding)* 
-also based on Ikostrikov's A3C
+also based on A3C made by Ikostrikov.
 
 Implementations of these can be found in the algorithms folder and a3c can be run on AI2ThorEnv with:  
 `python algorithms/a3c/main.py`

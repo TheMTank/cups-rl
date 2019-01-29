@@ -61,7 +61,7 @@ class BaseTask:
 
 class PickupTask(BaseTask):
     """
-    This task consists on picking up an target object. Rewards are only collected if the right
+    This task consists of picking up an target object. Rewards are only collected if the right
     object was added to the inventory with the action PickUp (See gym_ai2thor.envs.ai2thor_env for
     details).
     """
@@ -100,3 +100,68 @@ class PickupTask(BaseTask):
         self.pickedup_objects = Counter()
         self.prev_inventory = []
         self.step_num = 0
+
+class NaturalLanguageLookAtTask(BaseTask):
+    """
+    This task consists of
+    """
+
+    def __init__(self, target_objects=('Mug',), goal=None, **kwargs):
+        # self.target_objects = target_objects
+        # self.goal = Counter(goal if goal else {obj: float('inf') for obj in self.target_objects})
+        # self.pickedup_objects = Counter()
+        # self.object_rewards = Counter(self.target_objects)  # all target objects give reward 1
+        # self.prev_inventory = []
+        super().__init__(kwargs)
+
+    def transition_reward(self, state):
+        # Go to current object and focus on it
+        if self.done:
+            num_objects_in_view_and_close = self.check_if_focus_and_close_enough_to_object_type(
+                self.current_object_type)
+            if num_objects_in_view_and_close > 0:
+                print(
+                    'Stared at object and is close enough. Num objects in view and close: {}'.format(
+                        num_objects_in_view_and_close))  # todo shouldn't print anywhere
+                return 20
+            else:
+                return -5
+        else:
+            if self.dense_reward:
+                all_objects_for_object_type = [obj for obj in self.event.metadata['objects'] if
+                                               obj['objectType'] == self.current_object_type]
+
+                # only 1 microwave for now or first item. todo make more general!!! always choose the min distance?
+                return -all_objects_for_object_type[0]['distance']
+            else:
+                return 0
+
+        done = True if self.check_if_focus_and_close_enough_to_object_type(self.current_object_type) > 0 else False
+        return reward, done #, True if done else False
+
+    def reset(self):
+        pass
+
+    def get_word_to_idx(self):
+        word_to_idx = {}
+        for instruction_data in self.train_instructions:
+            instruction = instruction_data # todo actual json ['instruction']
+            for word in instruction.split(" "):
+                if word not in word_to_idx:
+                    word_to_idx[word] = len(word_to_idx)
+        return word_to_idx
+
+    def check_if_focus_and_close_enough_to_object_type(self, object_type='Mug'):
+        all_objects_for_object_type = [obj for obj in self.event.metadata['objects'] if obj['objectType'] == object_type]
+
+        bool_list = []
+        for idx, obj in enumerate(all_objects_for_object_type):
+            bounds = self.event.instance_detections2D.get(obj['objectId'])
+            # bounds = self.event.class_detections2D.get(obj['objectId']) # doesnt work
+            if bounds is None:
+                continue
+
+            x1, y1, x2, y2 = bounds
+            bool_list.append(check_if_focus_and_close_enough(x1, y1, x2, y2, obj['distance']))
+
+        return sum(bool_list)

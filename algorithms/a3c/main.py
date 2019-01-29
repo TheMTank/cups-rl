@@ -20,7 +20,7 @@ import torch.multiprocessing as mp
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 from algorithms.a3c.envs import create_atari_env
 from algorithms.a3c import my_optim
-from algorithms.a3c.model import ActorCritic
+from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
 from algorithms.a3c.test import test
 from algorithms.a3c.train import train
 
@@ -50,6 +50,9 @@ parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
 parser.add_argument('--max-episode-length', type=int, default=1000,
                     help='maximum length of an episode (default: 1000000)')
+parser.add_argument('--natural-language', dest='natural-language', action='store_true',
+                    help='')
+parser.set_defaults(natural_language=False)
 parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
 parser.add_argument('-sync', '--synchronous', dest='synchronous', action='store_true',
@@ -82,10 +85,17 @@ if __name__ == '__main__':
         env = create_atari_env(args.atari_env_name)
         args.frame_dim = 42  # fixed to be 42x42 in envs.py _process_frame42()
     else:
-        args.config_dict = {'max_episode_length': args.max_episode_length}
+        args.config_dict = {'max_episode_length': args.max_episode_length,
+                            'natural_language': args.natural_language}
         env = AI2ThorEnv(config_dict=args.config_dict)
         args.frame_dim = env.config['resolution'][-1]
-    shared_model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
+
+    if args.natural_language:
+        shared_model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n,
+                                   args.frame_dim)
+    else:
+        shared_model = ActorCritic(env.observation_space.shape[0], env.action_space.n,
+                                   args.frame_dim)
     shared_model.share_memory()
 
     env.close()  # above env initialisation was only to find certain params needed
