@@ -75,19 +75,19 @@ class AI2ThorEnv(gym.Env):
                                                    self.config['resolution'][1]),
                                             dtype=np.uint8)
         # ai2thor initialise settings
-        self.scene_id = 'FloorPlan1'  # todo overriding above!
-        self.cameraY = self.config.get('cameraY', -0.85)  # todo
-        self.gridSize = self.config.get('gridSize', 0.01)  # todo?
+        self.cameraY = self.config.get('cameraY', 0.0)
+        self.gridSize = self.config.get('gridSize', 0.1)
         # rotation settings
-        self.incremental_rotation_mode = self.config.get('incremental_rotation', True)  # todo change
+        self.incremental_rotation_mode = self.config.get('incremental_rotation', False)
         self.absolute_rotation = 0.0
         self.rotation_amount = 10.0
         # Create task from config
         self.task = TaskFactory.create_task(self.config)
         # Start ai2thor
         self.controller = ai2thor.controller.Controller()
-        self.controller.local_executable_path = self.config.get('build_path',
-            '/home/beduffy/all_projects/ai2thor/unity/build-test.x86_64')
+        if self.config.get('build_path'):
+            self.controller.local_executable_path = self.config.get('build_path',
+                                                                    self.config.get('build_path'))
         self.controller.start()
 
     def step(self, action, verbose=True):
@@ -167,7 +167,6 @@ class AI2ThorEnv(gym.Env):
                 print('{}: {}. {}'.format(
                     action_str, interaction_obj['objectType'], inventory_changed_str))
         elif 'Rotate' in action_str:
-            import pdb;pdb.set_trace()
             if self.incremental_rotation_mode:
                 # Rotate actions
                 if 'Left' in action_str:
