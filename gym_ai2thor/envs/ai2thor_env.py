@@ -79,8 +79,9 @@ class AI2ThorEnv(gym.Env):
         self.gridSize = self.config.get('gridSize', 0.1)
         # rotation settings
         self.incremental_rotation_mode = self.config.get('incremental_rotation', False)
-        self.absolute_rotation = 0.0
-        self.rotation_amount = 10.0
+        if self.incremental_rotation_mode:
+            self.absolute_rotation = 0.0
+            self.rotation_amount = 10.0
         # Create task from config
         self.task = TaskFactory.create_task(self.config)
         # Start ai2thor
@@ -206,7 +207,8 @@ class AI2ThorEnv(gym.Env):
         self.controller.reset(self.scene_id)
         self.event = self.controller.step(dict(action='Initialize', gridSize=self.gridSize,
                                                cameraY=self.cameraY, renderDepthImage=True,
-                                               renderClassImage=True, renderObjectImage=True))
+                                               renderClassImage=True, renderObjectImage=True,
+                                               continuous=self.incremental_rotation_mode))
         self.task.reset()
         state = self.preprocess(self.event.frame)
         return state

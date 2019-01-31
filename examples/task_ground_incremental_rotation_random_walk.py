@@ -21,7 +21,7 @@ if __name__ == '__main__':
         'grayscale': True,
         'resolution': [128, 128],
         'cameraY': -0.85,
-        'gridSize': 0.01,
+        'gridSize': 0.1,  #0.01
         'incremental_rotation': True,
         'build_path': '/home/beduffy/all_projects/ai2thor/unity/build-test.x86_64',  # todo argparse?
         'task': {
