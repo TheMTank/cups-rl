@@ -22,11 +22,11 @@ if __name__ == '__main__':
                         help='Number of training steps (4x number of frames)')
     parser.add_argument('--max-episode-length', type=int, default=int(108e3), metavar='LENGTH',
                         help='Max episode length (0 to disable)')
-    parser.add_argument('--history-length', type=int, default=4, metavar='T',
+    parser.add_argument('--history-length', type=int, default=1, metavar='T',
                         help='Number of consecutive states processed')
     parser.add_argument('--hidden-size', type=int, default=512, metavar='SIZE',
                         help='Network hidden size')
-    parser.add_argument('--noisy-std', type=float, default=0.1, metavar='σ',
+    parser.add_argument('--noisy-std', type=float, default=0.8, metavar='σ',
                         help='Initial standard deviation of noisy linear layers')
     parser.add_argument('--atoms', type=int, default=51, metavar='C',
                         help='Discretised size of value distribution')
@@ -35,11 +35,11 @@ if __name__ == '__main__':
     parser.add_argument('--V-max', type=float, default=10, metavar='V',
                         help='Maximum of value distribution support')
     parser.add_argument('--model', type=str, metavar='PARAMS', help='Pretrained model (state dict)')
-    parser.add_argument('--memory-capacity', type=int, default=int(1e7), metavar='CAPACITY',
+    parser.add_argument('--memory-capacity', type=int, default=int(1e6), metavar='CAPACITY',
                         help='Experience replay memory capacity')
-    parser.add_argument('--replay-frequency', type=int, default=4, metavar='k',
+    parser.add_argument('--replay-frequency', type=int, default=1, metavar='k',
                         help='Frequency of sampling from memory')
-    parser.add_argument('--priority-exponent', type=float, default=0.5, metavar='ω',
+    parser.add_argument('--priority-exponent', type=float, default=0.1, metavar='ω',
                         help='Prioritised experience replay exponent (originally denoted α)')
     parser.add_argument('--priority-weight', type=float, default=0.4, metavar='β',
                         help='Initial prioritised experience replay importance sampling weight')
@@ -47,7 +47,7 @@ if __name__ == '__main__':
                         help='Number of steps for multi-step return')
     parser.add_argument('--discount', type=float, default=0.99, metavar='γ',
                         help='Discount factor')
-    parser.add_argument('--target-update', type=int, default=int(1e2), metavar='τ',  # 32e3
+    parser.add_argument('--target-update', type=int, default=int(32e3), metavar='τ',  # 32e3
                         help='Number of steps after which to update target network')
     parser.add_argument('--reward-clip', type=int, default=1, metavar='VALUE',
                         help='Reward clipping (0 to disable)')
@@ -57,14 +57,14 @@ if __name__ == '__main__':
                         help='Adam epsilon')
     parser.add_argument('--batch-size', type=int, default=32, metavar='SIZE',
                         help='Batch size')
-    parser.add_argument('--learn-start', type=int, default=int(2e2), metavar='STEPS',  # 80e3
+    parser.add_argument('--learn-start', type=int, default=int(80e3), metavar='STEPS',  # 80e3
                         help='Number of steps before starting training')
     parser.add_argument('--evaluate', action='store_true', help='Evaluate only')
-    parser.add_argument('--evaluation-interval', type=int, default=100000, metavar='STEPS',
+    parser.add_argument('--evaluation-interval', type=int, default=1e5, metavar='STEPS',
                         help='Number of training steps between evaluations')
     parser.add_argument('--evaluation-episodes', type=int, default=10, metavar='N',
                         help='Number of evaluation episodes to average over')
-    parser.add_argument('--evaluation-size', type=int, default=50, metavar='N',  # 500
+    parser.add_argument('--evaluation-size', type=int, default=500, metavar='N',  # 500
                         help='Number of transitions to use for validating Q')
     parser.add_argument('--log-interval', type=int, default=25000, metavar='STEPS',
                         help='Number of training steps between logging status')
@@ -124,15 +124,15 @@ if __name__ == '__main__':
         T, done = 0, True
 
         while T < args.T_max:
-            print("Iteration {}".format(T))
+            if T % 100 == 0:
+                print("Iteration {}".format(T))
 
             if done:
                 state, done = env.reset(), False
             if T % args.replay_frequency == 0:
-                dqn.reset_noise()  # Draw a new set of noisy weights
+                dqn.reset_noise()  # Draw a new set of noisy epsilons
 
             action = dqn.act(state)  # Choose an action greedily (with noisy weights)
-            print(env.env.action_names[action])
             next_state, reward, done, _ = env.step(action)  # Step
             if args.reward_clip > 0:
                 reward = max(min(reward, args.reward_clip), -args.reward_clip)  # Clip rewards
@@ -153,7 +153,7 @@ if __name__ == '__main__':
 
                 if T % args.evaluation_interval == 0:
                     dqn.eval()  # Set DQN (online network) to evaluation mode
-                    avg_reward, avg_Q = test(args, T, dqn, val_mem)  # Test
+                    avg_reward, avg_Q = test(env, T, dqn, val_mem, args.evaluation_episodes)  # Test
                     log('T = ' + str(T) + ' / ' + str(args.T_max) + ' | Avg. reward: ' +
                         str(avg_reward) + ' | Avg. Q: ' + str(avg_Q))
                     dqn.train()  # Set DQN (online network) back to training mode

@@ -12,26 +12,23 @@ Ts, rewards, Qs, best_avg_reward = [], [], [], -1e10
 
 
 # Test DQN
-def test(args, T, dqn, val_mem, evaluate=False):
+def test(env, T, dqn, val_mem, evaluation_episodes, evaluate=False):
     global Ts, rewards, Qs, best_avg_reward
-    env = Env(args)
-    env.eval()
+    # env = Env(args)
+    # env.eval()
     Ts.append(T)
     T_rewards, T_Qs = [], []
 
     # Test performance over several episodes
     done = True
-    for _ in range(args.evaluation_episodes):
+    for _ in range(evaluation_episodes):
         while True:
             if done:
                 state, reward_sum, done = env.reset(), 0, False
 
             action = dqn.act_e_greedy(state)  # Choose an action ε-greedily
-            state, reward, done = env.step(action)  # Step
+            state, reward, done, _ = env.step(action)  # Step
             reward_sum += reward
-            if args.render:
-                env.render()
-
             if done:
                 T_rewards.append(reward_sum)
                 break
