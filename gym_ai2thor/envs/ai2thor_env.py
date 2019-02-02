@@ -6,12 +6,14 @@ import ai2thor.controller
 import numpy as np
 from skimage import transform
 from copy import deepcopy
+import random
 
 import gym
 from gym import error, spaces
 from gym.utils import seeding
 from gym_ai2thor.image_processing import rgb2gray
-from gym_ai2thor.utils import read_config
+from gym_ai2thor.utils import read_config, check_if_focus_and_close_enough, \
+    is_bounding_box_centre_close_to_crosshair, close_enough
 from gym_ai2thor.tasks import TaskFactory
 
 ALL_POSSIBLE_ACTIONS = [
@@ -74,6 +76,25 @@ class AI2ThorEnv(gym.Env):
                                             shape=(channels, self.config['resolution'][0],
                                                    self.config['resolution'][1]),
                                             dtype=np.uint8)
+        # natural language instructions state settings
+        self.natural_language_instruction = self.config.get('natural_language_instructions', False)
+        if self.natural_language_instruction:
+            self.train_instructions = ['bowl', 'cup']
+            self.word_to_idx = self.get_word_to_idx(self.train_instructions)
+            self.curr_instruction_idx = random.randint(0, len(self.train_instructions) - 1)
+            self.curr_instruction = self.train_instructions[self.curr_instruction_idx]
+
+            self.object_class_to_id_mapping = {
+                'bowl': 0,
+                'cup': 1
+            }
+            # always last word of the sentence
+            self.current_object_type = self.curr_instruction.split(' ')[-1]
+            self.current_object_idx = self.object_class_to_id_mapping[self.current_object_type]
+            print('Current instruction: {}. object type (last word in sentence): {} '
+                  'to task index: {}'.format(self.curr_instruction, self.current_object_type,
+                                             self.current_object_idx))
+
         # Create task from config
         self.task = TaskFactory.create_task(self.config)
         # Start ai2thor
@@ -165,7 +186,13 @@ class AI2ThorEnv(gym.Env):
         reward, done = self.task.transition_reward(self.event)
         info = {}
 
-        return state_image, reward, done, info
+        if self.natural_language_instruction:
+            # return tuple of (image, string of instruction sentence) as state
+            state = (state_image, self.train_instructions[self.current_instruction_idx])
+        else:
+            state = state_image
+
+        return state, reward, done, info
 
     def preprocess(self, img):
         """
@@ -185,7 +212,25 @@ class AI2ThorEnv(gym.Env):
                                                renderDepthImage=True, renderClassImage=True,
                                                renderObjectImage=True))
         self.task.reset()
-        state = self.preprocess(self.event.frame) # TODO: reset state puts the channel at the beginning!
+
+        image_state = self.preprocess(self.event.frame) # TODO: reset state puts the channel at the beginning!
+
+        if self.natural_language_instruction:
+            self.current_instruction_idx = random.randint(0, len(self.train_instructions) - 1)
+            self.curr_instruction = self.train_instructions[self.curr_instruction_idx]
+            print('Current natural language task: {}'.format(self.curr_instruction))
+
+            # always last word of the sentence
+            self.current_object_type = self.curr_instruction.split(' ')[-1]
+            self.current_object_idx = self.object_class_to_id_mapping[self.current_object_type]
+            print(
+                'Current instruction: {}. object type (last word in sentence): {} '
+                'to task index: {}'.format(self.curr_instruction, self.current_object_type,
+                                           self.current_object_idx))
+
+            state = (image_state, self.train_instructions[self.current_instruction_idx])
+        else:
+            state = image_state
         return state
 
     def render(self, mode='human'):
@@ -201,6 +246,14 @@ class AI2ThorEnv(gym.Env):
     def close(self):
         self.controller.stop()
 
+    def get_word_to_idx(self, train_instructions):
+        word_to_idx = {}
+        for instruction_data in train_instructions:
+            instruction = instruction_data # todo actual json ['instruction']
+            for word in instruction.split(" "):
+                if word not in word_to_idx:
+                    word_to_idx[word] = len(word_to_idx)
+        return word_to_idx
 
 if __name__ == '__main__':
     AI2ThorEnv()

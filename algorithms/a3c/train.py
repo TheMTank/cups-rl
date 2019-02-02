@@ -11,6 +11,9 @@ After args.num_steps has passed, we calculate advantages, value losses and polic
 Generalized Advantage Estimation (GAE) with the entropy loss added onto policy loss to encourage
 exploration. Once these losses have been calculated, we add them all together, backprop to find all
 gradients and then optimise with Adam and we go back to the start of the main training loop.
+
+if natural_language is set to True, environment returns sentence instruction with image as state.
+A3C_LSTM_GA model is used instead.
 """
 
 import time
@@ -24,6 +27,14 @@ from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 from algorithms.a3c.envs import create_atari_env
 from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
 
+
+def turn_instruction_str_to_tensor(instruction, env):
+    instruction_indices = []
+    for word in instruction.split(" "):
+        instruction_indices.append(env.word_to_idx[word])
+        instruction_indices = np.array(instruction_indices)
+        instruction_indices = torch.from_numpy(instruction_indices).view(1, -1)
+    return instruction_indices
 
 def ensure_shared_grads(model, shared_model):
     for param, shared_param in zip(model.parameters(),
@@ -53,14 +64,13 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     model.train()
 
     state = env.reset()
-    state = torch.from_numpy(state)
-    # (image, instruction) = env.reset()
-    # instruction_idx = []
-    # for word in instruction.split(" "):
-    #     instruction_idx.append(env.word_to_idx[word])
-    # instruction_idx = np.array(instruction_idx)
-    # image = torch.from_numpy(image)
-    # instruction_idx = torch.from_numpy(instruction_idx).view(1, -1)
+    if not args.natural_language:
+        image = torch.from_numpy(state)
+    else:
+        # natural langauge instruction is within state so unpack tuple
+        (image, instruction) = state
+        image = torch.from_numpy(image)
+        instruction_indices = turn_instruction_str_to_tensor(instruction, env)
     done = True
 
     # monitoring
@@ -95,7 +105,13 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         for step in range(args.num_steps):
             episode_length += 1
             total_length += 1
-            value, logit, (hx, cx) = model((state.unsqueeze(0).float(), (hx, cx)))
+            if not args.natural_language:
+                value, logit, (hx, cx) = model((image.unsqueeze(0).float(), (hx, cx)))
+            else:
+                tx = torch.from_numpy(np.array([episode_length])).long()
+                value, logit, (hx, cx) = model((image.unsqueeze(0).float(),
+                                                instruction_indices.long(),
+                                                (tx, hx, cx)))
             prob = F.softmax(logit, dim=-1)
             log_prob = F.log_softmax(logit, dim=-1)
             entropy = -(log_prob * prob).sum(1, keepdim=True)
@@ -119,12 +135,22 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
                 all_rewards_in_episode = []
+
+                # reset and unpack state
                 state = env.reset()
+                if args.natural_language:
+                    (image, instruction) = state
+                    instruction_indices = turn_instruction_str_to_tensor(instruction, env)
                 print('Episode Over. Total Length: {}. Total reward for episode: {}'.format(
                                             total_length,  total_reward_for_episode))
                 print('Step no: {}. total length: {}'.format(episode_length, total_length))
 
-            state = torch.from_numpy(state)
+            if not args.natural_language:
+                image = torch.from_numpy(state)
+            else:
+                (image, instruction) = state
+                image = torch.from_numpy(image)
+                instruction_indices = turn_instruction_str_to_tensor(instruction, env)
             values.append(value)
             log_probs.append(log_prob)
             rewards.append(reward)
@@ -143,7 +169,12 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         # Backprop and optimisation
         R = torch.zeros(1, 1)
         if not done:  # to change last reward to predicted value to ....
-            value, _, _ = model((state.unsqueeze(0).float(), (hx, cx)))
+            if not args.natural_language:
+                value, _, _ = model((image.unsqueeze(0).float(), (hx, cx)))
+            else:
+                value, _, _ = model((image.unsqueeze(0).float(),
+                                     instruction_indices.long(),
+                                     (tx, hx, cx)))
             R = value.detach()
 
         values.append(R)

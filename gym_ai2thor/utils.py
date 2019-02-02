@@ -3,6 +3,7 @@ Auxiliary functions for building environments
 """
 import os
 import json
+import math
 import warnings
 
 from gym import error
@@ -69,3 +70,39 @@ class InvalidTaskParams(Exception):
     Raised when the user inputs the wrong parameters for creating a task.
     """
     pass
+
+def check_if_focus_and_close_enough_to_object_type(event, object_type='Mug'):
+    all_objects_for_object_type = [obj for obj in event.metadata['objects']
+                                   if obj['objectType'] == object_type]
+
+    bool_list = []
+    for idx, obj in enumerate(all_objects_for_object_type):
+        bounds = event.instance_detections2D.get(obj['objectId'])
+        if bounds is None:
+            continue
+
+        x1, y1, x2, y2 = bounds
+        bool_list.append(check_if_focus_and_close_enough(x1, y1, x2, y2, obj['distance']))
+
+    return sum(bool_list)
+
+def check_if_focus_and_close_enough(x1, y1, x2, y2, distance):
+    focus_bool = is_bounding_box_centre_close_to_crosshair(x1, y1, x2, y2)
+    close_bool = close_enough(distance)
+
+    return True if focus_bool and close_bool else False
+
+def is_bounding_box_centre_close_to_crosshair(x1, y1, x2, y2, threshold_within=100):
+    """
+        object's bounding box has to be mostly within the 100x100 middle of the image
+    """
+    bbox_x_cent, bbox_y_cent = (x2 + x1) / 2, (y2 + y1) / 2
+    dist = math.sqrt((150 - bbox_x_cent) ** 2 + (150 - bbox_y_cent) ** 2)
+    # print(bbox_x_cent, bbox_y_cent)
+    # if dist < threshold_within:
+    #     print('distance {} within threshold: {}'.format(dist, threshold_within))
+    #     import pdb;pdb.set_trace()
+    return True if dist < threshold_within else False
+
+def close_enough(distance, less_than=1.0):
+    return True if distance < less_than else False

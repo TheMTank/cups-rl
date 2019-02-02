@@ -50,8 +50,8 @@ parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
 parser.add_argument('--max-episode-length', type=int, default=1000,
                     help='maximum length of an episode (default: 1000000)')
-parser.add_argument('--natural-language', dest='natural-language', action='store_true',
-                    help='')
+parser.add_argument('--natural-language', dest='natural_language', action='store_true',
+                    help='env returns natural language sentence as instruction')
 parser.set_defaults(natural_language=False)
 parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
@@ -86,11 +86,16 @@ if __name__ == '__main__':
         args.frame_dim = 42  # fixed to be 42x42 in envs.py _process_frame42()
     else:
         args.config_dict = {'max_episode_length': args.max_episode_length,
-                            'natural_language': args.natural_language}
+                            'natural_language_instructions': args.natural_language,
+                            "task": {
+                                "task_name": "NaturalLanguageLookAtTask"
+                            }}
         env = AI2ThorEnv(config_dict=args.config_dict)
         args.frame_dim = env.config['resolution'][-1]
 
     if args.natural_language:
+        # environment will return natural language sentence as part of state so process it with
+        # Gated Attention (GA) variant of A3C
         shared_model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n,
                                    args.frame_dim)
     else:

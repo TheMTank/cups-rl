@@ -99,8 +99,6 @@ class ActorCritic(torch.nn.Module):
 
     def forward(self, inputs):
         inputs, (hx, cx) = inputs
-        if len(inputs.size()) == 3:  # if batch forgotten
-            inputs = inputs.unsqueeze(0)
         x = F.elu(self.conv1(inputs))
         x = F.elu(self.conv2(x))
         x = F.elu(self.conv3(x))
@@ -166,14 +164,13 @@ class A3C_LSTM_GA(torch.nn.Module):
         x, input_inst, (tx, hx, cx) = inputs
 
         # Get the image representation
-        x = F.relu(self.conv1(x.double()))
+        x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x_image_rep = F.relu(self.conv3(x))
 
         # Get the instruction representation
-        encoder_hidden = torch.zeros(1, 1, self.gru_hidden_size).double()
+        encoder_hidden = torch.zeros(1, 1, self.gru_hidden_size)
         for i in range(input_inst.data.size(1)):
-
             # todo first unsqueeze should be sequence length!!!
             # but for now im gonna try just one word. todo check when i bring multi word sentences back
             word_embedding = self.embedding(input_inst[0, i]).unsqueeze(0).unsqueeze(0)  # crazy todo
@@ -195,7 +192,7 @@ class A3C_LSTM_GA(torch.nn.Module):
 
         # A3C-LSTM
         x = F.relu(self.linear(x))
-        hx, cx = self.lstm(x, (hx.double(), cx.double()))
+        hx, cx = self.lstm(x, (hx, cx))
         time_emb = self.time_emb_layer(tx)
         x = torch.cat((hx, time_emb.view(-1, self.time_emb_dim)), 1)
 
