@@ -1,12 +1,18 @@
 """
 Here we try different cameraY (to bring the agent to the ground), gridSize (the amount of movement),
- incremental_rotation (not just 90 degrees) and finally a specific unity build. For ours we placed
- many cups on the ground. Still picks random actions but shows how much we can vary the environment.
+ incremental_rotation (not just 90 degrees and therefore continuous) and finally a specific unity
+ build. For ours we placed many cups on the ground. Still picks random actions but shows how much
+ we can vary the environment.
 """
 import time
+import argparse
 
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 
+parser = argparse.ArgumentParser(description='Provide build path')
+parser.add_argument('--build-path', required=True,
+                    help='Required Unity build path for custom scenes (e.g. cups on ground)')
+args = parser.parse_args()
 
 if __name__ == '__main__':
 
@@ -21,9 +27,9 @@ if __name__ == '__main__':
         'grayscale': True,
         'resolution': [128, 128],
         'cameraY': -0.85,
-        'gridSize': 0.1,  #0.01
+        'gridSize': 0.1,  # 0.01
         'incremental_rotation': True,
-        'build_path': '/home/beduffy/all_projects/ai2thor/unity/build-test.x86_64',  # todo argparse?
+        'build_path': args.build_path,
         'task': {
             'task_name': 'PickUp',
             'target_object': 'Cup'

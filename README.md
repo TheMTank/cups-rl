@@ -79,6 +79,8 @@ another one as well:
  'acceptable_receptacles': ['CounterTop', 'TableTop', 'Sink'],
  'openable_objects': ['Microwave'],
  'scene_id': 'FloorPlan28',
+ 'gridSize': 0.1,
+ 'incremental_rotation': true,
  'grayscale': True,
  'resolution': (300, 300),
  'task': {'task_name': 'PickUp',

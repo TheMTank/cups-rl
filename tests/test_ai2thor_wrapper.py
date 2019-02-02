@@ -61,6 +61,7 @@ class TestAI2ThorEnv(unittest.TestCase):
             'MoveRight', 'OpenObject', 'PutObject', 'PickupObject', 'CloseObject']
 
         env = AI2ThorEnv(config_dict={'scene_id': 'FloorPlan28',
+                                      'gridSize': 0.25,
                                       'acceptable_receptacles': [
                                         'Microwave'  # the used receptacle below
                                       ]})
