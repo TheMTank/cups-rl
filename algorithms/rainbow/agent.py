@@ -1,3 +1,6 @@
+"""
+Wrapper including setup, training and evaluation functions for Rainbow DQN model
+"""
 import os
 import random
 import torch
@@ -33,20 +36,27 @@ class Agent:
 
         self.optimiser = optim.Adam(self.online_net.parameters(), lr=args.lr, eps=args.adam_eps)
 
-    # Resets noisy weights in all linear layers (of online net only)
     def reset_noise(self):
+        """ Resets noisy weights in all linear layers (of online net only) """
         self.online_net.reset_noise()
 
-    # Acts based on single state (no batch)
     def act(self, state):
+        """ Acts based on single state (no batch) """
         with torch.no_grad():
             return (self.online_net(state.unsqueeze(0)) * self.support).sum(2).argmax(1).item()
 
-    # Acts with an ε-greedy policy (used for evaluation only)
-    def act_e_greedy(self, state, epsilon=0.001):  # High ε can reduce evaluation scores drastically
-        return random.randrange(self.action_space.n) if random.random() < epsilon else self.act(state)
+    def act_e_greedy(self, state, epsilon=0.001):
+        """
+        Acts with an ε-greedy policy (used for evaluation only)
+        High ε can reduce evaluation scores drastically
+        """
+        return random.randrange(self.action_space.n) if random.random() < epsilon \
+            else self.act(state)
 
     def learn(self, mem):
+        """
+        Executes 1 gradient descent step sampling batch_size transitions form the memory
+        """
         # Sample transitions
         idxs, states, actions, returns, next_states, nonterminals, weights = \
           mem.sample(self.batch_size)
@@ -105,14 +115,15 @@ class Agent:
         mem.update_priorities(idxs, loss.detach().cpu().numpy())
 
     def update_target_net(self):
+        """ Updates target network as explained in Double DQN """
         self.target_net.load_state_dict(self.online_net.state_dict())
 
-    # Save model parameters on current device (don't move model between devices)
     def save(self, path):
+        """ Save model parameters on current device (don't move model between devices) """
         torch.save(self.online_net.state_dict(), os.path.join(path, 'model.pth'))
 
-    # Evaluates Q-value based on single state (no batch)
     def evaluate_q(self, state):
+        """ Evaluates Q-value based on single state (no batch) """
         with torch.no_grad():
             return (self.online_net(state.unsqueeze(0)) * self.support).sum(2).max(1)[0].item()
 

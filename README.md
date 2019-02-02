@@ -21,11 +21,16 @@ the current state of the art approaches to the problem:
 
 - [Ikostrikov's A3C](https://github.com/ikostrikov/pytorch-a3c)
 - [Gated-Attention Architectures for Task-Oriented Language Grounding](https://arxiv.org/abs/1706.07230) 
--- *Original code available on [DeepRL-Grounding](https://github.com/devendrachaplot/DeepRL-Grounding)* 
-also based on Ikostrikov's A3C
+-- *Original code available on [DeepRL-Grounding](https://github.com/devendrachaplot/DeepRL-Grounding)
+based on Ikostrikov's A3C* 
+- [Rainbow: Combining Improvements in Deep Reinforcement Learning](https://arxiv.org/pdf/1710.02298.pdf) 
+-- *Original code available on [Rainbow](https://github.com/Kaixhin/Rainbow) from Kaixhin*
 
-Implementations of these can be found in the algorithms folder and a3c can be run on AI2ThorEnv with:  
-`python algorithms/a3c/main.py`
+
+Implementations of these can be found in the algorithms folder and can be run on [AI2ThorEnv](https://arxiv.org/pdf/1710.02298.pdf) with:  
+
+`python algorithms/a3c/main.py`<br>
+`python algorithms/rainbow/main.py`
 
 Check the argparse help for more details and variations of running the algorithm with different 
 hyperparams and on the atari environment as well.

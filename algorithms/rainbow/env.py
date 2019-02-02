@@ -1,3 +1,6 @@
+"""
+Environment wrappers for ATARI_games and ai2thor
+"""
 from collections import deque
 import random
 import atari_py
@@ -8,6 +11,9 @@ from gym import spaces
 
 
 class Env:
+    """
+    ATARI games environment definition as from original implementation
+    """
     def __init__(self, args):
         self.device = args.device
         self.ale = atari_py.ALEInterface()

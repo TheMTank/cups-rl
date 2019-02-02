@@ -1,5 +1,5 @@
 """
-CNN definition for DQN
+Model definition definition for DQN and Noisy layers
 """
 import math
 import torch
@@ -8,6 +8,12 @@ from torch.nn import functional as F
 
 
 class RainbowDQN(nn.Module):
+    """
+    From the paper "Rainbow: Combining Improvements in Deep Reinforcement Learning"
+    Source: https://arxiv.org/pdf/1710.02298.pdf
+
+    Main model used as Q function estimator for policy generation
+    """
     def __init__(self, args, action_space):
         super().__init__()
         self.atoms = args.atoms

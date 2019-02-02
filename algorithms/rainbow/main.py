@@ -1,10 +1,20 @@
 """
 Adapted from https://github.com/Kaixhin/Rainbow
+
+The main file needed within rainbow. Runs of the train and test functions from their respective
+files.
+
+Example of use:
+`cd algorithms/rainbow`
+`python main.py`
+
+Runs Rainbow DQN on our AI2ThorEnv wrapper with default params. Optionally it can be run on any
+atari environment as well using the "game" flag, e.g. --game space_invaders.
 """
 import argparse
 from datetime import datetime
-import random
 import torch
+import random
 
 from algorithms.rainbow.agent import Agent
 from algorithms.rainbow.env import Env, MultipleStepsEnv
@@ -17,10 +27,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Rainbow')
     parser.add_argument('--seed', type=int, default=123, help='Random seed')
     parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
-    parser.add_argument('--game', type=str, default='ai2thor', help='ATARI game')  # space_invaders
+    parser.add_argument('--game', type=str, default='ai2thor', help='ATARI game or environment')
     parser.add_argument('--T-max', type=int, default=int(50e6), metavar='STEPS',
                         help='Number of training steps (4x number of frames)')
-    parser.add_argument('--max-episode-length', type=int, default=int(108e3), metavar='LENGTH',
+    parser.add_argument('--max-episode-length', type=int, default=int(1e3), metavar='LENGTH',
                         help='Max episode length (0 to disable)')
     parser.add_argument('--history-length', type=int, default=1, metavar='T',
                         help='Number of consecutive states processed')
@@ -47,7 +57,7 @@ if __name__ == '__main__':
                         help='Number of steps for multi-step return')
     parser.add_argument('--discount', type=float, default=0.99, metavar='γ',
                         help='Discount factor')
-    parser.add_argument('--target-update', type=int, default=int(32e3), metavar='τ',  # 32e3
+    parser.add_argument('--target-update', type=int, default=int(32e3), metavar='τ',
                         help='Number of steps after which to update target network')
     parser.add_argument('--reward-clip', type=int, default=1, metavar='VALUE',
                         help='Reward clipping (0 to disable)')
@@ -57,14 +67,14 @@ if __name__ == '__main__':
                         help='Adam epsilon')
     parser.add_argument('--batch-size', type=int, default=32, metavar='SIZE',
                         help='Batch size')
-    parser.add_argument('--learn-start', type=int, default=int(80e3), metavar='STEPS',  # 80e3
+    parser.add_argument('--learn-start', type=int, default=int(20e3), metavar='STEPS',
                         help='Number of steps before starting training')
     parser.add_argument('--evaluate', action='store_true', help='Evaluate only')
     parser.add_argument('--evaluation-interval', type=int, default=1e5, metavar='STEPS',
                         help='Number of training steps between evaluations')
     parser.add_argument('--evaluation-episodes', type=int, default=10, metavar='N',
                         help='Number of evaluation episodes to average over')
-    parser.add_argument('--evaluation-size', type=int, default=500, metavar='N',  # 500
+    parser.add_argument('--evaluation-size', type=int, default=500, metavar='N',
                         help='Number of transitions to use for validating Q')
     parser.add_argument('--log-interval', type=int, default=25000, metavar='STEPS',
                         help='Number of training steps between logging status')
@@ -90,9 +100,10 @@ if __name__ == '__main__':
     def log(s):
         print('[' + str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S')) + '] ' + s)
 
-    # Environment
+    # Environment selection
     if args.game == 'ai2thor':
-        env = MultipleStepsEnv(AI2ThorEnv(), args.history_length, args.device)
+        env = MultipleStepsEnv(AI2ThorEnv(config_dict={'task': {'object_rewards': {'Mug': 10}}}),
+                               args.history_length, args.device)
     else:
         env = Env(args)
         env.train()
@@ -116,7 +127,7 @@ if __name__ == '__main__':
 
     if args.evaluate:
         dqn.eval()  # Set DQN (online network) to evaluation mode
-        avg_reward, avg_Q = test(args, 0, dqn, val_mem, evaluate=True)  # Test
+        avg_reward, avg_Q = test(args, 0, dqn, val_mem, args.evaluation_episodes, evaluate=True)
         print('Avg. reward: ' + str(avg_reward) + ' | Avg. Q: ' + str(avg_Q))
     else:
         # Training loop
@@ -124,8 +135,8 @@ if __name__ == '__main__':
         T, done = 0, True
 
         while T < args.T_max:
-            if T % 100 == 0:
-                print("Iteration {}".format(T))
+            if T % 200 == 0:
+                print("step {}".format(T))
 
             if done:
                 state, done = env.reset(), False
@@ -148,7 +159,6 @@ if __name__ == '__main__':
                 mem.priority_weight = min(mem.priority_weight + priority_weight_increase, 1)
 
                 if T % args.replay_frequency == 0:
-                    print("learn")
                     dqn.learn(mem)  # Train with n-step distributional double-Q learning
 
                 if T % args.evaluation_interval == 0:
@@ -160,7 +170,6 @@ if __name__ == '__main__':
 
                 # Update target network
                 if T % args.target_update == 0:
-                    print("update")
                     dqn.update_target_net()
             state = next_state
     env.close()
