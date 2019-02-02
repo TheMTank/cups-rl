@@ -5,7 +5,7 @@ inheriting the predefined methods and can be extended for particular tasks.
 import ai2thor.controller
 import numpy as np
 from skimage import transform
-from copy import deepcopy
+from collections import defaultdict
 
 import gym
 from gym import error, spaces
@@ -74,6 +74,11 @@ class AI2ThorEnv(gym.Env):
                                             shape=(channels, self.config['resolution'][0],
                                                    self.config['resolution'][1]),
                                             dtype=np.uint8)
+        # Rendering options
+        self.render_options = defaultdict(lambda: False)
+        if 'render_options' in self.config:
+            for option, value in self.config['render_options'].items():
+                self.render_options[option] = value
         # Create task from config
         self.task = TaskFactory.create_task(self.config)
         # Start ai2thor
@@ -182,8 +187,9 @@ class AI2ThorEnv(gym.Env):
         print('Resetting environment and starting new episode')
         self.controller.reset(self.scene_id)
         self.event = self.controller.step(dict(action='Initialize', gridSize=0.25,
-                                               renderDepthImage=True, renderClassImage=True,
-                                               renderObjectImage=True))
+                                               renderDepthImage=self.render_options['depth'],
+                                               renderClassImage=self.render_options['class'],
+                                               renderObjectImage=self.render_options['object']))
         self.task.reset()
         state = self.preprocess(self.event.frame)
         return state

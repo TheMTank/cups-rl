@@ -102,7 +102,8 @@ if __name__ == '__main__':
 
     # Environment selection
     if args.game == 'ai2thor':
-        env = MultipleStepsEnv(AI2ThorEnv(config_dict={'task': {'object_rewards': {'Mug': 10}}}),
+        env = MultipleStepsEnv(AI2ThorEnv(
+            config_file='config_files/rainbow_example.json'),
                                args.history_length, args.device)
     else:
         env = Env(args)

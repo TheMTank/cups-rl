@@ -54,7 +54,8 @@ def read_config(config_path, config_dict=None):
                         warnings.warn('Key: [\'{}\'][\'{}\'] already in config file with value {}. '
                                       'Overwriting with value: {}'.format(key, task_key,
                                                 config[key][task_key], config_dict[key][task_key]))
-                        config[key][task_key] = config_dict[key][task_key]
+
+                    config[key][task_key] = config_dict[key][task_key]
             # else just a regular check
             elif key in config:
                 warnings.warn('Key: {} already in config file with value {}. '

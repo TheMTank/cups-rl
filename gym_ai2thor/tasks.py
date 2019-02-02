@@ -19,11 +19,16 @@ class TaskFactory:
         """
         task_name = config['task']['task_name']
         if task_name == 'PickUp':
-            if config['task']['target_object'] in config['pickup_objects']:
-                return PickupTask(**config['task'])
+            # check that target objects are not selected as NON pickupables
+            missing_objects = []
+            for obj in config['task']['target_objects'].keys():
+                if obj not in config['pickup_objects']:
+                    missing_objects.append(obj)
+            if missing_objects:
+                raise InvalidTaskParams('Error initializing PickUpTask. The objects {} are not '
+                                        'pickupable!'.format(missing_objects))
             else:
-                raise InvalidTaskParams('Error initializing PickUpTask. {} is not '
-                                        'pickupable!'.format(config['task']['target_object']))
+                return PickupTask(**config['task'])
         else:
             raise NotImplementedError('{} is not yet implemented!'.format(task_name))
 
@@ -65,11 +70,11 @@ class PickupTask(BaseTask):
     object was added to the inventory with the action PickUp (See gym_ai2thor.envs.ai2thor_env for
     details).
     """
-    def __init__(self, target_objects=('Mug',), goal=None, **kwargs):
-        self.target_objects = target_objects
+    def __init__(self, target_objects=None, goal=None, **kwargs):
+        self.object_rewards = target_objects if target_objects else {'Mug': 1}
+        self.target_objects = self.object_rewards.keys()
         self.goal = Counter(goal if goal else {obj: float('inf') for obj in self.target_objects})
         self.pickedup_objects = Counter()
-        self.object_rewards = Counter(self.target_objects)  # all target objects give reward 1
         self.prev_inventory = []
         super().__init__(kwargs)
 
