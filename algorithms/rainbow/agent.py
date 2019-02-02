@@ -50,7 +50,7 @@ class Agent:
         Acts with an ε-greedy policy (used for evaluation only)
         High ε can reduce evaluation scores drastically
         """
-        return np.random.randint(0, self.action_space) if np.random.random() < epsilon \
+        return np.random.randint(0, self.action_space.n) if np.random.random() < epsilon \
             else self.act(state)
 
     def learn(self, mem):

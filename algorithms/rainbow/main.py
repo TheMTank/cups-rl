@@ -29,7 +29,7 @@ parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
 parser.add_argument('--game', type=str, default='ai2thor', help='ATARI game or environment')
 parser.add_argument('--T-max', type=int, default=int(50e6), metavar='STEPS',
                     help='Number of training steps (4x number of frames)')
-parser.add_argument('--max-episode-length', type=int, default=int(1e3), metavar='LENGTH',
+parser.add_argument('--max-episode-length', type=int, default=int(108e3), metavar='LENGTH',
                     help='Max episode length (0 to disable)')
 parser.add_argument('--history-length', type=int, default=1, metavar='T',
                     help='Number of consecutive states processed')
@@ -105,9 +105,11 @@ if __name__ == '__main__':
         env = MultipleStepsEnv(AI2ThorEnv(
             config_file='config_files/rainbow_example.json'),
                                args.history_length, args.device)
+        args.resolution = env.env.config['resolution']
     else:
         env = Env(args)
         env.train()
+        args.resolution = (84, 84)
     action_space = env.action_space
 
     # Agent
@@ -127,7 +129,7 @@ if __name__ == '__main__':
 
     if args.evaluate:
         dqn.eval()  # Set DQN (online network) to evaluation mode
-        avg_reward, avg_Q = test(args, 0, dqn, val_mem, args.evaluation_episodes, evaluate=True)
+        avg_reward, avg_Q = test(env, T, args, dqn, val_mem, evaluate=True)
         print('Avg. reward: ' + str(avg_reward) + ' | Avg. Q: ' + str(avg_Q))
     else:
         # Training loop
@@ -163,7 +165,7 @@ if __name__ == '__main__':
 
                 if T % args.evaluation_interval == 0:
                     dqn.eval()  # Set DQN (online network) to evaluation mode
-                    avg_reward, avg_Q = test(env, T, dqn, val_mem, args.evaluation_episodes)  # Test
+                    avg_reward, avg_Q = test(env, T, args, dqn, val_mem)
                     log('T = ' + str(T) + ' / ' + str(args.T_max) + ' | Avg. reward: ' +
                         str(avg_reward) + ' | Avg. Q: ' + str(avg_Q))
                     dqn.train()  # Set DQN (online network) back to training mode

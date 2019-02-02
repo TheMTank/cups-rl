@@ -8,24 +8,25 @@ from plotly.graph_objs import Scatter
 from plotly.graph_objs.scatter import Line
 import torch
 
+from algorithms.rainbow.env import Env
+
 # Globals
 Ts, rewards, Qs, best_avg_reward = [], [], [], -1e10
 
 
 # Test DQN
-def test(env, T, dqn, val_mem, eval_episodes, evaluate=False):
+def test(env, T, args, dqn, val_mem, evaluate=False):
     global Ts, rewards, Qs, best_avg_reward
-    # env = Env(args)
-    # env.eval()
     Ts.append(T)
     T_rewards, T_Qs = [], []
-
+    if args.game != 'ai2thor':
+        env = Env(args)
     # Test performance over several episodes
     done = True
-    for episode_n in range(eval_episodes):
-        print("eval episode {}/{}".format(episode_n, eval_episodes))
+    for episode_n in range(args.evaluation_episodes):
+        print("eval episode {}/{}".format(episode_n, args.evaluation_episodes))
         step_n, reward_sum = 0, 0
-        while True:
+        while step_n < args.max_episode_length:
             step_n += 1
             if step_n % 200 == 0:
                 print("eval step {}".format(step_n))
@@ -35,11 +36,13 @@ def test(env, T, dqn, val_mem, eval_episodes, evaluate=False):
             action = dqn.act_e_greedy(state)  # Choose an action ε-greedily
             state, reward, done, _ = env.step(action)  # Step
             reward_sum += reward
+            if args.render and args.game != 'ai2thor':
+                env.render()
             if done:
                 T_rewards.append(reward_sum)
-                break
-    # env.close()
 
+    if args.game != 'ai2thor':
+        env.close()
     # Test Q-values over validation memory
     for state in val_mem:  # Iterate over valid states
         T_Qs.append(dqn.evaluate_q(state))

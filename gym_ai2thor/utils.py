@@ -14,6 +14,7 @@ def read_config(config_path, config_dict=None):
     overwritten with the config_dict. Full example below:
 
     {
+        "render_options": {"depth": true},
         "pickup_put_interaction": true,
         "pickup_objects": [
             "Mug",
@@ -33,7 +34,7 @@ def read_config(config_path, config_dict=None):
         "resolution": [128, 128],
         "task": {
             "task_name": "PickUp",
-            "target_object": "Mug"
+            "target_object": {"Mug": 1}
         }
     }
 

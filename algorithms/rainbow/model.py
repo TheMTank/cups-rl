@@ -18,12 +18,13 @@ class RainbowDQN(nn.Module):
         super().__init__()
         self.atoms = args.atoms
         self.action_space = action_space.n
+        self.linear_in = self.get_linear_size(args)
 
         self.conv1 = nn.Conv2d(args.history_length, 32, 8, stride=4, padding=1)
         self.conv2 = nn.Conv2d(32, 64, 4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, 3)
-        self.fc_h_v = NoisyLinear(1024, args.hidden_size, std_init=args.noisy_std)
-        self.fc_h_a = NoisyLinear(1024, args.hidden_size, std_init=args.noisy_std)
+        self.fc_h_v = NoisyLinear(self.linear_in, args.hidden_size, std_init=args.noisy_std)
+        self.fc_h_a = NoisyLinear(self.linear_in, args.hidden_size, std_init=args.noisy_std)
         self.fc_z_v = NoisyLinear(args.hidden_size, self.atoms, std_init=args.noisy_std)
         self.fc_z_a = NoisyLinear(args.hidden_size, self.action_space * self.atoms, std_init=args.noisy_std)
 
@@ -31,7 +32,7 @@ class RainbowDQN(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
-        x = x.view(-1, 1024)
+        x = x.view(-1, self.linear_in)
         v = self.fc_z_v(F.relu(self.fc_h_v(x)))  # Value stream
         a = self.fc_z_a(F.relu(self.fc_h_a(x)))  # Advantage stream
         v, a = v.view(-1, 1, self.atoms), a.view(-1, self.action_space, self.atoms)
@@ -46,6 +47,19 @@ class RainbowDQN(nn.Module):
         for name, module in self.named_children():
           if 'fc' in name:
             module.reset_noise()
+
+    @staticmethod
+    def get_linear_size(args):
+        """
+        Calculates the size of the input features for the Linear layers
+        """
+        linear_size = 64  # number of filters before linear size
+        for dim in args.resolution:
+            out_conv1 = ((dim - 8 + 2) // 4) + 1
+            out_conv2 = ((out_conv1 - 4) // 2) + 1
+            out_conv3 = (out_conv2 - 3) + 1
+            linear_size *= out_conv3
+        return linear_size
 
 
 # Factorised NoisyLinear layer with bias
