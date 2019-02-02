@@ -29,7 +29,7 @@ parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
 parser.add_argument('--game', type=str, default='ai2thor', help='ATARI game or environment')
 parser.add_argument('--T-max', type=int, default=int(50e6), metavar='STEPS',
                     help='Number of training steps (4x number of frames)')
-parser.add_argument('--max-episode-length', type=int, default=int(108e3), metavar='LENGTH',
+parser.add_argument('--max-episode-length', type=int, default=int(1e3), metavar='LENGTH',
                     help='Max episode length (0 to disable)')
 parser.add_argument('--history-length', type=int, default=1, metavar='T',
                     help='Number of consecutive states processed')
