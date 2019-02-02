@@ -2,7 +2,7 @@
 Wrapper including setup, training and evaluation functions for Rainbow DQN model
 """
 import os
-import random
+import numpy as np
 import torch
 from torch import optim
 
@@ -50,7 +50,7 @@ class Agent:
         Acts with an ε-greedy policy (used for evaluation only)
         High ε can reduce evaluation scores drastically
         """
-        return random.randrange(self.action_space.n) if random.random() < epsilon \
+        return np.random.randint(0, self.action_space) if np.random.random() < epsilon \
             else self.act(state)
 
     def learn(self, mem):

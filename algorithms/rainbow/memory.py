@@ -14,8 +14,9 @@ class SegmentTree:
         self.index = 0
         self.size = size
         self.full = False  # Used to track actual capacity
-        self.sum_tree = [0] * (2 * size - 1)  # Initialise fixed size tree with all (priority) zeros
-        self.data = [None] * size  # Wrap-around cyclic buffer
+        # Initialise fixed size tree with all (priority) zeros
+        self.sum_tree = np.zeros((2 * size - 1, ), dtype=np.float32)
+        self.data = np.array([None] * size)  # Wrap-around cyclic buffer
         self.max = 1  # Initial max value to return (1 = 1^ω)
 
     # Propagates value up tree given a tree index
@@ -87,7 +88,7 @@ class ReplayMemory:
 
     # Returns a transition with blank states where appropriate
     def _get_transition(self, idx):
-        transition = [None] * (self.history + self.n)
+        transition = np.array([None] * (self.history + self.n))
         transition[self.history - 1] = self.transitions.get(idx)
         for t in range(self.history - 2, -1, -1):  # e.g. 2 1 0
             if transition[t + 1].timestep == 0:
@@ -106,7 +107,7 @@ class ReplayMemory:
         valid = False
         while not valid:
             # Uniformly sample an element from within a segment
-            sample = random.uniform(i * segment, (i + 1) * segment)
+            sample = np.random.uniform(i * segment, (i + 1) * segment)
             # Retrieve sample from tree with un-normalised probability
             prob, idx, tree_idx = self.transitions.find(sample)
             # Resample if transition straddled current index or probability 0
@@ -148,7 +149,7 @@ class ReplayMemory:
         actions, returns, nonterminals = torch.cat(actions), torch.cat(returns), \
                                          torch.stack(nonterminals)
         # Calculate normalised probabilities
-        probs = np.array(probs, dtype = np.float32)/p_total
+        probs = np.array(probs, dtype=np.float32) / p_total
         capacity = self.capacity if self.transitions.full else self.transitions.index
         # Compute importance-sampling weights w
         weights = (capacity * probs) ** -self.priority_weight
