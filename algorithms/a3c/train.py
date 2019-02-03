@@ -86,10 +86,23 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     v_losses = []
 
     start = time.time()
-    total_length = 0
+    total_length = args.total_length if args.total_length else 0
     episode_length = 0
     num_backprops = 0
     while True:
+        if rank == 0 and total_length > 0 and total_length % (100000 // args.num_processes) == 0:
+            # todo make function
+            fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
+            checkpoint_dict = {
+                'total_length': total_length,
+                'number_of_episodes': len(episode_lengths),
+                'counter': counter.value,
+                # todo save more stuff Need to save lists of all rewards and other info
+                # todo do it nicely and in a more extensible way?
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict()
+            }
+            # utils.save_checkpoint(checkpoint_dict, args.experiment_id, fn)
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
         if done:
@@ -104,9 +117,16 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         rewards = []
         entropies = []
 
+        interaction_start_time = time.time()
         for step in range(args.num_steps):
             episode_length += 1
             total_length += 1
+            '''
+            # todo check if needed
+            if env.grayscale:
+                image = image.unsqueeze(0).unsqueeze(0)
+            else:
+                image = image.unsqueeze(0).permute(0, 3, 1, 2)'''
             if not args.natural_language:
                 value, logit, (hx, cx) = model((image.unsqueeze(0).float(), (hx, cx)))
             else:
@@ -145,6 +165,9 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 print('Episode Over. Total Length: {}. Total reward for episode: {}'.format(
                                             total_length,  total_reward_for_episode))
                 print('Step no: {}. total length: {}'.format(episode_length, total_length))
+                print('Rank: {}. Total Length: {}. Counter across all processes: {}. '
+                      'Total reward for episode: {}'.format(rank, total_length, counter,
+                                                            total_reward_for_episode))
 
             if not args.natural_language:
                 image = torch.from_numpy(state)
@@ -169,7 +192,8 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
         # Backprop and optimisation
         R = torch.zeros(1, 1)
-        if not done:  # to change last reward to predicted value to ....
+        if not done:  # to change last reward to predicted value
+            # todo check grayscale here
             if not args.natural_language:
                 value, _, _ = model((image.unsqueeze(0).float(), (hx, cx)))
             else:
@@ -201,3 +225,24 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
         ensure_shared_grads(model, shared_model)
         optimizer.step()
+
+        # benchmarking
+        p_losses.append(policy_loss.data[0, 0])
+        v_losses.append(value_loss.data[0, 0])
+
+        if len(p_losses) > 1000:  # 1000 * 20 (args.num_steps) = 20000
+            num_backprops += 1
+            print(" ".join([
+                "Training thread: {}".format(rank),
+                "Num backprops: {}K".format(num_backprops),
+                "Avg policy loss: {}".format(np.mean(p_losses)),
+                "Avg value loss: {}".format(np.mean(v_losses))]))
+            p_losses = []
+            v_losses = []
+
+        if rank == 0:
+            print('Step no: {}. total length: {}. Time taken for args.steps ({}): {}'.format(
+                episode_length,
+                total_length,
+                args.num_steps,
+                round(time.time() - interaction_start_time, 3)))

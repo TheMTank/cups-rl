@@ -3,8 +3,8 @@ Different task implementations that can be defined inside an ai2thor environment
 """
 from collections import Counter
 
-from gym_ai2thor.utils import InvalidTaskParams, check_if_focus_and_close_enough, close_enough, \
-    check_if_focus_and_close_enough_to_object_type, is_bounding_box_centre_close_to_crosshair
+from gym_ai2thor.utils import InvalidTaskParams, check_if_focus_and_close_enough_to_object_type
+
 
 class TaskFactory:
     """

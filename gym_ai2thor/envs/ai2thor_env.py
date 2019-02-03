@@ -5,15 +5,13 @@ inheriting the predefined methods and can be extended for particular tasks.
 import ai2thor.controller
 import numpy as np
 from skimage import transform
-from copy import deepcopy
 import random
 
 import gym
 from gym import error, spaces
 from gym.utils import seeding
 from gym_ai2thor.image_processing import rgb2gray
-from gym_ai2thor.utils import read_config, check_if_focus_and_close_enough, \
-    is_bounding_box_centre_close_to_crosshair, close_enough
+from gym_ai2thor.utils import read_config
 from gym_ai2thor.tasks import TaskFactory
 
 ALL_POSSIBLE_ACTIONS = [
@@ -184,7 +182,6 @@ class AI2ThorEnv(gym.Env):
         self.task.step_num += 1
 
         state_image = self.preprocess(self.event.frame)
-
 
         if self.natural_language_instruction:
             # return tuple of (image, string of instruction sentence) as state
