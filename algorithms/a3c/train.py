@@ -17,6 +17,7 @@ A3C_LSTM_GA model is used instead.
 """
 
 import time
+import os
 
 import numpy as np
 import torch
@@ -27,6 +28,12 @@ from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 from algorithms.a3c.envs import create_atari_env
 from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
 
+def save_checkpoint(state, checkpoint_path, filename, is_best=False):
+    fp = os.path.join(checkpoint_path, filename)
+    torch.save(state, fp)
+    print('Saved model to path: {}'.format(fp))
+    # if is_best:  # todo keep
+    #     shutil.copyfile(filepath, 'model_best.pth.tar')
 
 def turn_instruction_str_to_tensor(instruction, env):
     instruction_indices = []
@@ -90,19 +97,6 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     episode_length = 0
     num_backprops = 0
     while True:
-        if rank == 0 and total_length > 0 and total_length % (100000 // args.num_processes) == 0:
-            # todo make function
-            fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
-            checkpoint_dict = {
-                'total_length': total_length,
-                'number_of_episodes': len(episode_lengths),
-                'counter': counter.value,
-                # todo save more stuff Need to save lists of all rewards and other info
-                # todo do it nicely and in a more extensible way?
-                'state_dict': model.state_dict(),
-                'optimizer': optimizer.state_dict()
-            }
-            # utils.save_checkpoint(checkpoint_dict, args.experiment_id, fn)
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
         if done:
@@ -119,6 +113,20 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
         interaction_start_time = time.time()
         for step in range(args.num_steps):
+            if rank == 0 and total_length > 0 and total_length % (100000 // args.num_processes) == 0:
+                # todo make function/clearer
+                fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
+                checkpoint_dict = {
+                    'total_length': total_length,
+                    'episode_number': len(episode_lengths),
+                    'counter': counter.value,
+                    # todo save more stuff Need to save lists of all rewards and other info
+                    # todo do it nicely and in a more extensible way?
+                    'state_dict': model.state_dict(),
+                    'optimizer': optimizer.state_dict()
+                }
+                save_checkpoint(checkpoint_dict, args.checkpoint_path, fn)
+
             episode_length += 1
             total_length += 1
             '''
@@ -162,11 +170,12 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 if args.natural_language:
                     (image, instruction) = state
                     instruction_indices = turn_instruction_str_to_tensor(instruction, env)
-                print('Episode Over. Total Length: {}. Total reward for episode: {}'.format(
-                                            total_length,  total_reward_for_episode))
+                print('Episode Over. Total Length: {}. Total reward for episode: {}. '
+                      'Episode num: {}'.format(total_length,  total_reward_for_episode,
+                                               len(episode_lengths)))
                 print('Step no: {}. total length: {}'.format(episode_length, total_length))
                 print('Rank: {}. Total Length: {}. Counter across all processes: {}. '
-                      'Total reward for episode: {}'.format(rank, total_length, counter,
+                      'Total reward for episode: {}'.format(rank, total_length, counter.value(),
                                                             total_reward_for_episode))
 
             if not args.natural_language:

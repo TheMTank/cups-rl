@@ -48,7 +48,8 @@ parser.add_argument('--total-length', type=int, default=0,
                     help='initial number of steps if resuming')
 parser.add_argument('--test-sleep-time', type=int, default=200,
                     help='number of seconds to wait before testing again (default: 200)')
-parser.add_argument('--number-of-episodes', type=int, default=0, help='number-of-episodes passed if resuming')
+parser.add_argument('--episode_number', type=int, default=0,
+                    help='number of episodes passed for resuming')
 parser.add_argument('-eid', '--experiment-id', default=uuid.uuid4(),
                     help='random or chosen guid for folder creation for plots and checkpointing.'
                          ' If experiment taken, will resume training!')
@@ -88,8 +89,6 @@ if __name__ == '__main__':
 
     # todo print args to file in experiment folder
     # todo print all logs to experiment folder
-    # todo allow changing name of experiment folder and perfect checkpointing
-    # todo load episode number, learning rate and optimiser and more
 
     args = parser.parse_args()
 
@@ -131,42 +130,6 @@ if __name__ == '__main__':
     args.checkpoint_path = os.path.join(args.experiment_path, 'checkpoints')
     args.tensorboard_path = os.path.join(args.experiment_path, 'tensorboard_logs')
 
-    # # Checkpoint
-    # if not os.path.exists(args.experiment_path):
-    #     print('Creating experiment folder: {}'.format(args.experiment_path))
-    #     os.makedirs(args.experiment_path)
-    # else:
-    #     print('Experiment already exists at path: {}'.format(args.experiment_path))
-    #     checkpoint_paths = glob.glob(args.experiment_path + '/checkpoint*')
-    #     # Take checkpoint path with most experience
-    #     checkpoint_file_name_ints = [int(x.split('/')[-1].split('.pth.tar')[0].split('_')[-1])
-    #                                  for x in checkpoint_paths]
-    #     idx_of_latest = checkpoint_file_name_ints.index(max(checkpoint_file_name_ints))
-    #     checkpoint_to_load = checkpoint_paths[idx_of_latest]
-    #     print('Loading latest checkpoint: {}'.format(checkpoint_to_load))
-    #
-    #     if os.path.isfile(checkpoint_to_load):
-    #         print("=> loading checkpoint '{}'".format(checkpoint_to_load))
-    #         checkpoint = torch.load(checkpoint_to_load)
-    #         args.total_length = checkpoint['total_length']
-    #         shared_model.load_state_dict(checkpoint['state_dict'])
-    #         optimizer.load_state_dict(
-    #             checkpoint['optimizer'])  # todo check if overwrites learning rate. probably does
-    #
-    #         if checkpoint['number_of_episodes']:
-    #             args.number_of_episodes = checkpoint['number_of_episodes']
-    #
-    #         if checkpoint['counter']:
-    #             checkpoint_counter = checkpoint['counter']
-    #
-    #         for param_group in optimizer.param_groups:
-    #             print('Learning rate: ', param_group['lr'])  # oh it doesn't
-    #
-    #         print("=> loaded checkpoint '{}' (total_length {})"
-    #               .format(checkpoint_to_load, checkpoint['total_length']))
-    #
-    # # todo have choice of checkpoint as well? args.resume could override the above
-
     # Checkpoint creation/loading below
     checkpoint_counter = False
     if not os.path.exists(args.checkpoint_path):
@@ -191,11 +154,12 @@ if __name__ == '__main__':
                 checkpoint = torch.load(checkpoint_to_load)
                 args.total_length = checkpoint['total_length']
                 args.episode_number = checkpoint['episode_number']
+                checkpoint_counter = checkpoint.get('counter', False)
+
                 print('Values from checkpoint: total_length: {}. episode_number: {}'.format(
                     checkpoint['total_length'], checkpoint['episode_number']))
                 shared_model.load_state_dict(checkpoint['state_dict'])
-                optimizer.load_state_dict(
-                    checkpoint[
+                optimizer.load_state_dict(checkpoint[
                         'optimizer'])  # todo check if overwrites learning rate. probably does
 
                 for param_group in optimizer.param_groups:
@@ -225,5 +189,6 @@ if __name__ == '__main__':
             p.join()
     else:
         rank = 0
+        args.num_processes = 1
         # test(args.num_processes, args, shared_model, counter)  # for checking test functionality
         train(rank, args, shared_model, counter, lock, optimizer)  # run train on main thread
