@@ -105,17 +105,17 @@ class PickupTask(BaseTask):
 
 class NaturalLanguageLookAtTask(BaseTask):
     """
-    This task consists of
+    This task consists of requiring the agent to get close to the object type and look at it
     """
 
     def __init__(self, **kwargs):
-        self.current_object_type = 'Mug'  # todo fix and find other way to share params
         super().__init__(kwargs)
 
     def transition_reward(self, event):
         reward, done = self.movement_reward, False
-        # Go to current object and focus on it
-        target_objs = check_if_focus_and_close_enough_to_object_type(event, self.current_object_type)
+        # check if current target object is in middle of screen and close
+        target_objs = check_if_focus_and_close_enough_to_object_type(event,
+                                                                event.metadata['curr_object_type'])
         if target_objs > 0:
             print('Stared at object and is close enough. Num objects in view and '
                   'close: {}'.format(target_objs))

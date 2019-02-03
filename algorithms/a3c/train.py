@@ -45,6 +45,9 @@ def ensure_shared_grads(model, shared_model):
 
 
 def train(rank, args, shared_model, counter, lock, optimizer=None):
+    """
+    Main A3C train loop and initialisation
+    """
     torch.manual_seed(args.seed + rank)
 
     if args.atari:
@@ -67,7 +70,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     if not args.natural_language:
         image = torch.from_numpy(state)
     else:
-        # natural langauge instruction is within state so unpack tuple
+        # natural language instruction is within state so unpack tuple
         (image, instruction) = state
         image = torch.from_numpy(image)
         instruction_indices = turn_instruction_str_to_tensor(instruction, env)
@@ -101,7 +104,6 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         rewards = []
         entropies = []
 
-        interaction_start_time = time.time()
         for step in range(args.num_steps):
             episode_length += 1
             total_length += 1
@@ -122,7 +124,6 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
             action_int = action.numpy()[0][0].item()
             state, reward, done, _ = env.step(action_int)
-            # (image, _), reward, done = env.step(action)
 
             done = done or episode_length >= args.max_episode_length
 
@@ -180,7 +181,6 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         values.append(R)
         policy_loss = 0
         value_loss = 0
-        # import pdb;pdb.set_trace() # good place to breakpoint to see training cycle
         gae = torch.zeros(1, 1)
         for i in reversed(range(len(rewards))):
             R = args.gamma * R + rewards[i]

@@ -79,21 +79,21 @@ class AI2ThorEnv(gym.Env):
         # natural language instructions state settings
         self.natural_language_instruction = self.config.get('natural_language_instructions', False)
         if self.natural_language_instruction:
-            self.train_instructions = ['bowl', 'cup']
+            self.train_instructions = ['Bowl', 'Mug']
             self.word_to_idx = self.get_word_to_idx(self.train_instructions)
             self.curr_instruction_idx = random.randint(0, len(self.train_instructions) - 1)
             self.curr_instruction = self.train_instructions[self.curr_instruction_idx]
 
             self.object_class_to_id_mapping = {
-                'bowl': 0,
-                'cup': 1
+                'Bowl': 0,
+                'Mug': 1
             }
             # always last word of the sentence
-            self.current_object_type = self.curr_instruction.split(' ')[-1]
-            self.current_object_idx = self.object_class_to_id_mapping[self.current_object_type]
+            self.curr_object_type = self.curr_instruction.split(' ')[-1]
+            self.curr_object_idx = self.object_class_to_id_mapping[self.curr_object_type]
             print('Current instruction: {}. object type (last word in sentence): {} '
-                  'to task index: {}'.format(self.curr_instruction, self.current_object_type,
-                                             self.current_object_idx))
+                  'to task index: {}'.format(self.curr_instruction, self.curr_object_type,
+                                             self.curr_object_idx))
 
         # Create task from config
         self.task = TaskFactory.create_task(self.config)
@@ -182,16 +182,19 @@ class AI2ThorEnv(gym.Env):
             self.event = self.controller.step(dict(action=action_str))
 
         self.task.step_num += 1
+
         state_image = self.preprocess(self.event.frame)
-        reward, done = self.task.transition_reward(self.event)
-        info = {}
+
 
         if self.natural_language_instruction:
             # return tuple of (image, string of instruction sentence) as state
-            state = (state_image, self.train_instructions[self.current_instruction_idx])
+            state = (state_image, self.curr_instruction)
+            self.event.metadata['curr_object_type'] = self.curr_object_type
         else:
             state = state_image
 
+        reward, done = self.task.transition_reward(self.event)
+        info = {}
         return state, reward, done, info
 
     def preprocess(self, img):
@@ -216,19 +219,17 @@ class AI2ThorEnv(gym.Env):
         image_state = self.preprocess(self.event.frame) # TODO: reset state puts the channel at the beginning!
 
         if self.natural_language_instruction:
-            self.current_instruction_idx = random.randint(0, len(self.train_instructions) - 1)
+            self.curr_instruction_idx = random.randint(0, len(self.train_instructions) - 1)
             self.curr_instruction = self.train_instructions[self.curr_instruction_idx]
-            print('Current natural language task: {}'.format(self.curr_instruction))
 
             # always last word of the sentence
-            self.current_object_type = self.curr_instruction.split(' ')[-1]
-            self.current_object_idx = self.object_class_to_id_mapping[self.current_object_type]
-            print(
-                'Current instruction: {}. object type (last word in sentence): {} '
-                'to task index: {}'.format(self.curr_instruction, self.current_object_type,
-                                           self.current_object_idx))
+            self.curr_object_type = self.curr_instruction.split(' ')[-1]
+            self.curr_object_idx = self.object_class_to_id_mapping[self.curr_object_type]
+            print('Current instruction: {}. object type (last word in sentence): {} '
+                  'to task index: {}'.format(self.curr_instruction, self.curr_object_type,
+                                             self.curr_object_idx))
 
-            state = (image_state, self.train_instructions[self.current_instruction_idx])
+            state = (image_state, self.curr_instruction)
         else:
             state = image_state
         return state

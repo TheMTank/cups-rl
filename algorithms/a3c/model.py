@@ -1,5 +1,6 @@
 """
-Adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/model.py
+ActorCritic Adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/model.py
+A3C_LSTM_GA adapted from: https://github.com/devendrachaplot/DeepRL-Grounding/blob/master/models.py
 
 Main A3C model which outputs predicted value, action logits and hidden state.
 Includes helper functions too for weight initialisation and dynamically computing LSTM/flatten input
@@ -36,7 +37,7 @@ def normalized_columns_initializer(weights, std=1.0):
     """
 
     out = torch.randn(weights.size())
-    out *= std / torch.sqrt(out.pow(2).sum(1, keepdim=True))
+    out *= std / torch.sqrt(out.pow(2).sum(1, keepdim=True).expand_as(out)) # todo expand_as(out) double check
     return out
 
 
@@ -122,11 +123,7 @@ class A3C_LSTM_GA(torch.nn.Module):
 
         # Instruction Processing
         self.gru_hidden_size = 256
-        # self.input_size = args.input_size # todo
-        # self.input_size = 4 # todo change, currently "go to the microwave" 4 words
-        # self.input_size = 5 # #'Turn left 3 times', 'Turn right 3 times'
-        # self.input_size = 6  #['Go and look at microwave', 'Go and look at cup']
-        self.input_size = 2  # ['microwave', 'cup']
+        self.input_size = 2 # todo automatically find which is easy from cozmo
         self.embedding = nn.Embedding(self.input_size, 32)
         self.gru = nn.GRU(32, self.gru_hidden_size)
 
@@ -142,7 +139,7 @@ class A3C_LSTM_GA(torch.nn.Module):
 
         # A3C-LSTM layers
         # self.linear = nn.Linear(64 * 8 * 17, 256)
-        self.linear = nn.Linear(64 * 6 * 6, 256) # todo maybe 150, 150 res
+        self.linear = nn.Linear(64 * 6 * 6, 256) # todo maybe 150, 150 res. todo auto calculate
         self.lstm = nn.LSTMCell(256, 256)
         self.critic_linear = nn.Linear(256 + self.time_emb_dim, 1)
         self.actor_linear = nn.Linear(256 + self.time_emb_dim, num_outputs)
@@ -177,7 +174,7 @@ class A3C_LSTM_GA(torch.nn.Module):
             word_embedding = word_embedding.expand(input_inst.data.size(1), -1, -1) # only change seq len dimension
             _, encoder_hidden = self.gru(word_embedding, encoder_hidden) # todo import pdb;pdb.set_trace(). see if this works nad two unsqueezes were wrong?
         x_instr_rep = encoder_hidden.view(encoder_hidden.size(1), -1)
-        # todo try MLP above instead or just one layer
+        # todo try MLP above since 1 word instead or just one layer
 
         # Get the attention vector from the instruction representation
         x_attention = F.sigmoid(self.attn_linear(x_instr_rep))
