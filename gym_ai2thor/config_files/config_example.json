@@ -2,6 +2,7 @@
 
     "open_close_interaction": true,
     "pickup_put_interaction": true,
+    "lookupdown_actions": true,
     "pickup_objects": [
         "Mug"
     ],

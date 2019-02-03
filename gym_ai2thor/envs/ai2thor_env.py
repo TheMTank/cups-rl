@@ -49,6 +49,7 @@ class AI2ThorEnv(gym.Env):
         self.np_random = None
         if seed:
             self.seed(seed)
+        self.num_random_actions_at_init = self.config.get('num_random_actions_at_init', 0)
         # Object settings
         # acceptable objects taken from config file.
         if self.config['pickup_put_interaction'] or \
@@ -66,6 +67,9 @@ class AI2ThorEnv(gym.Env):
         if not self.config['pickup_put_interaction']:
             self.action_names = tuple([action_name for action_name in self.action_names if 'Pickup'
                                        not in action_name and 'Put' not in action_name])
+        if not self.config.get('lookupdown_actions', True):
+            self.action_names = tuple([action_name for action_name in self.action_names
+                                       if 'Look' not in action_name])
         self.action_space = spaces.Discrete(len(self.action_names))
         # Image settings
         self.event = None
@@ -212,6 +216,15 @@ class AI2ThorEnv(gym.Env):
                                                renderDepthImage=True, renderClassImage=True,
                                                renderObjectImage=True))
         self.task.reset()
+
+        if self.num_random_actions_at_init > 0:
+            print('Number of random actions at initialisation: {}'.format(
+                self.num_random_actions_at_init))
+            for i in range(self.num_random_actions_at_init):
+                action = self.action_space.sample()
+                _, _, done, _ = self.step(action)
+                if done:
+                    return self.reset()  # if we end episode in random actions, reset again
 
         image_state = self.preprocess(self.event.frame) # TODO: reset state puts the channel at the beginning!
 

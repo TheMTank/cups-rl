@@ -61,7 +61,7 @@ def read_config(config_path, config_dict=None):
                 warnings.warn('Key: {} already in config file with value {}. '
                               'Overwriting with value: {}'.format(key, config[key],
                                                                   config_dict[key]))
-                config[key] = config_dict[key]
+            config[key] = config_dict[key]
 
     return config
 

@@ -175,7 +175,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                                                len(episode_lengths)))
                 print('Step no: {}. total length: {}'.format(episode_length, total_length))
                 print('Rank: {}. Total Length: {}. Counter across all processes: {}. '
-                      'Total reward for episode: {}'.format(rank, total_length, counter.value(),
+                      'Total reward for episode: {}'.format(rank, total_length, counter.value,
                                                             total_reward_for_episode))
 
             if not args.natural_language:

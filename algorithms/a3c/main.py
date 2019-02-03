@@ -15,6 +15,7 @@ import argparse
 import os
 import uuid
 import glob
+import json
 
 import torch
 import torch.multiprocessing as mp
@@ -87,7 +88,6 @@ if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'  # todo try multiple threads?
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
-    # todo print args to file in experiment folder
     # todo print all logs to experiment folder
 
     args = parser.parse_args()
@@ -97,9 +97,12 @@ if __name__ == '__main__':
         env = create_atari_env(args.atari_env_name)
         args.frame_dim = 42  # fixed to be 42x42 in envs.py _process_frame42()
     else:
-        # todo specify lookup, interaction actions to be off.
         args.config_dict = {'max_episode_length': args.max_episode_length,
                             'natural_language_instructions': args.natural_language,
+                            'num_random_actions_at_init': 3,
+                            'lookupdown_actions': True,
+                            'open_close_interaction': False,
+                            'pickup_put_interaction': False,
                             "task": {
                                 "task_name": "NaturalLanguageLookAtTask"
                             }}
@@ -171,9 +174,16 @@ if __name__ == '__main__':
             print('No checkpoint to load')
         # todo have choice of checkpoint as well? args.resume could override the above
 
+    # Save argparse arguments from last run
+    with open(os.path.join(args.experiment_path, 'latest_args.json'), 'w') as f:
+        args_dict = vars(args)
+        args_dict['experiment_id'] = str(args.experiment_id)
+        json.dump(args_dict, f)
+
     processes = []
     counter = mp.Value('i', 0 if not checkpoint_counter else checkpoint_counter)
     lock = mp.Lock()
+    # todo tensorboardX
 
     if not args.synchronous:
         # test runs continuously and if episode ends, sleeps for args.test_sleep_time seconds
