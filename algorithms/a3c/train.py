@@ -38,7 +38,7 @@ def save_checkpoint(state, checkpoint_path, filename, is_best=False):
 def turn_instruction_str_to_tensor(instruction, env):
     instruction_indices = []
     for word in instruction.split(" "):
-        instruction_indices.append(env.word_to_idx[word])
+        instruction_indices.append(env.task.word_to_idx[word])
         instruction_indices = np.array(instruction_indices)
         instruction_indices = torch.from_numpy(instruction_indices).view(1, -1)
     return instruction_indices

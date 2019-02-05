@@ -1,5 +1,6 @@
 """
-Adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/main.py
+ActorCritic adapted from: https://github.com/ikostrikov/pytorch-a3c/blob/master/main.py
+A3C_LSTM_GA adapted from: https://github.com/devendrachaplot/DeepRL-Grounding/blob/master/models.py
 The main file needed within a3c. Runs of the train and test functions from their respective files.
 Example of use:
 `cd algorithms/a3c`
@@ -19,6 +20,7 @@ import json
 
 import torch
 import torch.multiprocessing as mp
+from tensorboardX import SummaryWriter
 
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 from algorithms.a3c.envs import create_atari_env
@@ -104,7 +106,7 @@ if __name__ == '__main__':
                             'open_close_interaction': False,
                             'pickup_put_interaction': False,
                             "task": {
-                                "task_name": "NaturalLanguageLookAtTask"
+                                "task_name": "NaturalLanguageLookAtObjectTask"
                             }}
         env = AI2ThorEnv(config_dict=args.config_dict)
         args.frame_dim = env.config['resolution'][-1]
@@ -132,6 +134,7 @@ if __name__ == '__main__':
                                                                      str(args.experiment_id))))
     args.checkpoint_path = os.path.join(args.experiment_path, 'checkpoints')
     args.tensorboard_path = os.path.join(args.experiment_path, 'tensorboard_logs')
+    writer = SummaryWriter(comment='A3C', log_dir=args.tensorboard_path)  # this will create dirs
 
     # Checkpoint creation/loading below
     checkpoint_counter = False
@@ -183,22 +186,25 @@ if __name__ == '__main__':
     processes = []
     counter = mp.Value('i', 0 if not checkpoint_counter else checkpoint_counter)
     lock = mp.Lock()
-    # todo tensorboardX
+    # todo tensorboardX and add plots in other parts of the code
 
-    if not args.synchronous:
-        # test runs continuously and if episode ends, sleeps for args.test_sleep_time seconds
-        p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
-        p.start()
-        processes.append(p)
-
-        for rank in range(0, args.num_processes):
-            p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, optimizer))
+    try:
+        if not args.synchronous:
+            # test runs continuously and if episode ends, sleeps for args.test_sleep_time seconds
+            p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
             p.start()
             processes.append(p)
-        for p in processes:
-            p.join()
-    else:
-        rank = 0
-        args.num_processes = 1
-        # test(args.num_processes, args, shared_model, counter)  # for checking test functionality
-        train(rank, args, shared_model, counter, lock, optimizer)  # run train on main thread
+
+            for rank in range(0, args.num_processes):
+                p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, optimizer))
+                p.start()
+                processes.append(p)
+            for p in processes:
+                p.join()
+        else:
+            rank = 0
+            args.num_processes = 1
+            # test(args.num_processes, args, shared_model, counter)  # for checking test functionality
+            train(rank, args, shared_model, counter, lock, optimizer)  # run train on main thread
+    finally:
+        writer.export_scalars_to_json("./all_scalars.json")

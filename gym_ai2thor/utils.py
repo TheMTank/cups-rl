@@ -3,7 +3,6 @@ Auxiliary functions for building environments
 """
 import os
 import json
-import math
 import warnings
 
 from gym import error
@@ -71,42 +70,3 @@ class InvalidTaskParams(Exception):
     """
     pass
 
-def check_if_focus_and_close_enough_to_object_type(event, object_type='Mug'):
-    all_objects_for_object_type = [obj for obj in event.metadata['objects']
-                                   if obj['objectType'] == object_type]
-
-    assert len(all_objects_for_object_type) > 0  # todo check if fails
-
-    bool_list = []
-    for idx, obj in enumerate(all_objects_for_object_type):
-        bounds = event.instance_detections2D.get(obj['objectId'])
-        if bounds is None:
-            continue
-
-        x1, y1, x2, y2 = bounds
-        a_x, a_y, a_z = event.metadata['agent']['position']['x'], \
-                        event.metadata['agent']['position']['y'], \
-                        event.metadata['agent']['position']['z']
-        obj_x, obj_y, obj_z = obj['position']['x'], obj['position']['y'], obj['position']['z']
-        euclidean_distance_to_obj = math.sqrt((obj_x - a_x) ** 2 + (obj_y - a_y) ** 2 +
-                                              (obj_z - a_z) ** 2)
-        bool_list.append(check_if_focus_and_close_enough(x1, y1, x2, y2, euclidean_distance_to_obj))
-
-    return sum(bool_list)
-
-def check_if_focus_and_close_enough(x1, y1, x2, y2, distance):
-    focus_bool = is_bounding_box_centre_close_to_crosshair(x1, y1, x2, y2)
-    close_bool = euclidean_close_enough(distance)
-
-    return True if focus_bool and close_bool else False
-
-def is_bounding_box_centre_close_to_crosshair(x1, y1, x2, y2, threshold_within=100):
-    """
-    object's bounding box has to be mostly within the 100x100 middle of the image
-    """
-    bbox_x_cent, bbox_y_cent = (x2 + x1) / 2, (y2 + y1) / 2
-    dist = math.sqrt((150 - bbox_x_cent) ** 2 + (150 - bbox_y_cent) ** 2)
-    return True if dist < threshold_within else False
-
-def euclidean_close_enough(distance, threshold=1.0):
-    return True if distance < threshold else False

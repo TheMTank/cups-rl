@@ -5,7 +5,6 @@ inheriting the predefined methods and can be extended for particular tasks.
 import ai2thor.controller
 import numpy as np
 from skimage import transform
-import random
 
 import gym
 from gym import error, spaces
@@ -78,25 +77,6 @@ class AI2ThorEnv(gym.Env):
                                             shape=(channels, self.config['resolution'][0],
                                                    self.config['resolution'][1]),
                                             dtype=np.uint8)
-        # natural language instructions state settings
-        self.natural_language_instruction = self.config.get('natural_language_instructions', False)
-        if self.natural_language_instruction:
-            self.train_instructions = ['Bowl', 'Mug']
-            self.word_to_idx = self.get_word_to_idx(self.train_instructions)
-            self.curr_instruction_idx = random.randint(0, len(self.train_instructions) - 1)
-            self.curr_instruction = self.train_instructions[self.curr_instruction_idx]
-
-            self.object_class_to_id_mapping = {
-                'Bowl': 0,
-                'Mug': 1
-            }
-            # always last word of the sentence
-            self.curr_object_type = self.curr_instruction.split(' ')[-1]
-            self.curr_object_idx = self.object_class_to_id_mapping[self.curr_object_type]
-            print('Current instruction: {}. object type (last word in sentence): {} '
-                  'to task index: {}'.format(self.curr_instruction, self.curr_object_type,
-                                             self.curr_object_idx))
-
         # Create task from config
         self.task = TaskFactory.create_task(self.config)
         # Start ai2thor
@@ -185,16 +165,12 @@ class AI2ThorEnv(gym.Env):
 
         self.task.step_num += 1
 
-        state_image = self.preprocess(self.event.frame)
-
-        if self.natural_language_instruction:
-            # return tuple of (image, string of instruction sentence) as state
-            state = (state_image, self.curr_instruction)
-            self.event.metadata['curr_object_type'] = self.curr_object_type
-        else:
-            state = state_image
+        image_state = self.preprocess(self.event.frame)
+        extra_state = self.task.get_extra_state()
+        state = (image_state, extra_state) if extra_state else image_state
 
         reward, done = self.task.transition_reward(self.event)
+
         info = {}
         return state, reward, done, info
 
@@ -215,7 +191,6 @@ class AI2ThorEnv(gym.Env):
         self.event = self.controller.step(dict(action='Initialize', gridSize=0.25,
                                                renderDepthImage=True, renderClassImage=True,
                                                renderObjectImage=True))
-        self.task.reset()
 
         if self.num_random_actions_at_init > 0:
             print('Number of random actions at initialisation: {}'.format(
@@ -226,20 +201,11 @@ class AI2ThorEnv(gym.Env):
                 if done:
                     return self.reset()  # if we end episode in random actions, reset again
 
+        extra_state = self.task.reset()
         image_state = self.preprocess(self.event.frame) # TODO: reset state puts the channel at the beginning!
 
-        if self.natural_language_instruction:
-            self.curr_instruction_idx = random.randint(0, len(self.train_instructions) - 1)
-            self.curr_instruction = self.train_instructions[self.curr_instruction_idx]
-
-            # always last word of the sentence
-            self.curr_object_type = self.curr_instruction.split(' ')[-1]
-            self.curr_object_idx = self.object_class_to_id_mapping[self.curr_object_type]
-            print('Current instruction: {}. object type (last word in sentence): {} '
-                  'to task index: {}'.format(self.curr_instruction, self.curr_object_type,
-                                             self.curr_object_idx))
-
-            state = (image_state, self.curr_instruction)
+        if extra_state:
+            state = (image_state, extra_state)
         else:
             state = image_state
         return state
@@ -257,14 +223,6 @@ class AI2ThorEnv(gym.Env):
     def close(self):
         self.controller.stop()
 
-    def get_word_to_idx(self, train_instructions):
-        word_to_idx = {}
-        for instruction_data in train_instructions:
-            instruction = instruction_data # todo actual json ['instruction']
-            for word in instruction.split(" "):
-                if word not in word_to_idx:
-                    word_to_idx[word] = len(word_to_idx)
-        return word_to_idx
 
 if __name__ == '__main__':
     AI2ThorEnv()
