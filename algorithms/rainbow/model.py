@@ -1,4 +1,6 @@
 """
+Adapted from https://github.com/Kaixhin/Rainbow
+
 Model definition definition for DQN and Noisy layers
 """
 import math
@@ -18,8 +20,8 @@ class RainbowDQN(nn.Module):
         super().__init__()
         self.atoms = args.atoms
         self.action_space = action_space.n
-        self.linear_in = self.get_linear_size(args)
-
+        self.linear_in = self.get_linear_size(args.resolution)
+        # TODO: check what happens if RGB. It might be 3 * history_lenght. Adapt code
         self.conv1 = nn.Conv2d(args.history_length, 32, 8, stride=4, padding=1)
         self.conv2 = nn.Conv2d(32, 64, 4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, 3)
@@ -37,6 +39,8 @@ class RainbowDQN(nn.Module):
         a = self.fc_z_a(F.relu(self.fc_h_a(x)))  # Advantage stream
         v, a = v.view(-1, 1, self.atoms), a.view(-1, self.action_space, self.atoms)
         q = v + a - a.mean(1, keepdim=True)  # Combine streams
+        # TODO: add info over why do we use it and when (log)
+        # TODO: change name of Q to Z when appropriate and document why we softmax and what we get
         if log:  # Use log softmax for numerical stability
           q = F.log_softmax(q, dim=2)  # Log probabilities with action over second dimension
         else:
@@ -49,12 +53,12 @@ class RainbowDQN(nn.Module):
             module.reset_noise()
 
     @staticmethod
-    def get_linear_size(args):
+    def get_linear_size(resolution):
         """
         Calculates the size of the input features for the Linear layers
         """
         linear_size = 64  # number of filters before linear size
-        for dim in args.resolution:
+        for dim in resolution:
             out_conv1 = ((dim - 8 + 2) // 4) + 1
             out_conv2 = ((out_conv1 - 4) // 2) + 1
             out_conv3 = (out_conv2 - 3) + 1
@@ -71,6 +75,7 @@ class NoisyLinear(nn.Module):
     This layer replaces a "linear" layer for one that describes the weights with a distribution
     made of learnable parameters (mu, sigma). According to the paper, can be used to replace
     e-greedy exploration.
+    # TODO: write equations for noisy layers so it is more understandable
     """
     def __init__(self, in_features, out_features, std_init=0.5):
         super(NoisyLinear, self).__init__()

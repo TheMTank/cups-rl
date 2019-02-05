@@ -1,3 +1,7 @@
+"""
+Adapted from https://github.com/Kaixhin/Rainbow
+# TODO: explain more about why segment tree is the best structure
+"""
 import random
 from collections import namedtuple
 import torch

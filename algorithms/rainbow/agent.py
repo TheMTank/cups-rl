@@ -1,5 +1,7 @@
 """
-Wrapper including setup, training and evaluation functions for Rainbow DQN model
+Adapted from https://github.com/Kaixhin/Rainbow
+
+Wrapper class including setup, training and evaluation functions for Rainbow DQN model
 """
 import os
 import numpy as np
@@ -10,12 +12,28 @@ from algorithms.rainbow.model import RainbowDQN
 
 
 class Agent:
+    """
+    Wraps control between both online and target network for setup, training and evaluation
+    """
     def __init__(self, args, env):
+        """
+        Q(s,a) is the expect reward. Z is the full distribution from which Q is generated
+        Support represents the support of Z distribution
+        Z is represented with a fixed number of "atoms", which are discrete positions equidistant
+        along its support defined between Vmin-Vmax.
+
+        As an example, for a given (s,a) pair, we can represent Z(s,a) with 8 atoms as follows:
+
+                   .        .     .
+                .  |     .  |  .  |
+                |  |  .  |  |  |  |  .
+                |  |  |  |  |  |  |  |
+           Vmin ----------------------- Vmax
+        """
         self.action_space = env.action_space
         self.atoms = args.atoms
         self.Vmin = args.V_min
         self.Vmax = args.V_max
-        # Support (range) of z
         self.support = torch.linspace(args.V_min, args.V_max, self.atoms).to(device=args.device)
         self.delta_z = (args.V_max - args.V_min) / (self.atoms - 1)
         self.batch_size = args.batch_size
@@ -24,7 +42,12 @@ class Agent:
 
         self.online_net = RainbowDQN(args, self.action_space).to(device=args.device)
         if args.model and os.path.isfile(args.model):
-            # Always load tensors onto CPU by default, will shift to GPU if necessary
+            """
+            Always load tensors onto CPU by default, will shift to GPU if necessary to avoid 
+            GPU RAM surge when loading a model checkpoint as recommended in pytorch official 
+            documentation.
+            Source: https://pytorch.org/docs/stable/torch.html#torch.load
+            """
             self.online_net.load_state_dict(torch.load(args.model, map_location='cpu'))
         self.online_net.train()
 
@@ -55,7 +78,7 @@ class Agent:
 
     def learn(self, mem):
         """
-        Executes 1 gradient descent step sampling batch_size transitions form the memory
+        Executes 1 gradient descent step sampling batch_size transitions from the memory
         """
         # Sample transitions
         idxs, states, actions, returns, next_states, nonterminals, weights = \
@@ -66,6 +89,7 @@ class Agent:
         log_ps_a = log_ps[range(self.batch_size), actions]  # log p(s_t, a_t; θonline)
 
         with torch.no_grad():
+            # TODO: more detailed explanation of this process
             # Calculate nth next state probabilities
             # Probabilities p(s_t+n, ·; θonline)
             pns = self.online_net(next_states)

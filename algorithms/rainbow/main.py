@@ -113,6 +113,7 @@ if __name__ == '__main__':
     action_space = env.action_space
 
     # Agent
+    # TODO: explain this process better. Why the memory and priorities this way?
     dqn = Agent(args, env)
     mem = ReplayMemory(args, args.memory_capacity)
     priority_weight_increase = (1 - args.priority_weight) / (args.T_max - args.learn_start)

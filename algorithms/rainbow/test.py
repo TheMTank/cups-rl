@@ -1,4 +1,6 @@
 """
+Adapted from https://github.com/Kaixhin/Rainbow
+
 Functions for testing Rainbow and saving graphics of statistics for rewards and Q during the
 evaluation period
 """
@@ -11,6 +13,7 @@ import torch
 from algorithms.rainbow.env import Env
 
 # Globals
+# TODO: explain what is Ts and Qs
 Ts, rewards, Qs, best_avg_reward = [], [], [], -1e10
 
 
@@ -32,7 +35,7 @@ def test(env, T, args, dqn, val_mem, evaluate=False):
                 print("eval step {}".format(step_n))
             if done:
                 state, reward_sum, done = env.reset(), 0, False
-
+            # TODO: document what we are doing more precisely
             action = dqn.act_e_greedy(state)  # Choose an action ε-greedily
             state, reward, done, _ = env.step(action)  # Step
             reward_sum += reward
@@ -40,7 +43,7 @@ def test(env, T, args, dqn, val_mem, evaluate=False):
                 env.render()
             if done:
                 T_rewards.append(reward_sum)
-
+    # TODO: explain why this is necessary
     if args.game != 'ai2thor':
         env.close()
     # Test Q-values over validation memory

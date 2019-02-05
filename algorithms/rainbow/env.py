@@ -1,4 +1,6 @@
 """
+Adapted from https://github.com/Kaixhin/Rainbow
+
 Environment wrappers for ATARI_games and ai2thor
 """
 from collections import deque
@@ -103,7 +105,8 @@ class Env:
 
 class MultipleStepsEnv(gym.Wrapper):
     """
-    Wraps gym environment to execute history_length steps every time its step function is called
+    Wraps ai2thor gym environment to execute history_length steps every time its step function
+    is called
     :param environment:
     :return:
     """
@@ -117,7 +120,10 @@ class MultipleStepsEnv(gym.Wrapper):
         self.state_buffer = deque([], maxlen=n_steps)
 
     def step(self, action):
-        # Repeat action n_step times, max pool over last 2 frames
+        """
+        Repeat action n_step times. Regardless of the number of steps, the buffer only stores
+        the last 2 frames
+        """
         reward, done, info = 0, False, {}
         for t in range(self.n_steps):
             state, reward, done, info = self.env.step(action)
