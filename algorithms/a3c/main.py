@@ -100,7 +100,6 @@ if __name__ == '__main__':
         args.frame_dim = 42  # fixed to be 42x42 in envs.py _process_frame42()
     else:
         args.config_dict = {'max_episode_length': args.max_episode_length,
-                            'natural_language_instructions': args.natural_language,
                             'num_random_actions_at_init': 3,
                             'lookupdown_actions': True,
                             'open_close_interaction': False,
@@ -134,6 +133,7 @@ if __name__ == '__main__':
                                                                      str(args.experiment_id))))
     args.checkpoint_path = os.path.join(args.experiment_path, 'checkpoints')
     args.tensorboard_path = os.path.join(args.experiment_path, 'tensorboard_logs')
+    # creates run tensorboardX --logs_dir args.tensorboard_path in terminal and open browser
     writer = SummaryWriter(comment='A3C', log_dir=args.tensorboard_path)  # this will create dirs
 
     # Checkpoint creation/loading below

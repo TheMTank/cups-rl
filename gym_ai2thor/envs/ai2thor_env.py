@@ -2,6 +2,8 @@
 Base class implementation for ai2thor environments wrapper, which adds an openAI gym interface for
 inheriting the predefined methods and can be extended for particular tasks.
 """
+import random
+
 import ai2thor.controller
 import numpy as np
 from skimage import transform
@@ -39,6 +41,7 @@ class AI2ThorEnv(gym.Env):
         :param seed:         (int)   Random seed
         :param config_file:  (str)   Path to environment configuration file. Either absolute or
                                      relative path to the root of this repository.
+                                     default and good example at: config_files/config_example.json
         :param: config_dict: (dict)  Overrides specific fields from the input configuration file.
         """
         # Loads config settings from file
@@ -83,10 +86,14 @@ class AI2ThorEnv(gym.Env):
         self.controller = ai2thor.controller.Controller()
         self.controller.start()
 
+        self.reset_ever = False
+
     def step(self, action, verbose=True):
         if not self.action_space.contains(action):
             raise error.InvalidAction('Action must be an integer between '
                                       '0 and {}!'.format(self.action_space.n))
+        if not self.reset_ever:
+            raise ValueError('Cannot step() in environment if it has not been reset() before')
         action_str = self.action_names[action]
         visible_objects = [obj for obj in self.event.metadata['objects'] if obj['visible']]
 
@@ -187,6 +194,7 @@ class AI2ThorEnv(gym.Env):
 
     def reset(self):
         print('Resetting environment and starting new episode')
+        self.reset_ever = True
         self.controller.reset(self.scene_id)
         self.event = self.controller.step(dict(action='Initialize', gridSize=0.25,
                                                renderDepthImage=True, renderClassImage=True,
@@ -215,6 +223,7 @@ class AI2ThorEnv(gym.Env):
 
     def seed(self, seed=None):
         self.np_random, seed1 = seeding.np_random(seed)
+        random.seed(seed)
         # Derive a random seed. This gets passed as a uint, but gets
         # checked as an int elsewhere, so we need to keep it below
         # 2**31.

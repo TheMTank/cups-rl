@@ -17,7 +17,6 @@
     "scene_id": "FloorPlan28",
     "grayscale": true,
     "resolution": [128, 128],
-    "natural_language_instructions": false,
     "task": {
         "task_name": "PickUp",
         "target_object": "Mug"
