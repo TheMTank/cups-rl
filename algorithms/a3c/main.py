@@ -62,9 +62,9 @@ parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
 parser.add_argument('--max-episode-length', type=int, default=1000,
                     help='maximum length of an episode (default: 1000000)')
-parser.add_argument('--natural-language', dest='natural_language', action='store_true',
-                    help='env returns natural language sentence as instruction')
-parser.set_defaults(natural_language=False)
+parser.add_argument('--task-name', default='NaturalLanguageLookAtObjectTask',
+                    help='Choose task out of gym_ai2thor/tasks.py')
+
 parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
 parser.add_argument('-sync', '--synchronous', dest='synchronous', action='store_true',
@@ -104,13 +104,14 @@ if __name__ == '__main__':
                             'lookupdown_actions': True,
                             'open_close_interaction': False,
                             'pickup_put_interaction': False,
+                            'grayscale': False,
                             "task": {
-                                "task_name": "NaturalLanguageLookAtObjectTask"
+                                "task_name": args.task_name
                             }}
         env = AI2ThorEnv(config_dict=args.config_dict)
         args.frame_dim = env.config['resolution'][-1]
 
-    if args.natural_language:
+    if env.task.task_has_language_instructions:
         # environment will return natural language sentence as part of state so process it with
         # Gated Attention (GA) variant of A3C
         shared_model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n,
@@ -135,6 +136,7 @@ if __name__ == '__main__':
     args.tensorboard_path = os.path.join(args.experiment_path, 'tensorboard_logs')
     # creates run tensorboardX --logs_dir args.tensorboard_path in terminal and open browser
     writer = SummaryWriter(comment='A3C', log_dir=args.tensorboard_path)  # this will create dirs
+    # todo tensorboardX and actually add plots in other parts of the code
 
     # Checkpoint creation/loading below
     checkpoint_counter = False
@@ -186,7 +188,6 @@ if __name__ == '__main__':
     processes = []
     counter = mp.Value('i', 0 if not checkpoint_counter else checkpoint_counter)
     lock = mp.Lock()
-    # todo tensorboardX and add plots in other parts of the code
 
     try:
         if not args.synchronous:

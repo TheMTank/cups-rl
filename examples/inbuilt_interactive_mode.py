@@ -1,5 +1,6 @@
 """
 Control ai2thor in interactive mode with a unity build path. Needs to be run from terminal.
+If you don't provide a good path, it will try to download the 600+mb ai2thor assets.
 """
 
 import argparse

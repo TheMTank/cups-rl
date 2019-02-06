@@ -1,6 +1,8 @@
 import math
 import random
 
+import numpy as np
+import torch
 import matplotlib as mpl
 mpl.use('TkAgg')  # or whatever other backend that you want
 from matplotlib import pyplot as plt
@@ -54,6 +56,14 @@ def get_word_to_idx(train_instructions):
             if word not in word_to_idx:
                 word_to_idx[word] = len(word_to_idx)
     return word_to_idx
+
+def turn_instruction_str_to_tensor(instruction, env):
+    instruction_indices = []
+    for word in instruction.split(" "):
+        instruction_indices.append(env.task.word_to_idx[word])
+        instruction_indices = np.array(instruction_indices)
+        instruction_indices = torch.from_numpy(instruction_indices).view(1, -1)
+    return instruction_indices
 
 ##############################
 #----- Reward Functions -----#

@@ -154,7 +154,7 @@ class NaturalLanguageLookAtObjectTask(NaturalLanguageBaseTask):
     This task consists of requiring the agent to get close to the object type and look at it
     """
 
-    def __init__(self, list_of_instructions=('Bowl', 'Mug'), **kwargs):
+    def __init__(self, list_of_instructions=('Apple', 'Mug'), **kwargs):
         super().__init__(list_of_instructions)
 
     def transition_reward(self, event):
@@ -163,8 +163,8 @@ class NaturalLanguageLookAtObjectTask(NaturalLanguageBaseTask):
         target_objs = check_if_focus_and_close_enough_to_object_type(event, self.curr_object_type,
                                                                      distance_threshold_3d=1.0)
         if target_objs > 0:
-            print('Stared at object and is close enough. Num objects in view and '
-                  'close: {}'.format(target_objs))
+            print('Stared at {} and is close enough. Num objects in view and '
+                  'close: {}'.format(self.curr_object_type, target_objs))
             reward += self.default_reward
             done = True
 
@@ -190,8 +190,8 @@ class NaturalLanguageNavigateToObjectTask(NaturalLanguageBaseTask):
                                                                 event.metadata['curr_object_type'],
                                                               distance_threshold_3d=0.84)  # closer
         if target_objs > 0:
-            print('Stared at object and is close enough. Num objects in view and '
-                  'close: {}'.format(target_objs))
+            print('Stared at {} and is close enough. Num objects in view and '
+                  'close: {}'.format(self.curr_object_type, target_objs))
             reward += self.default_reward
             done = True
 

@@ -133,6 +133,7 @@ class TestAI2ThorEnv(unittest.TestCase):
         config_dict = {'lookupdown_actions': True,
                        'open_close_interaction': True,
                        'pickup_put_interaction': True,
+                       'gridSize': 0.25,
                        'task': {
                            'task_name': 'NaturalLanguageLookAtObjectTask',
                            'list_of_instructions': ['Apple', 'Mug', 'Tomato', 'Bread', 'Chair']
@@ -216,6 +217,8 @@ class TestAI2ThorEnv(unittest.TestCase):
         # current metadata dictionary that includes the state of the scene
         event.metadata
 
+        controller.stop()
+
     @staticmethod
     def test_calling_complex_actions():
         """
@@ -261,6 +264,8 @@ class TestAI2ThorEnv(unittest.TestCase):
         event = controller.step(dict(
             action='CloseObject',
             objectId=receptacle_object_id), raise_for_failure=True)
+
+        controller.stop()
 
     @staticmethod
     def test_multithreaded():
@@ -323,6 +328,7 @@ class TestAI2ThorEnv(unittest.TestCase):
                 total_time = time.time() - t_start_total
                 print('Thread num: {}. Total time for 10 steps: {}. {:.2f} fps'.
                       format(thread_num, total_time, 50 / total_time))
+                env.stop()
 
         threads = [threading.Thread(target=run, args=(thread_num, ))
                    for thread_num in range(thread_count)]

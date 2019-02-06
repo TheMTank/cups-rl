@@ -27,21 +27,14 @@ import torch.optim as optim
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 from algorithms.a3c.envs import create_atari_env
 from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
+from gym_ai2thor.task_utils import turn_instruction_str_to_tensor
 
 def save_checkpoint(state, checkpoint_path, filename, is_best=False):
     fp = os.path.join(checkpoint_path, filename)
     torch.save(state, fp)
     print('Saved model to path: {}'.format(fp))
-    # if is_best:  # todo keep
-    #     shutil.copyfile(filepath, 'model_best.pth.tar')
-
-def turn_instruction_str_to_tensor(instruction, env):
-    instruction_indices = []
-    for word in instruction.split(" "):
-        instruction_indices.append(env.task.word_to_idx[word])
-        instruction_indices = np.array(instruction_indices)
-        instruction_indices = torch.from_numpy(instruction_indices).view(1, -1)
-    return instruction_indices
+    # if is_best:  # todo use this but just have to find way to measure best?
+    #     shutil.copyfile(fp, os.path.join(checkpoint_path, 'model_best.pth.tar'))
 
 def ensure_shared_grads(model, shared_model):
     for param, shared_param in zip(model.parameters(),
@@ -49,7 +42,6 @@ def ensure_shared_grads(model, shared_model):
         if shared_param.grad is not None:
             return
         shared_param._grad = param.grad
-
 
 def train(rank, args, shared_model, counter, lock, optimizer=None):
     """
@@ -63,7 +55,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         env = AI2ThorEnv(config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
-    if args.natural_language:
+    if env.task.task_has_language_instructions:
         model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
     else:
         model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
@@ -74,7 +66,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
     model.train()
 
     state = env.reset()
-    if not args.natural_language:
+    if not env.task.task_has_language_instructions:
         image = torch.from_numpy(state)
     else:
         # natural language instruction is within state so unpack tuple
@@ -129,13 +121,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
             episode_length += 1
             total_length += 1
-            '''
-            # todo check if needed
-            if env.grayscale:
-                image = image.unsqueeze(0).unsqueeze(0)
-            else:
-                image = image.unsqueeze(0).permute(0, 3, 1, 2)'''
-            if not args.natural_language:
+            if not env.task.task_has_language_instructions:
                 value, logit, (hx, cx) = model((image.unsqueeze(0).float(), (hx, cx)))
             else:
                 tx = torch.from_numpy(np.array([episode_length])).long()
@@ -167,7 +153,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
                 # reset and unpack state
                 state = env.reset()
-                if args.natural_language:
+                if env.task.task_has_language_instructions:
                     (image, instruction) = state
                     instruction_indices = turn_instruction_str_to_tensor(instruction, env)
                 print('Episode Over. Total Length: {}. Total reward for episode: {}. '
@@ -178,7 +164,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                       'Total reward for episode: {}'.format(rank, total_length, counter.value,
                                                             total_reward_for_episode))
 
-            if not args.natural_language:
+            if not env.task.task_has_language_instructions:
                 image = torch.from_numpy(state)
             else:
                 (image, instruction) = state
@@ -202,8 +188,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         # Backprop and optimisation
         R = torch.zeros(1, 1)
         if not done:  # to change last reward to predicted value
-            # todo check grayscale here
-            if not args.natural_language:
+            if not env.task.task_has_language_instructions:
                 value, _, _ = model((image.unsqueeze(0).float(), (hx, cx)))
             else:
                 value, _, _ = model((image.unsqueeze(0).float(),

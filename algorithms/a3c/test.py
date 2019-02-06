@@ -20,6 +20,8 @@ from algorithms.a3c.model import ActorCritic
 def test(rank, args, shared_model, counter):
     torch.manual_seed(args.seed + rank)
 
+    # todo none of the below works
+
     if args.atari:
         env = create_atari_env(args.atari_env_name)
     else:
