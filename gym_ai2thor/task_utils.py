@@ -1,13 +1,55 @@
 import math
+import random
+
+import matplotlib as mpl
+mpl.use('TkAgg')  # or whatever other backend that you want
+from matplotlib import pyplot as plt
+import matplotlib.patches as patches
+
 
 ##############################
-#----- Preprocessing -----#
+#------- Visualisation ------#
+##############################
+
+matplotlib_colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+
+def show_bounding_boxes(event, key_terms=None, lines_between_boxes_and_crosshair=False):
+    fig2 = plt.figure()
+    ax2 = fig2.add_subplot(111)
+
+    show_all = True if not key_terms else False
+
+    check_if = lambda x, name: True if x.lower() in name.lower() else False
+
+    plt.imshow(event.frame, interpolation='nearest')
+    for key, arr in event.instance_detections2D.items():
+        if show_all or any([check_if(term, key) for term in key_terms]):
+            x1, y1, x2, y2 = list(arr)
+            bbox_color = matplotlib_colors[random.randint(0, len(matplotlib_colors) - 1)]
+            print(key)
+            print(x1, y1, x2, y2, ' with color: {}'.format(bbox_color))
+
+            rect = patches.Rectangle((x1, y1), abs(x2 - x1), abs(y2 - y1), linewidth=1,
+                                     edgecolor=bbox_color,
+                                     facecolor='none')
+            ax2.add_patch(rect)
+            if lines_between_boxes_and_crosshair:
+                crosshair_x, crosshair_y = 150, 150
+                bbox_x_cent, bbox_y_cent = (x2 + x1) / 2, (y2 + y1) / 2
+                x_coords, y_coords = [crosshair_x, bbox_x_cent], [crosshair_y, bbox_y_cent]
+                plt.plot(x_coords, y_coords, marker='o', markersize=3, color=bbox_color)
+                dist = math.sqrt((crosshair_x - bbox_x_cent) ** 2 + (crosshair_y - bbox_y_cent) ** 2)
+                print('2D distance of bbox centre to crosshair: {}'.format(round(dist, 3)))
+    plt.show()
+
+##############################
+#------- Preprocessing ------#
 ##############################
 
 def get_word_to_idx(train_instructions):
     word_to_idx = {}
     for instruction_data in train_instructions:
-        instruction = instruction_data  # todo actual json ['instruction']
+        instruction = instruction_data
         for word in instruction.split(" "):
             if word not in word_to_idx:
                 word_to_idx[word] = len(word_to_idx)
@@ -17,11 +59,18 @@ def get_word_to_idx(train_instructions):
 #----- Reward Functions -----#
 ##############################
 
-def check_if_focus_and_close_enough_to_object_type(event, object_type='Mug', distance_threshold=1.0):
+def check_if_focus_and_close_enough_to_object_type(event, object_type='Mug',
+                                                   distance_threshold_3d=1.0,
+                                                   distance_threshold_2d=90, verbose=False):
     all_objects_for_object_type = [obj for obj in event.metadata['objects']
                                    if obj['objectType'] == object_type]
 
-    assert len(all_objects_for_object_type) > 0  # todo check if fails ever
+    if not all_objects_for_object_type:
+        full_list_of_objects_types = [obj['objectType'] for obj in event.metadata['objects']]
+        raise ValueError('Object type: "{}" which was chosen for object target from the last word '
+                 'of instruction is not available in ai2thor at all or just is\'nt in this scene.'
+                 ' The full list of object types in this scene: {}'.format(object_type,
+                                                   ', '.join(full_list_of_objects_types)))
 
     bool_list = []
     for idx, obj in enumerate(all_objects_for_object_type):
@@ -37,23 +86,36 @@ def check_if_focus_and_close_enough_to_object_type(event, object_type='Mug', dis
         euclidean_distance_to_obj = math.sqrt((obj_x - a_x) ** 2 + (obj_y - a_y) ** 2 +
                                               (obj_z - a_z) ** 2)
         bool_list.append(check_if_focus_and_close_enough(x1, y1, x2, y2, euclidean_distance_to_obj,
-                                                         distance_threshold))
+                                                         distance_threshold_2d,
+                                                         distance_threshold_3d, verbose))
 
     return sum(bool_list)
 
-def check_if_focus_and_close_enough(x1, y1, x2, y2, distance, distance_threshold):
-    focus_bool = is_bounding_box_centre_close_to_crosshair(x1, y1, x2, y2)
-    close_bool = euclidean_close_enough(distance, distance_threshold)
+def check_if_focus_and_close_enough(x1, y1, x2, y2, distance_3d, distance_threshold_2d,
+                                    distance_threshold_3d, verbose=False):
+    focus_bool = is_bounding_box_centre_close_to_crosshair(x1, y1, x2, y2, verbose=verbose,
+                                                       distance_threshold_2d=distance_threshold_2d)
+    close_bool = euclidean_close_enough_3d(distance_3d, distance_threshold_3d, verbose=verbose)
+
+    if verbose:
+        print('Object within 2D distance of crosshair: {}. Object close enough with 3D distance: {}'.format(focus_bool, close_bool))
 
     return True if focus_bool and close_bool else False
 
-def is_bounding_box_centre_close_to_crosshair(x1, y1, x2, y2, threshold_within=100):
+def is_bounding_box_centre_close_to_crosshair(x1, y1, x2, y2, distance_threshold_2d, verbose=False):
     """
-    object's bounding box has to be mostly within the 100x100 middle of the image
+    object's bounding box has to be mostly within the 100x100 middle of the image.
+    Could also use distance within obj type but decided to do this instead
     """
     bbox_x_cent, bbox_y_cent = (x2 + x1) / 2, (y2 + y1) / 2
     dist = math.sqrt((150 - bbox_x_cent) ** 2 + (150 - bbox_y_cent) ** 2)
-    return True if dist < threshold_within else False
+    if verbose:
+        print('Euclidean 2D distance to crosshair: {}. distance_threshold_2d: {}'.format(dist,
+                                                                            distance_threshold_2d))
+    return True if dist < distance_threshold_2d else False
 
-def euclidean_close_enough(distance, threshold):
-    return True if distance < threshold else False
+def euclidean_close_enough_3d(distance, distance_threshold_3d, verbose=False):
+    if verbose:
+        print('Euclidean 3D distance: {}. distance_threshold_3d: {}'.format(distance,
+                                                                    distance_threshold_3d))
+    return True if distance < distance_threshold_3d else False

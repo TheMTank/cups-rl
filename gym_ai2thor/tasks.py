@@ -132,6 +132,8 @@ class NaturalLanguageBaseTask(BaseTask):
         print('Current instruction: {}. object type (last word in sentence): {}'.format(
             self.curr_instruction, self.curr_object_type))
 
+        self.default_reward = 1
+
     def get_extra_state(self):
         return self.curr_instruction
 
@@ -152,18 +154,18 @@ class NaturalLanguageLookAtObjectTask(NaturalLanguageBaseTask):
     This task consists of requiring the agent to get close to the object type and look at it
     """
 
-    def __init__(self, **kwargs):
-        super().__init__(('Apple', 'Mug'))  # todo change
+    def __init__(self, list_of_instructions=('Bowl', 'Mug'), **kwargs):
+        super().__init__(list_of_instructions)
 
     def transition_reward(self, event):
         reward, done = self.movement_reward, False
         # check if current target object is in middle of screen and close
         target_objs = check_if_focus_and_close_enough_to_object_type(event, self.curr_object_type,
-                                                                     distance_threshold=1.0)
+                                                                     distance_threshold_3d=1.0)
         if target_objs > 0:
             print('Stared at object and is close enough. Num objects in view and '
                   'close: {}'.format(target_objs))
-            reward += 10
+            reward += self.default_reward
             done = True
 
         return reward, done
@@ -175,6 +177,7 @@ class NaturalLanguageLookAtObjectTask(NaturalLanguageBaseTask):
 class NaturalLanguageNavigateToObjectTask(NaturalLanguageBaseTask):
     """
     This task consists of requiring the agent to get close to the object type and look at it
+    The closeness is set by distance_threshold=0.84
     """
 
     def __init__(self, **kwargs):
@@ -185,11 +188,11 @@ class NaturalLanguageNavigateToObjectTask(NaturalLanguageBaseTask):
         # check if current target object is in middle of screen and close
         target_objs = check_if_focus_and_close_enough_to_object_type(event,
                                                                 event.metadata['curr_object_type'],
-                                                                 distance_threshold=0.7)  # closer
+                                                              distance_threshold_3d=0.84)  # closer
         if target_objs > 0:
             print('Stared at object and is close enough. Num objects in view and '
                   'close: {}'.format(target_objs))
-            reward += 10
+            reward += self.default_reward
             done = True
 
         return reward, done
