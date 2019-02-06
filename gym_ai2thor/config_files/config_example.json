@@ -17,6 +17,10 @@
     "scene_id": "FloorPlan28",
     "grayscale": true,
     "resolution": [128, 128],
+    "cameraY": 0.0,
+    "gridSize": 0.1,
+    "incremental_rotation": false,
+    "build_path": false,
     "task": {
         "task_name": "PickUp",
         "target_object": "Mug"

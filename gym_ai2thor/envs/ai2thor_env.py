@@ -80,10 +80,21 @@ class AI2ThorEnv(gym.Env):
                                             shape=(channels, self.config['resolution'][0],
                                                    self.config['resolution'][1]),
                                             dtype=np.uint8)
+        # ai2thor initialise settings
+        self.cameraY = self.config.get('cameraY', 0.0)
+        self.gridSize = self.config.get('gridSize', 0.1)
+        # rotation settings
+        self.incremental_rotation_mode = self.config.get('incremental_rotation', False)
+        if self.incremental_rotation_mode:
+            self.absolute_rotation = 0.0
+            self.rotation_amount = 10.0
         # Create task from config
         self.task = TaskFactory.create_task(self.config)
         # Start ai2thor
         self.controller = ai2thor.controller.Controller()
+        if self.config.get('build_path'):
+            self.controller.local_executable_path = self.config.get('build_path',
+                                                                    self.config.get('build_path'))
         self.controller.start()
 
         self.reset_ever = False
@@ -166,8 +177,22 @@ class AI2ThorEnv(gym.Env):
                     inventory_changed_str = ''
                 print('{}: {}. {}'.format(
                     action_str, interaction_obj['objectType'], inventory_changed_str))
+        elif 'Rotate' in action_str:
+            if self.incremental_rotation_mode:
+                # Rotate actions
+                if 'Left' in action_str:
+                    self.absolute_rotation -= self.rotation_amount
+                    self.event = self.controller.step(
+                        dict(action='Rotate', rotation=self.absolute_rotation))
+                elif 'Right' in action_str:
+                    self.absolute_rotation += self.rotation_amount
+                    self.event = self.controller.step(
+                        dict(action='Rotate', rotation=self.absolute_rotation))
+            else:
+                # Do normal RotateLeft command
+                self.event = self.controller.step(dict(action=action_str))
         else:
-            # Move, Look or Rotate actions
+            # Move and Look actions
             self.event = self.controller.step(dict(action=action_str))
 
         self.task.step_num += 1
@@ -196,9 +221,10 @@ class AI2ThorEnv(gym.Env):
         print('Resetting environment and starting new episode')
         self.reset_ever = True
         self.controller.reset(self.scene_id)
-        self.event = self.controller.step(dict(action='Initialize', gridSize=0.25,
-                                               renderDepthImage=True, renderClassImage=True,
-                                               renderObjectImage=True))
+        self.event = self.controller.step(dict(action='Initialize', gridSize=self.gridSize,
+                                       cameraY=self.cameraY, renderDepthImage=True,
+                                       renderClassImage=True, renderObjectImage=True,
+                                       continuous=self.incremental_rotation_mode))
 
         if self.num_random_actions_at_init > 0:
             print('Number of random actions at initialisation: {}'.format(
@@ -216,6 +242,7 @@ class AI2ThorEnv(gym.Env):
             state = (image_state, extra_state)
         else:
             state = image_state
+
         return state
 
     def render(self, mode='human'):
