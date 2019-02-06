@@ -46,6 +46,7 @@ class TestAI2ThorEnv(unittest.TestCase):
             time.time() - start, sum(all_step_times) / len(all_step_times)))
 
         self.assertTrue(len(all_step_times) == num_steps)
+        env.close()
 
     def test_cup_task_and_interaction_actions(self):
         """
@@ -76,6 +77,101 @@ class TestAI2ThorEnv(unittest.TestCase):
                     break
             self.assertTrue(sum(rewards) == 2)
 
+        env.close()
+
+    def test_variations_of_natural_language_tasks(self):
+        """
+        test_natural_language_task look at task and other exceptions that should be raised
+        """
+
+        # mug actions were copied from before so is longer but episode should end before picking up
+        actions_to_look_at_mug = ['RotateRight', 'RotateRight', 'MoveAhead', 'MoveAhead',
+                                  'RotateRight', 'MoveAhead', 'MoveAhead', 'RotateLeft',
+                                  'MoveAhead',
+                                  'MoveAhead',
+                                  'MoveAhead', 'RotateLeft', 'LookDown', 'PickupObject',
+                                  'PutObject',
+                                  'LookUp',
+                                  'MoveRight', 'OpenObject', 'PutObject', 'PickupObject',
+                                  'CloseObject']
+
+
+        actions_to_look_at_apple = ['RotateRight', 'RotateRight', 'MoveAhead', 'MoveAhead',
+                                    'RotateRight', 'MoveAhead', 'MoveAhead', 'MoveAhead',
+                                    'RotateLeft', 'MoveAhead', 'MoveAhead', 'MoveAhead',
+                                    'MoveAhead', 'MoveAhead', 'MoveAhead', 'LookDown', 'MoveAhead']
+
+        actions_to_look_at_tomato = actions_to_look_at_apple[:] + ['RotateLeft', 'MoveAhead',
+                                                                   'RotateRight', 'MoveAhead']
+
+        # bread is behind apple
+        actions_to_look_at_bread = actions_to_look_at_tomato[:]
+
+        with self.assertRaises(ValueError):
+            # reset needs to always be called before step
+            env = AI2ThorEnv()
+            env.step(0)
+        env.close()
+
+        with self.assertRaises(ValueError):
+            # 'Cup' object type doesn't exist so ValueError is raised
+            config_dict = {'num_random_actions_at_init': 3,
+                           'lookupdown_actions': True,
+                           'open_close_interaction': True,
+                           'pickup_put_interaction': True,
+                           'gridSize': 0.01,
+                           'task': {
+                               'task_name': 'NaturalLanguageLookAtObjectTask',
+                               'list_of_instructions': ['Cup']
+                           }}
+            env = AI2ThorEnv(config_dict=config_dict)
+            env.reset()
+            env.step()
+        env.close()
+
+        config_dict = {'lookupdown_actions': True,
+                       'open_close_interaction': True,
+                       'pickup_put_interaction': True,
+                       'task': {
+                           'task_name': 'NaturalLanguageLookAtObjectTask',
+                           'list_of_instructions': ['Apple', 'Mug', 'Tomato', 'Bread', 'Chair']
+                       }}
+        env = AI2ThorEnv(config_dict=config_dict)
+        env.seed(42)
+        for episode in range(12):
+            state = env.reset()
+            rewards = []
+            if state[1] == 'Mug': current_set_of_actions = actions_to_look_at_mug
+            elif state[1] == 'Apple': current_set_of_actions = actions_to_look_at_apple
+            elif state[1] == 'Tomato': current_set_of_actions = actions_to_look_at_tomato
+            elif state[1] == 'Bread': current_set_of_actions = actions_to_look_at_bread
+            else: current_set_of_actions = actions_to_look_at_mug  # for Chair, make sure no reward
+
+            for idx, action_str in enumerate(current_set_of_actions):
+                action = env.action_names.index(action_str)
+                state, reward, terminal, _ = env.step(action)
+                self.assertTrue(len(state) == 2)
+
+                if reward > 0:
+                    print('Looked at: {} and got reward: {}. Episode over'.format(state[1], reward))
+                rewards.append(reward)
+                if terminal:
+                    break
+
+            sum_of_rewards = sum(rewards)
+            print('Sum of rewards: {}'.format(sum_of_rewards))
+            if state[1] == 'Mug':
+                self.assertTrue(sum_of_rewards == 1)
+            elif state[1] == 'Apple':
+                self.assertTrue(sum_of_rewards == 1)
+            elif state[1] == 'Bread':
+                self.assertTrue(sum_of_rewards == 1)
+            elif state[1] == 'Tomato':
+                self.assertTrue(sum_of_rewards == 1)
+            else:
+                self.assertTrue(sum_of_rewards == 0)
+        env.close()
+
     def test_config_override(self):
         """
         Check if reading both a config file and a config dict at the same time works and that the
@@ -90,6 +186,7 @@ class TestAI2ThorEnv(unittest.TestCase):
                              'Key: scene_id already in config file' in w.message.args[0]])
 
         self.assertTrue(env.scene_id == 'FloorPlan27')
+        env.close()
 
     @staticmethod
     def test_simple_example():
