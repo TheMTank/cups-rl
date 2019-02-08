@@ -14,6 +14,7 @@
     "openable_objects": [
         "Microwave"
     ],
+    "max_episode_length": 100,
     "scene_id": "FloorPlan28",
     "grayscale": true,
     "resolution": [128, 128],

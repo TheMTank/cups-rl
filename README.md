@@ -123,7 +123,10 @@ class MoveAheadTask(BaseTask):
 
     def reset(self):
         self.step_num = 0
-``` 
+```
+
+Some tasks allow you return extra state by filling in the get_extra_state() function but again check 
+tasks.py for more details.
 
 We encourage you to explore the scripts on the `examples` folder to guide you on the wrapper
  functionalities and explore how to create more customized versions of ai2thor environments and 

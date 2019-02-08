@@ -87,7 +87,7 @@ parser.set_defaults(atari_render=False)
 
 
 if __name__ == '__main__':
-    os.environ['OMP_NUM_THREADS'] = '1'  # todo try multiple threads?
+    os.environ['OMP_NUM_THREADS'] = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
     # todo print all logs to experiment folder
@@ -99,12 +99,16 @@ if __name__ == '__main__':
         env = create_atari_env(args.atari_env_name)
         args.frame_dim = 42  # fixed to be 42x42 in envs.py _process_frame42()
     else:
-        args.config_dict = {'max_episode_length': args.max_episode_length,
+        args.config_dict = {'max_episode_length': 100, #args.max_episode_length, todo put back and fix bug where this does nothing
                             'num_random_actions_at_init': 3,
                             'lookupdown_actions': True,
                             'open_close_interaction': False,
                             'pickup_put_interaction': False,
                             'grayscale': False,
+                            'cameraY': -0.85,
+                            'gridSize': 0.1,  # 0.01
+                            'scene_id': 'FloorPlan1',
+                            'build_path': '/home/beduffy/all_projects/ai2thor/unity/build-test.x86_64',
                             "task": {
                                 "task_name": args.task_name
                             }}
@@ -135,8 +139,8 @@ if __name__ == '__main__':
     args.checkpoint_path = os.path.join(args.experiment_path, 'checkpoints')
     args.tensorboard_path = os.path.join(args.experiment_path, 'tensorboard_logs')
     # creates run tensorboardX --logs_dir args.tensorboard_path in terminal and open browser
+    # tensorboard --logdir /experiments/{eid}/tensorboard_logs
     writer = SummaryWriter(comment='A3C', log_dir=args.tensorboard_path)  # this will create dirs
-    # todo tensorboardX and actually add plots in other parts of the code
 
     # Checkpoint creation/loading below
     checkpoint_counter = False
@@ -197,7 +201,8 @@ if __name__ == '__main__':
             processes.append(p)
 
             for rank in range(0, args.num_processes):
-                p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, optimizer))
+                p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock,
+                                                   writer, optimizer))
                 p.start()
                 processes.append(p)
             for p in processes:
@@ -206,6 +211,7 @@ if __name__ == '__main__':
             rank = 0
             args.num_processes = 1
             # test(args.num_processes, args, shared_model, counter)  # for checking test functionality
-            train(rank, args, shared_model, counter, lock, optimizer)  # run train on main thread
+            train(rank, args, shared_model, counter, lock, writer, optimizer)  # run train on main thread
     finally:
         writer.export_scalars_to_json("./all_scalars.json")
+        writer.close()

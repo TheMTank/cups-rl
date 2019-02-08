@@ -123,7 +123,7 @@ class A3C_LSTM_GA(torch.nn.Module):
 
         # Instruction Processing
         self.gru_hidden_size = 256
-        self.input_size = 2 # todo automatically find which is easy from cozmo
+        self.input_size = 2 # todo automatically find this. Which is easy from cozmo
         self.embedding = nn.Embedding(self.input_size, 32)
         self.gru = nn.GRU(32, self.gru_hidden_size)
 
@@ -172,9 +172,8 @@ class A3C_LSTM_GA(torch.nn.Module):
             # but for now im gonna try just one word. todo check when i bring multi word sentences back
             word_embedding = self.embedding(input_inst[0, i]).unsqueeze(0).unsqueeze(0)  # crazy todo
             word_embedding = word_embedding.expand(input_inst.data.size(1), -1, -1) # only change seq len dimension
-            _, encoder_hidden = self.gru(word_embedding, encoder_hidden) # todo import pdb;pdb.set_trace(). see if this works nad two unsqueezes were wrong?
+            _, encoder_hidden = self.gru(word_embedding, encoder_hidden) # todo import pdb;pdb.set_trace(). see if this works and two unsqueezes were wrong?
         x_instr_rep = encoder_hidden.view(encoder_hidden.size(1), -1)
-        # todo try MLP above since 1 word instead or just one layer
 
         # Get the attention vector from the instruction representation
         x_attention = F.sigmoid(self.attn_linear(x_instr_rep))

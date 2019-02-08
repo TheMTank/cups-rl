@@ -21,16 +21,16 @@ class TaskFactory:
         task_name = config['task']['task_name']
         if task_name == 'PickUp':
             if config['task']['target_object'] in config['pickup_objects']:
-                return PickupTask(**config['task'])
+                return PickupTask(**config)
             else:
                 raise InvalidTaskParams('Error initializing PickUpTask. {} is not '
                                         'pickupable!'.format(config['task']['target_object']))
         elif task_name == 'NaturalLanguageLookAtObjectTask':
-            return NaturalLanguageLookAtObjectTask(**config['task'])
+            return NaturalLanguageLookAtObjectTask(**config)
         elif task_name == 'NaturalLanguageNavigateToObjectTask':
-            return NaturalLanguageNavigateToObjectTask(**config['task'])
+            return NaturalLanguageNavigateToObjectTask(**config)
         elif task_name == 'NaturalLanguagePickUpObjectTask':
-            return NaturalLanguagePickUpObjectTask(**config['task'])
+            return NaturalLanguagePickUpObjectTask(**config)
         else:
             raise NotImplementedError('{} is not yet implemented!'.format(task_name))
 
@@ -40,7 +40,7 @@ class BaseTask:
     Base class and factory for tasks to be defined for a specific environment
     """
     def __init__(self, config):
-        self.task_config = config
+        self.config = config
         self.task_has_language_instructions = False
         self.max_episode_length = config['max_episode_length'] \
             if 'max_episode_length' in config else 1000

@@ -43,7 +43,7 @@ def ensure_shared_grads(model, shared_model):
             return
         shared_param._grad = param.grad
 
-def train(rank, args, shared_model, counter, lock, optimizer=None):
+def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
     """
     Main A3C train loop and initialisation
     """
@@ -86,6 +86,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
 
     start = time.time()
     total_length = args.total_length if args.total_length else 0
+    episode_number = 0  # todo load like above?
     episode_length = 0
     num_backprops = 0
     while True:
@@ -110,7 +111,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
                 checkpoint_dict = {
                     'total_length': total_length,
-                    'episode_number': len(episode_lengths),
+                    'episode_number': episode_number,
                     'counter': counter.value,
                     # todo save more stuff Need to save lists of all rewards and other info
                     # todo do it nicely and in a more extensible way?
@@ -145,6 +146,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 counter.value += 1
 
             if done:
+                episode_number += 1
                 episode_length = 0
                 total_length -= 1
                 total_reward_for_episode = sum(all_rewards_in_episode)
@@ -156,6 +158,7 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 if env.task.task_has_language_instructions:
                     (image, instruction) = state
                     instruction_indices = turn_instruction_str_to_tensor(instruction, env)
+                # logging, benchmarking and saving stats
                 print('Episode Over. Total Length: {}. Total reward for episode: {}. '
                       'Episode num: {}'.format(total_length,  total_reward_for_episode,
                                                len(episode_lengths)))
@@ -163,6 +166,15 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
                 print('Rank: {}. Total Length: {}. Counter across all processes: {}. '
                       'Total reward for episode: {}'.format(rank, total_length, counter.value,
                                                             total_reward_for_episode))
+                writer.add_scalar('episode_lengths', episode_length, episode_number)
+                # todo do running mean reward
+                writer.add_scalar('episode_total_rewards', total_reward_for_episode, episode_number)
+                # import pdb;pdb.set_trace()
+                # writer.add_image('Image', torch.from_numpy(image).permute(2, 0, 1), episode_number)
+                # writer.add_image('Image', state, episode_number)  # was state
+                writer.add_text('Text', 'text logged at step: {}. '
+                                        'Episode num {}'.format(episode_length, episode_number),
+                                episode_length)
 
             if not env.task.task_has_language_instructions:
                 image = torch.from_numpy(state)
@@ -220,21 +232,24 @@ def train(rank, args, shared_model, counter, lock, optimizer=None):
         ensure_shared_grads(model, shared_model)
         optimizer.step()
 
+        writer.add_scalar('policy_loss', policy_loss.item(), num_backprops)
+        writer.add_scalar('value_loss', value_loss.item(), num_backprops)
+
         # benchmarking
         p_losses.append(policy_loss.data[0, 0])
         v_losses.append(value_loss.data[0, 0])
 
+        num_backprops += 1
         if len(p_losses) > 1000:  # 1000 * 20 (args.num_steps) = 20000
-            num_backprops += 1
             print(" ".join([
                 "Training thread: {}".format(rank),
-                "Num backprops: {}K".format(num_backprops),
+                "Num backprops: {}".format(num_backprops),
                 "Avg policy loss: {}".format(np.mean(p_losses)),
                 "Avg value loss: {}".format(np.mean(v_losses))]))
             p_losses = []
             v_losses = []
 
-        if rank == 0:
+        if rank == 0: # and args.verbose: todo
             print('Step no: {}. total length: {}. Time taken for args.steps ({}): {}'.format(
                 episode_length,
                 total_length,
