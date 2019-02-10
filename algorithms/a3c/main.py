@@ -104,14 +104,18 @@ if __name__ == '__main__':
                             'lookupdown_actions': True,
                             'open_close_interaction': False,
                             'pickup_put_interaction': False,
+                            'incremental_rotation': True,
                             'grayscale': False,
+                            'movement_reward': -0.1,
                             'cameraY': -0.85,
                             'gridSize': 0.05,
                             'scene_id': 'FloorPlan1',
-                            'build_path': '/home/beduffy/all_projects/ai2thor/unity/build-test.x86_64',
-                            'pickup_objects': ['Apple'],
+                            'build_path': '/home/beduffy/all_projects/ai2thor/unity/build-test.x86_64', # todo args path or within project relative path
+                            'pickup_objects': ['Bowl', 'Mug'],  # todo maybe auto add?
                             'task': {
-                                'task_name': args.task_name
+                                # 'task_name': args.task_name,
+                                'task_name': 'NaturalLanguagePickUpObjectTask',
+                                'list_of_instructions': ('Bowl', 'Mug')
                             }}
         env = AI2ThorEnv(config_dict=args.config_dict)
         args.frame_dim = env.config['resolution'][-1]
@@ -140,7 +144,7 @@ if __name__ == '__main__':
     args.checkpoint_path = os.path.join(args.experiment_path, 'checkpoints')
     args.tensorboard_path = os.path.join(args.experiment_path, 'tensorboard_logs')
     # creates run tensorboardX --logs_dir args.tensorboard_path in terminal and open browser
-    # tensorboard --logdir /experiments/{eid}/tensorboard_logs
+    # tensorboard --logdir experiments/{eid}/tensorboard_logs
     writer = SummaryWriter(comment='A3C', log_dir=args.tensorboard_path)  # this will create dirs
 
     # Checkpoint creation/loading below
@@ -214,5 +218,5 @@ if __name__ == '__main__':
             # test(args.num_processes, args, shared_model, counter)  # for checking test functionality
             train(rank, args, shared_model, counter, lock, writer, optimizer)  # run train on main thread
     finally:
-        writer.export_scalars_to_json("./all_scalars.json")
+        writer.export_scalars_to_json(os.path.join(args.experiment_path, 'all_scalars.json'))
         writer.close()

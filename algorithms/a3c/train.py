@@ -146,9 +146,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 counter.value += 1
 
             if done:
-                episode_number += 1
-                episode_length = 0
-                total_length -= 1
+                total_length -= 1  # todo really shouldn't be needed? why off by 1?
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
                 all_rewards_in_episode = []
@@ -175,6 +173,9 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 writer.add_text('Text', 'text logged at step: {}. '
                                         'Episode num {}'.format(episode_length, episode_number),
                                 episode_length)
+
+                episode_number += 1
+                episode_length = 0
 
             if not env.task.task_has_language_instructions:
                 image = torch.from_numpy(state)
