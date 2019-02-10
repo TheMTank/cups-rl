@@ -1,0 +1,17 @@
+{
+    "open_close_interaction": false,
+    "pickup_put_interaction": false,
+    "lookupdown_actions": true,
+    "max_episode_length": 1000,
+    "scene_id": "FloorPlan1",
+    "grayscale": true,
+    "resolution": [128, 128],
+    "cameraY": -0.8,
+    "gridSize": 0.05,
+    "incremental_rotation": true,
+    "build_file_name": "build-test.x86_64",
+    "task": {
+        "task_name": "NaturalLanguageLookAtObjectTask",
+        "list_of_instructions": ["Bowl", "Mug"]
+    }
+}
