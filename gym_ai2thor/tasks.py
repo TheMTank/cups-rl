@@ -19,7 +19,7 @@ class TaskFactory:
         :return: Task instance initialized
         """
         task_name = config['task']['task_name']
-        if task_name == 'PickUp':
+        if task_name == 'PickUpTask':
             if config['task']['target_object'] in config['pickup_objects']:
                 return PickupTask(**config)
             else:
@@ -39,12 +39,12 @@ class BaseTask:
     """
     Base class and factory for tasks to be defined for a specific environment
     """
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, **kwargs):
+        self.config = kwargs
         self.task_has_language_instructions = False
-        self.max_episode_length = config['max_episode_length'] \
-            if 'max_episode_length' in config else 1000
-        self.movement_reward = config['movement_reward'] if 'movement_reward' in config else 0
+        self.max_episode_length = self.config['max_episode_length'] \
+            if 'max_episode_length' in self.config else 1000
+        self.movement_reward = self.config['movement_reward'] if 'movement_reward' in self.config else 0
         self.step_num = 0
 
     def transition_reward(self, state):
@@ -75,7 +75,7 @@ class PickupTask(BaseTask):
     details).
     """
     def __init__(self, target_objects=('Mug',), goal=None, **kwargs):
-        super().__init__(kwargs)
+        super().__init__(**kwargs)
         self.target_objects = target_objects
         self.goal = Counter(goal if goal else {obj: float('inf') for obj in self.target_objects})
         self.pickedup_objects = Counter()
@@ -115,8 +115,7 @@ class PickupTask(BaseTask):
 
 class NaturalLanguageBaseTask(BaseTask):
     def __init__(self, list_of_instructions=None, **kwargs):
-        super().__init__(kwargs)
-        # super().__init__(kwargs)
+        super().__init__(**kwargs)
         self.task_has_language_instructions = True
         # natural language instructions state settings
         # todo make sure object boxes is turned on in env
@@ -155,7 +154,7 @@ class NaturalLanguageLookAtObjectTask(NaturalLanguageBaseTask):
     """
 
     def __init__(self, list_of_instructions=('Apple', 'Mug'), **kwargs):
-        super().__init__(list_of_instructions)
+        super().__init__(list_of_instructions, **kwargs)
 
     def transition_reward(self, event):
         reward, done = self.movement_reward, False
@@ -180,8 +179,8 @@ class NaturalLanguageNavigateToObjectTask(NaturalLanguageBaseTask):
     The closeness is set by distance_threshold=0.84
     """
 
-    def __init__(self, **kwargs):
-        super().__init__(kwargs)
+    def __init__(self, list_of_instructions=('Apple', 'Mug'), **kwargs):
+        super().__init__(list_of_instructions, **kwargs)
 
     def transition_reward(self, event):
         reward, done = self.movement_reward, False

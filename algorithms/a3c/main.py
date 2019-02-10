@@ -99,18 +99,19 @@ if __name__ == '__main__':
         env = create_atari_env(args.atari_env_name)
         args.frame_dim = 42  # fixed to be 42x42 in envs.py _process_frame42()
     else:
-        args.config_dict = {'max_episode_length': 100, #args.max_episode_length, todo put back and fix bug where this does nothing
+        args.config_dict = {'max_episode_length': args.max_episode_length,
                             'num_random_actions_at_init': 3,
                             'lookupdown_actions': True,
                             'open_close_interaction': False,
                             'pickup_put_interaction': False,
                             'grayscale': False,
                             'cameraY': -0.85,
-                            'gridSize': 0.1,  # 0.01
+                            'gridSize': 0.05,
                             'scene_id': 'FloorPlan1',
                             'build_path': '/home/beduffy/all_projects/ai2thor/unity/build-test.x86_64',
-                            "task": {
-                                "task_name": args.task_name
+                            'pickup_objects': ['Apple'],
+                            'task': {
+                                'task_name': args.task_name
                             }}
         env = AI2ThorEnv(config_dict=args.config_dict)
         args.frame_dim = env.config['resolution'][-1]

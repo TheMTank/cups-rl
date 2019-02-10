@@ -236,8 +236,8 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
         writer.add_scalar('value_loss', value_loss.item(), num_backprops)
 
         # benchmarking
-        p_losses.append(policy_loss.data[0, 0])
-        v_losses.append(value_loss.data[0, 0])
+        p_losses.append(policy_loss.item())
+        v_losses.append(value_loss.item())
 
         num_backprops += 1
         if len(p_losses) > 1000:  # 1000 * 20 (args.num_steps) = 20000
