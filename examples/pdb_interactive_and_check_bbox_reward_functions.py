@@ -97,3 +97,6 @@ if __name__ == '__main__':
     # Can walk and step through environment interactively by copy/pasting commands and
     # deciding when to show bounding boxes. Can also check reward functions and have full control.
     import pdb;pdb.set_trace()
+    # try pasting
+    # event = controller.step(dict(action='MoveAhead'))
+    # into the console

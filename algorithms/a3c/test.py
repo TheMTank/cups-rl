@@ -9,12 +9,14 @@ save resources we can choose to only test every args.test_sleep_time seconds.
 import time
 from collections import deque
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
+from gym_ai2thor.task_utils import turn_instruction_str_to_tensor
 from algorithms.a3c.envs import create_atari_env
-from algorithms.a3c.model import ActorCritic
+from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
 
 
 def test(rank, args, shared_model, counter):
@@ -25,22 +27,36 @@ def test(rank, args, shared_model, counter):
     if args.atari:
         env = create_atari_env(args.atari_env_name)
     else:
-        args.config_dict = {'max_episode_length': args.max_episode_length}
         env = AI2ThorEnv(config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
-    model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
+    if args.atari:
+        env = create_atari_env(args.atari_env_name)
+    else:
+        env = AI2ThorEnv(config_dict=args.config_dict)
+    env.seed(args.seed + rank)
+
+    if env.task.task_has_language_instructions:
+        model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
+    else:
+        model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
 
     model.eval()
 
     state = env.reset()
-    state = torch.from_numpy(state)
-    reward_sum = 0
+    if not env.task.task_has_language_instructions:
+        image = torch.from_numpy(state)
+    else:
+        # natural language instruction is within state so unpack tuple
+        (image, instruction) = state
+        image = torch.from_numpy(image)
+        instruction_indices = turn_instruction_str_to_tensor(instruction, env)
     done = True
 
     start_time = time.time()
+    reward_sum = 0
 
-    # a quick hack to prevent the agent from stucking
+    # a quick hack to prevent the agent from getting stuck
     actions = deque(maxlen=100)
     episode_length = 0
     while True:
@@ -57,7 +73,13 @@ def test(rank, args, shared_model, counter):
             hx = hx.detach()
 
         with torch.no_grad():
-            value, logit, (hx, cx) = model((state.unsqueeze(0).float(), (hx, cx)))
+            if not env.task.task_has_language_instructions:
+                value, logit, (hx, cx) = model((image.unsqueeze(0).float(), (hx, cx)))
+            else:
+                tx = torch.from_numpy(np.array([episode_length])).long()
+                value, logit, (hx, cx) = model((image.unsqueeze(0).float(),
+                                                instruction_indices.long(),
+                                                (tx, hx, cx)))
         prob = F.softmax(logit, dim=-1)
         action = prob.max(1, keepdim=True)[1].numpy()
 
@@ -83,6 +105,14 @@ def test(rank, args, shared_model, counter):
             episode_length = 0
             actions.clear()
             state = env.reset()
+            if env.task.task_has_language_instructions:
+                (image, instruction) = state
+                instruction_indices = turn_instruction_str_to_tensor(instruction, env)
             time.sleep(args.test_sleep_time)
 
-        state = torch.from_numpy(state)
+        if not env.task.task_has_language_instructions:
+            image = torch.from_numpy(state)
+        else:
+            (image, instruction) = state
+            image = torch.from_numpy(image)
+            instruction_indices = turn_instruction_str_to_tensor(instruction, env)

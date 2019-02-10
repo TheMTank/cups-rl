@@ -119,7 +119,7 @@ class NaturalLanguageBaseTask(BaseTask):
         super().__init__(**kwargs)
         self.task_has_language_instructions = True
         # natural language instructions state settings
-        # todo make sure object boxes is turned on in env
+        # todo make sure object boxes is turned on in env. Need rainbow branch
         self.train_instructions = ('Bowl', 'Mug') if not kwargs['task'].get('list_of_instructions')\
             else kwargs['task']['list_of_instructions']
         # todo pass as parameter and have default?
@@ -229,12 +229,14 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
         reward, done = self.movement_reward, False
         curr_inventory = event.metadata['inventoryObjects']
         # nothing previously in inventory and now there is something within inventory
-        object_picked_up = not self.prev_inventory and curr_inventory and \
-                           curr_inventory[0]['objectType'] in self.curr_object_type
+        object_picked_up = not self.prev_inventory and curr_inventory
 
         if object_picked_up:
             # Add reward from the specific object
-            reward += self.default_reward
+            if curr_inventory[0]['objectType'] == self.curr_object_type:
+                reward += self.default_reward
+            else:
+                reward -= self.default_reward
             done = True
             print('{} reward collected for picking up object: {} at step: {}!'.format(reward,
                                                                           self.curr_object_type,
