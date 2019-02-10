@@ -3,6 +3,7 @@ Base class implementation for ai2thor environments wrapper, which adds an openAI
 inheriting the predefined methods and can be extended for particular tasks.
 """
 import random
+import os
 
 import ai2thor.controller
 import numpy as np
@@ -34,9 +35,9 @@ ALL_POSSIBLE_ACTIONS = [
 
 class AI2ThorEnv(gym.Env):
     """
-    Wrapper base class
+    This class wraps the ai2thor environment
     """
-    def __init__(self, seed=None, config_file='config_files/config_example.json', config_dict=None):
+    def __init__(self, seed=None, config_file='config_files/default_config.json', config_dict=None):
         """
         :param seed:         (int)   Random seed
         :param config_file:  (str)   Path to environment configuration file. Either absolute or
@@ -45,6 +46,7 @@ class AI2ThorEnv(gym.Env):
         :param: config_dict: (dict)  Overrides specific fields from the input configuration file.
         """
         # Loads config settings from file
+        print('Reading in base config file at: {}'.format(config_file))
         self.config = read_config(config_file, config_dict)
         self.scene_id = self.config['scene_id']
         # Randomness settings
@@ -72,6 +74,9 @@ class AI2ThorEnv(gym.Env):
         if not self.config.get('lookupdown_actions', True):
             self.action_names = tuple([action_name for action_name in self.action_names
                                        if 'Look' not in action_name])
+        if not self.config.get('moveupdown_actions', True):
+            self.action_names = tuple([action_name for action_name in self.action_names
+                                       if 'Move' not in action_name])
         self.action_space = spaces.Discrete(len(self.action_names))
         # Image settings
         self.event = None
@@ -92,9 +97,12 @@ class AI2ThorEnv(gym.Env):
         self.task = TaskFactory.create_task(self.config)
         # Start ai2thor
         self.controller = ai2thor.controller.Controller()
-        if self.config.get('build_path'):
-            self.controller.local_executable_path = self.config.get('build_path',
-                                                                    self.config.get('build_path'))
+        if self.config.get('build_file_name'):
+            # file must be in gym_ai2thor/build_files
+            self.build_file_path = os.path.abspath(os.path.join(__file__, '../../build_files',
+                                                   self.config['build_file_name']))
+            print('Build file path at: {}'.format(self.build_file_path))
+            self.controller.local_executable_path = self.build_file_path
         self.controller.start()
 
         self.reset_ever = False
@@ -225,6 +233,7 @@ class AI2ThorEnv(gym.Env):
                                        cameraY=self.cameraY, renderDepthImage=True,
                                        renderClassImage=True, renderObjectImage=True,
                                        continuous=self.incremental_rotation_mode))
+        self.task.step_num = 0
 
         if self.num_random_actions_at_init > 0:
             print('Number of random actions at initialisation: {}'.format(
