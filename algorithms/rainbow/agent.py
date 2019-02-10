@@ -17,8 +17,8 @@ class Agent:
     """
     def __init__(self, args, env):
         """
-        Q(s,a) is the expect reward. Z is the full distribution from which Q is generated
-        Support represents the support of Z distribution
+        Q(s,a) is the expect reward. Z is the full distribution from which Q is generated.
+        Support represents the support of Z distribution.
         Z is represented with a fixed number of "atoms", which are discrete positions equidistant
         along its support defined between Vmin-Vmax.
 
@@ -43,9 +43,9 @@ class Agent:
         self.online_net = RainbowDQN(args, self.action_space).to(device=args.device)
         if args.model and os.path.isfile(args.model):
             """
-            Always load tensors onto CPU by default, will shift to GPU if necessary to avoid 
-            GPU RAM surge when loading a model checkpoint as recommended in pytorch official 
-            documentation.
+            When you call torch.load() on a file which contains GPU tensors, those tensors will be 
+            loaded to GPU by default. You can call torch.load(.., map_location=’cpu’) and then 
+            load_state_dict() to avoid GPU RAM surge when loading a model checkpoint.
             Source: https://pytorch.org/docs/stable/torch.html#torch.load
             """
             self.online_net.load_state_dict(torch.load(args.model, map_location='cpu'))
@@ -89,37 +89,65 @@ class Agent:
         log_ps_a = log_ps[range(self.batch_size), actions]  # log p(s_t, a_t; θonline)
 
         with torch.no_grad():
-            # TODO: more detailed explanation of this process
-            # Calculate nth next state probabilities
-            # Probabilities p(s_t+n, ·; θonline)
+            """
+            -------------------
+            Policy Evaluation
+            -------------------
+            Calculate nth next state action probabilities with the online policy for N-step Learning
+            Probabilities: p(s_t+n, ·; θonline), i.e. for all actions
+            """
             pns = self.online_net(next_states)
-            # Distribution d_t+n = (z, p(s_t+n, ·; θonline))
+            """
+            We compute the expected Q from the N-step distribution 
+            d_t+n = (z, p(s_t+n, ·; θonline)) = Q(s_t+n, ·) = sum_i(z_i·p_i(s_t+n, ·)) ALL actions
+            """
             dns = self.support.expand_as(pns) * pns
-            # Perform argmax action selection using online network:
-            # argmax_a[(z, p(s_t+n, a; θonline))]
+            """
+            Choose optimal action a* from online network
+            argmax_a[(z, p(s_t+n, a; θonline))]
+            """
             argmax_indices_ns = dns.sum(2).argmax(1)
-            # Sample new target net noise
+            """
+            Sample new target net noise, i.e. fix new random weights for noisy layers to
+            encourage exploration
+            """
             self.target_net.reset_noise()
-            # Probabilities p(s_t+n, ·; θtarget)
+            """
+            Calculate nth next state action probabilities with the target policy for N-step Learning
+            Probabilities p(s_t+n, ·; θtarget), i.e. for all actions
+            """
             pns = self.target_net(next_states)
-            # Double-Q probabilities p(s_t+n, argmax_a[(z, p(s_t+n, a; θonline))]; θtarget)
+            """
+            Calculate target probabilities for Double DQN. For that we compare the expected Q from 
+            online greedy selection with the expected Q from the target network for the same action
+            p(s_t+n, argmax_a[(z, p(s_t+n, a; θonline))]; θtarget)
+            """
             pns_a = pns[range(self.batch_size), argmax_indices_ns]
-
-            # Compute Tz (Bellman operator T applied to z)
-            # Tz = R^n + (γ^n)z (accounting for terminal states)
+            """
+            Apply distributional N-step Bellman operator Tz (Bellman operator T applied to z)
+            Tz = R^n + (γ^n)z (accounting for terminal states)
+            """
             Tz = returns.unsqueeze(1) + nonterminals * (self.discount ** self.n) \
                  * self.support.unsqueeze(0)
-            # Clamp between supported values
+            # Clamp values so they fall within the support of Z values
             Tz = Tz.clamp(min=self.Vmin, max=self.Vmax)
-            # Compute L2 projection of Tz onto fixed support z
-            # b = (Tz - Vmin) / Δz
+            """
+            Compute L2 projection of Tz onto fixed support Z.
+            1. Find which values of the discrete fix distribution are the closest lower (l) and 
+            upper value (u) to the values from Tz (b).
+            b = (Tz - Vmin) / Δz
+            """
             b = (Tz - self.Vmin) / self.delta_z
             l, u = b.floor().to(torch.int64), b.ceil().to(torch.int64)
             # Fix disappearing probability mass when l = b = u (b is int)
             l[(u > 0) * (l == u)] -= 1
             u[(l < (self.atoms - 1)) * (l == u)] += 1
 
-            # Distribute probability of Tz
+            """
+            TODO: explain weight calculation left and right
+            https://mtomassoli.github.io/2017/12/08/distributional_rl/
+            Distribute probability of Tz. For ...
+            """
             m = states.new_zeros(self.batch_size, self.atoms)
             offset = torch.linspace(0, ((self.batch_size - 1) * self.atoms),
                                     self.batch_size).unsqueeze(1).expand(self.batch_size,
