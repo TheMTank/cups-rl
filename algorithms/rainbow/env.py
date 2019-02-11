@@ -62,6 +62,16 @@ class Env:
         return torch.stack(list(self.state_buffer), 0)
 
     def step(self, action):
+        """
+        Note on atari preprocessing from DeepMind DQN:
+        Repeat action 4 times and take only the max pooling over the last two frames. This is done
+        to solve the following problems:
+        1. Since the frames are very similar, they skip several frames so movement can be perceived
+        2. Some atari roms render only every second frame, so in order to not get an empty frame and
+         use the same code for all atari games they max pool frames 3 & 4.
+        A more detailed explanation from D. Takeshi can be found on:
+        https://danieltakeshi.github.io/2016/11/25/frame-skipping-and-preprocessing-for-deep-q-networks-on-atari-2600-games/
+        """
         # Repeat action 4 times, max pool over last 2 frames
         frame_buffer = torch.zeros(2, 84, 84, device=self.device)
         reward, done = 0, False
@@ -105,36 +115,33 @@ class Env:
 
 class MultipleStepsEnv(gym.Wrapper):
     """
-    Wraps ai2thor gym environment to execute history_length steps every time its step function
-    is called
-    :param environment:
-    :return:
+    Wraps our ai2thor gym environment to execute history_length steps every time its step function
+    is called. It is meant to be used only to wrap our ai2thor environment. Use Env class from
+    this script to load the atari wrapped environments from the original repository.
     """
     def __init__(self, env, n_steps, device):
         gym.Wrapper.__init__(self, env)
         self.env = env
         self.n_steps = n_steps
         self.device = device
-        h, w = self.env.config['resolution'][0], self.env.config['resolution'][1]
-        self.frame_buffer = torch.zeros((2, h, w), device=self.device, dtype=torch.float32)
         self.state_buffer = deque([], maxlen=n_steps)
 
     def step(self, action):
         """
-        Repeat action n_step times. Regardless of the number of steps, the buffer only stores
-        the last 2 frames
+        We stack n_step frames together so that the CNN can capture the consistency of movements as
+        it is done in DQN nature paper for atari environments.
+        The frames are stacked one by one using a deque, which means that every step we move only
+        the oldest frame is removed and the newest is appended.
+        If n_step == 1, we are simply using one frame as the input to our CNN.
+        The reward, done and info belong to the last step only.
         """
-        reward, done, info = 0, False, {}
-        for t in range(self.n_steps):
+        while True:
             state, reward, done, info = self.env.step(action)
-            if t == self.n_steps - 2:
-                self.frame_buffer[0] = torch.from_numpy(state)
-            elif t == self.n_steps - 1:
-                self.frame_buffer[1] = torch.from_numpy(state)
-            if done:
+            observation = torch.from_numpy(state)
+            self.state_buffer.append(observation)
+            if len(self.state_buffer) == self.n_steps:
                 break
-        observation = self.frame_buffer.max(0)[0]
-        self.state_buffer.append(observation)
+
         # Return state, reward, done, info
         return torch.stack(list(self.state_buffer), 0), reward, done, info
 
