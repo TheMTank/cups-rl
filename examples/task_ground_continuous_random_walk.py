@@ -10,8 +10,9 @@ import argparse
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 
 parser = argparse.ArgumentParser(description='Provide build path')
-parser.add_argument('--build-path', required=True,
-                    help='Required Unity build path for custom scenes (e.g. cups on ground)')
+parser.add_argument('--build-file-name', required=True,
+                    help='Required Unity build path for custom scenes (e.g. cups on ground)'
+                         'necessary build file with folder should be in gym_ai2thor/build_files')
 args = parser.parse_args()
 
 if __name__ == '__main__':
@@ -27,9 +28,9 @@ if __name__ == '__main__':
         'grayscale': True,
         'resolution': [128, 128],
         'cameraY': -0.85,
-        'gridSize': 0.1,  # 0.01
+        'gridSize': 0.1,
         'incremental_rotation': True,
-        'build_path': args.build_path,
+        'build_file_name': args.build_file_name,
         'task': {
             'task_name': 'PickUp',
             'target_object': 'Cup'

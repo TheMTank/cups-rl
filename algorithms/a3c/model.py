@@ -30,19 +30,20 @@ def calculate_lstm_input_size_for_A3C(frame_dim, stride=2, kernel_size=3, paddin
 
     return width * width * num_filters
 
-def calculate_lstm_input_size_for_A3C_LSTM_GA(frame_dim):
+def calculate_input_width_height_for_A3C_LSTM_GA(frame_dim):
     """
     Assumes square resolution image. Similar to the calculate_lstm_input_size_for_A3C function
     except that there are only 3 conv layers and there is variation among the kernel_size, stride,
     the number of channels and there is no padding. Therefore these are hardcoded.
     Check A3C_LSTM_GA class for these numbers.
+    Returns tuple representing (width, height, num_output_filters)
     """
 
     width = (frame_dim - 8 + 4) // 4 + 1
     width = (width - 4) // 2 + 1
     width = (width - 4) // 2 + 1
 
-    return width * width * 64
+    return width, width, 64
 
 def normalized_columns_initializer(weights, std=1.0):
     """
@@ -81,7 +82,7 @@ class ActorCritic(torch.nn.Module):
     interspersed with 4 elu activation functions. The output of the final layer is then flattened
     and passed to an LSTM (with previous or initial hidden and cell states (hx and cx)).
     The new hidden state is used as an input to the critic and value nn.Linear layer heads,
-    The final output is then predicted value, action logits, hx and cx.
+    The final output is then the predicted value, action logits, hx and cx.
     """
 
     def __init__(self, num_input_channels, num_outputs, frame_dim):
@@ -141,7 +142,9 @@ class A3C_LSTM_GA(torch.nn.Module):
         self.conv2 = nn.Conv2d(128, 64, kernel_size=4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=4, stride=2)
 
-        self.lstm_cell_size = calculate_lstm_input_size_for_A3C_LSTM_GA(frame_dim)
+        self.output_width, self.output_height, \
+            self.num_output_filters = calculate_input_width_height_for_A3C_LSTM_GA(frame_dim)
+        self.lstm_cell_size = self.output_width * self.output_height * self.num_output_filters
 
         # Instruction Processing
         self.gru_hidden_size = 256
@@ -200,8 +203,8 @@ class A3C_LSTM_GA(torch.nn.Module):
 
         # Gated-Attention
         x_attention = x_attention.unsqueeze(2).unsqueeze(3)
-        # x_attention = x_attention.expand(1, 64, 8, 17)
-        x_attention = x_attention.expand(1, 64, 6, 6) # todo auto find
+        x_attention = x_attention.expand(1, self.num_output_filters, self.output_width,
+                                         self.output_height)
         assert x_image_rep.size() == x_attention.size()
         x = x_image_rep*x_attention
         x = x.view(x.size(0), -1)
