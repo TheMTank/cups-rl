@@ -97,56 +97,49 @@ class Agent:
             Probabilities: p(s_t+n, ·; θonline), i.e. for all actions
             """
             pns = self.online_net(next_states)
-            """
-            We compute the expected Q from the N-step distribution 
+            """ We compute the expected Q from the N-step distribution 
             d_t+n = (z, p(s_t+n, ·; θonline)) = Q(s_t+n, ·) = sum_i(z_i·p_i(s_t+n, ·)) ALL actions
             """
             dns = self.support.expand_as(pns) * pns
-            """
-            Choose optimal action a* from online network
-            argmax_a[(z, p(s_t+n, a; θonline))]
-            """
+            """ Choose optimal action a* from online network
+            argmax_a[(z, p(s_t+n, a; θonline))] """
             argmax_indices_ns = dns.sum(2).argmax(1)
-            """
-            Sample new target net noise, i.e. fix new random weights for noisy layers to
-            encourage exploration
-            """
+            """ Sample new target net noise, i.e. fix new random weights for noisy layers to
+            encourage exploration """
             self.target_net.reset_noise()
-            """
-            Calculate nth next state action probabilities with the target policy for N-step Learning
-            Probabilities p(s_t+n, ·; θtarget), i.e. for all actions
-            """
+            """ Calculate nth next state action probabilities with the target policy for N-step 
+            Learning. Probabilities p(s_t+n, ·; θtarget), i.e. for all actions """
             pns = self.target_net(next_states)
-            """
-            Calculate target probabilities for Double DQN. For that we compare the expected Q from 
-            online greedy selection with the expected Q from the target network for the same action
-            p(s_t+n, argmax_a[(z, p(s_t+n, a; θonline))]; θtarget)
-            """
+            """ Calculate target probabilities for Double DQN. For that we compare the expected Q 
+            from online greedy selection with the expected Q from the target network for the same 
+            action. Probabilities p(s_t+n, argmax_a[(z, p(s_t+n, a; θonline))]; θtarget) """
             pns_a = pns[range(self.batch_size), argmax_indices_ns]
-            """
-            Apply distributional N-step Bellman operator Tz (Bellman operator T applied to z)
-            Tz = R^n + (γ^n)z (accounting for terminal states)
-            """
+            """ Apply distributional N-step Bellman operator Tz (Bellman operator T applied to z)
+            Tz = R^n + (γ^n)z (accounting for terminal states) """
             Tz = returns.unsqueeze(1) + nonterminals * (self.discount ** self.n) \
                  * self.support.unsqueeze(0)
             # Clamp values so they fall within the support of Z values
             Tz = Tz.clamp(min=self.Vmin, max=self.Vmax)
-            """
-            Compute L2 projection of Tz onto fixed support Z.
+            """ Compute L2 projection of Tz onto fixed support Z.
             1. Find which values of the discrete fix distribution are the closest lower (l) and 
             upper value (u) to the values from Tz (b).
-            b = (Tz - Vmin) / Δz
-            """
+            b = (Tz - Vmin) / Δz """
             b = (Tz - self.Vmin) / self.delta_z
             l, u = b.floor().to(torch.int64), b.ceil().to(torch.int64)
             # Fix disappearing probability mass when l = b = u (b is int)
             l[(u > 0) * (l == u)] -= 1
             u[(l < (self.atoms - 1)) * (l == u)] += 1
-
             """
-            TODO: explain weight calculation left and right
-            https://mtomassoli.github.io/2017/12/08/distributional_rl/
-            Distribute probability of Tz. For ...
+            2. Distribute probability of Tz. Since b is most likely not having the exact value of 
+            one of our predefined atoms, we split its mass between the closest atoms (l, u) in 
+            proportion to their distance to b.
+                                 u
+                     l    b      .     
+                     ._d__.__2d__|    
+                ...  |    :      |  ...    mass_l += mass_b * 1 / 3
+                     |    :      |         mass_r += mass_b * 2 / 3
+           Vmin ----------------------- Vmax
+            
             """
             m = states.new_zeros(self.batch_size, self.atoms)
             offset = torch.linspace(0, ((self.batch_size - 1) * self.atoms),
@@ -157,10 +150,10 @@ class Agent:
             # m_u = m_u + p(s_t+n, a*)(b - l)
             m.view(-1).index_add_(0, (u + offset).view(-1), (pns_a * (b - l.float())).view(-1))
 
-        # Cross-entropy loss (minimises DKL(m||p(s_t, a_t)))
+        # Cross-entropy loss (minimises KL-distance between Z and m: DKL(m||p(s_t, a_t)))
         loss = -torch.sum(m * log_ps_a, 1)
         self.online_net.zero_grad()
-        # Backpropagate importance-weighted minibatch loss
+        # Backpropagate importance-weighted (Prioritized Experience Replay) minibatch loss
         (weights * loss).mean().backward()
         self.optimiser.step()
         # Update priorities of sampled transitions
