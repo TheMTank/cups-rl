@@ -13,11 +13,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def calculate_lstm_input_size_after_4_conv_layers(frame_dim, stride=2, kernel_size=3, padding=1,
+def calculate_lstm_input_size_for_A3C(frame_dim, stride=2, kernel_size=3, padding=1,
                                      num_filters=32):
     """
     Assumes square resolution image. Find LSTM size after 4 conv layers below in A3C using regular
-    Convolution math. For example:
+    convolution math. For example:
     42x42 -> (42 − 3 + 2)÷ 2 + 1 = 21x21 after 1 layer
     11x11 after 2 layers -> 6x6 after 3 -> and finally 3x3 after 4 layers
     Therefore lstm input size after flattening would be (3 * 3 * num_filters)
@@ -29,6 +29,20 @@ def calculate_lstm_input_size_after_4_conv_layers(frame_dim, stride=2, kernel_si
     width = (width - kernel_size + 2 * padding) // stride + 1
 
     return width * width * num_filters
+
+def calculate_lstm_input_size_for_A3C_LSTM_GA(frame_dim):
+    """
+    Assumes square resolution image. Similar to the calculate_lstm_input_size_for_A3C function
+    except that there are only 3 conv layers and there is variation among the kernel_size, stride,
+    the number of channels and there is no padding. Therefore these are hardcoded.
+    Check A3C_LSTM_GA class for these numbers.
+    """
+
+    width = (frame_dim - 8 + 4) // 4 + 1
+    width = (width - 4) // 2 + 1
+    width = (width - 4) // 2 + 1
+
+    return width * width * 64
 
 def normalized_columns_initializer(weights, std=1.0):
     """
@@ -78,7 +92,7 @@ class ActorCritic(torch.nn.Module):
         self.conv4 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
 
         # assumes square image
-        self.lstm_cell_size = calculate_lstm_input_size_after_4_conv_layers(frame_dim)
+        self.lstm_cell_size = calculate_lstm_input_size_for_A3C(frame_dim)
 
         self.lstm = nn.LSTMCell(self.lstm_cell_size, 256)  # for any square input
 
@@ -112,8 +126,14 @@ class ActorCritic(torch.nn.Module):
         return self.critic_linear(x), self.actor_linear(x), (hx, cx)
 
 class A3C_LSTM_GA(torch.nn.Module):
-
-    def __init__(self, num_input_channels, num_outputs, frame_dim):
+    """
+    Very similar to the above ActorCritic but has Gated Attention (GA) and processes an instruction
+    which is a part of the input state. The attention enables the policy to focus on certain parts
+    of the input image given the instruction e.g. instruction "Go to the red cup" and a filter
+    could learn and language ground itself in the meaning of "red" with a filter that learns this
+    mapping. There is also a time embedding layer to help stabilize value prediction.
+    """
+    def __init__(self, num_input_channels, num_outputs, frame_dim, vocab_size, episode_length):
         super(A3C_LSTM_GA, self).__init__()
 
         # Image Processing
@@ -121,9 +141,11 @@ class A3C_LSTM_GA(torch.nn.Module):
         self.conv2 = nn.Conv2d(128, 64, kernel_size=4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=4, stride=2)
 
+        self.lstm_cell_size = calculate_lstm_input_size_for_A3C_LSTM_GA(frame_dim)
+
         # Instruction Processing
         self.gru_hidden_size = 256
-        self.input_size = 2 # todo automatically find this. Which is easy from cozmo
+        self.input_size = vocab_size
         self.embedding = nn.Embedding(self.input_size, 32)
         self.gru = nn.GRU(32, self.gru_hidden_size)
 
@@ -133,13 +155,11 @@ class A3C_LSTM_GA(torch.nn.Module):
         # Time embedding layer, helps in stabilizing value prediction
         self.time_emb_dim = 32
         self.time_emb_layer = nn.Embedding(
-                # args.max_episode_length+1, # todo feed in episode length
-                1000 + 1,
+                episode_length + 1, # todo check if it works and why +1? because we move 1 after steps. off by one,
                 self.time_emb_dim)
 
         # A3C-LSTM layers
-        # self.linear = nn.Linear(64 * 8 * 17, 256)
-        self.linear = nn.Linear(64 * 6 * 6, 256) # todo maybe 150, 150 res. todo auto calculate
+        self.linear = nn.Linear(self.lstm_cell_size, 256)
         self.lstm = nn.LSTMCell(256, 256)
         self.critic_linear = nn.Linear(256 + self.time_emb_dim, 1)
         self.actor_linear = nn.Linear(256 + self.time_emb_dim, num_outputs)
@@ -181,7 +201,7 @@ class A3C_LSTM_GA(torch.nn.Module):
         # Gated-Attention
         x_attention = x_attention.unsqueeze(2).unsqueeze(3)
         # x_attention = x_attention.expand(1, 64, 8, 17)
-        x_attention = x_attention.expand(1, 64, 6, 6)
+        x_attention = x_attention.expand(1, 64, 6, 6) # todo auto find
         assert x_image_rep.size() == x_attention.size()
         x = x_image_rep*x_attention
         x = x.view(x.size(0), -1)

@@ -231,6 +231,9 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
         # nothing previously in inventory and now there is something within inventory
         object_picked_up = not self.prev_inventory and curr_inventory
 
+        # todo should config and ai2thor_env have options for specifying how close to the object you must be?
+        # and also how close your crosshair is
+
         if object_picked_up:
             # Add reward from the specific object
             if curr_inventory[0]['objectType'] == self.curr_object_type:

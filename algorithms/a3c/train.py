@@ -45,18 +45,20 @@ def ensure_shared_grads(model, shared_model):
 
 def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
     """
-    Main A3C train loop and initialisation
+    Main A3C or A3C_LSTM_GA train loop and initialisation
     """
     torch.manual_seed(args.seed + rank)
 
     if args.atari:
         env = create_atari_env(args.atari_env_name)
     else:
-        env = AI2ThorEnv(config_dict=args.config_dict)
+        # env = AI2ThorEnv(config_dict=args.config_dict)
+        env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
     if env.task.task_has_language_instructions:
-        model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
+        model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n,
+                            args.frame_dim, len(env.task.word_to_idx), args.max_episode_length)
     else:
         model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
 
@@ -84,9 +86,8 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
     p_losses = []
     v_losses = []
 
-    start = time.time()
-    total_length = args.total_length if args.total_length else 0
-    episode_number = 0  # todo load like above?
+    total_length = args.total_length
+    episode_number = args.episode_number
     episode_length = 0
     num_backprops = 0
     while True:
@@ -106,14 +107,15 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
         interaction_start_time = time.time()
         for step in range(args.num_steps):
-            if rank == 0 and total_length > 0 and total_length % (100000 // args.num_processes) == 0:
+            # save model every args.checkpoint_freq
+            if rank == 0 and total_length > 0 and total_length % (args.checkpoint_freq //
+                                                                  args.num_processes) == 0:
                 # todo make function/clearer
                 fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
                 checkpoint_dict = {
                     'total_length': total_length,
                     'episode_number': episode_number,
                     'counter': counter.value,
-                    # todo save more stuff Need to save lists of all rewards and other info
                     # todo do it nicely and in a more extensible way?
                     'state_dict': model.state_dict(),
                     'optimizer': optimizer.state_dict()
@@ -159,7 +161,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 # logging, benchmarking and saving stats
                 print('Episode Over. Total Length: {}. Total reward for episode: {}. '
                       'Episode num: {}'.format(total_length,  total_reward_for_episode,
-                                               len(episode_lengths)))
+                                               episode_number))
                 print('Step no: {}. total length: {}'.format(episode_length, total_length))
                 print('Rank: {}. Total Length: {}. Counter across all processes: {}. '
                       'Total reward for episode: {}'.format(rank, total_length, counter.value,
@@ -167,7 +169,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 writer.add_scalar('episode_lengths', episode_length, episode_number)
                 # todo do running mean reward
                 writer.add_scalar('episode_total_rewards', total_reward_for_episode, episode_number)
-                # import pdb;pdb.set_trace()
+                # import pdb;pdb.set_trace()  # todo remove or make work
                 # writer.add_image('Image', torch.from_numpy(image).permute(2, 0, 1), episode_number)
                 # writer.add_image('Image', state, episode_number)  # was state
                 writer.add_text('Text', 'text logged at step: {}. '

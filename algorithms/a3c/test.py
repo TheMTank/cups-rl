@@ -37,7 +37,9 @@ def test(rank, args, shared_model, counter):
     env.seed(args.seed + rank)
 
     if env.task.task_has_language_instructions:
-        model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
+        model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n,
+                                   args.frame_dim, len(env.task.word_to_idx),
+                                   args.max_episode_length)
     else:
         model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
 
