@@ -135,16 +135,12 @@ class MultipleStepsEnv(gym.Wrapper):
         If n_step == 1, we are simply using one frame as the input to our CNN.
         The reward, done and info belong to the last step only.
         """
-        #TODO: add support for RGB images
         while True:
             state, reward, done, info = self.env.step(action)
             observation = torch.from_numpy(state).float().to(self.device)
             self.state_buffer.append(observation)
             if len(self.state_buffer) == self.n_steps:
                 break
-        # if 'grayscale' in self.config and self.config['grayscale']:
-        #     state = torch.stack(list(self.state_buffer), 0)
-        # else:
         state = torch.cat(list(self.state_buffer), 0)
         # Return state, reward, done, info
         return state, reward, done, info

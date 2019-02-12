@@ -17,7 +17,7 @@ class Agent:
     """
     def __init__(self, args, env):
         """
-        Q(s,a) is the expect reward. Z is the full distribution from which Q is generated.
+        Q(s,a) is the expected reward. Z is the full distribution from which Q is generated.
         Support represents the support of Z distribution.
         Z is represented with a fixed number of "atoms", which are discrete positions equidistant
         along its support defined between Vmin-Vmax.

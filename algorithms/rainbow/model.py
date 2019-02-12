@@ -24,26 +24,30 @@ class RainbowDQN(nn.Module):
         self.conv1 = nn.Conv2d(args.in_channels, 32, 8, stride=4, padding=1)
         self.conv2 = nn.Conv2d(32, 64, 4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, 3)
+        # Fully connected hidden features on value stream (fc_h_v) and advantage stream (fc_h_a)
         self.fc_h_v = NoisyLinear(self.linear_in, args.hidden_size, std_init=args.noisy_std)
         self.fc_h_a = NoisyLinear(self.linear_in, args.hidden_size, std_init=args.noisy_std)
+        # Fully connected output to generate value (fc_z_v) and advantage (fc_z_a) distributions
         self.fc_z_v = NoisyLinear(args.hidden_size, self.atoms, std_init=args.noisy_std)
-        self.fc_z_a = NoisyLinear(args.hidden_size, self.action_space * self.atoms, std_init=args.noisy_std)
+        self.fc_z_a = NoisyLinear(args.hidden_size, self.action_space * self.atoms,
+                                  std_init=args.noisy_std)
 
     def forward(self, x, log=False):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
         x = x.view(-1, self.linear_in)
-        v = self.fc_z_v(F.relu(self.fc_h_v(x)))  # Value stream
-        a = self.fc_z_a(F.relu(self.fc_h_a(x)))  # Advantage stream
-        v, a = v.view(-1, 1, self.atoms), a.view(-1, self.action_space, self.atoms)
-        q = v + a - a.mean(1, keepdim=True)  # Combine streams
-        # TODO: add info over why do we use it and when (log)
-        # TODO: change name of Q to Z when appropriate and document why we softmax and what we get
-        if log:  # Use log softmax for numerical stability
-          q = F.log_softmax(q, dim=2)  # Log probabilities with action over second dimension
+        # the "z_" prefix is used here to indicate that the value is defined as a distribution
+        # instead of a single value. Check "agent.py" for more detailed information.
+        z_v = self.fc_z_v(F.relu(self.fc_h_v(x)))  # Value stream
+        z_a = self.fc_z_a(F.relu(self.fc_h_a(x)))  # Advantage stream
+        z_v, z_a = z_v.view(-1, 1, self.atoms), z_a.view(-1, self.action_space, self.atoms)
+        z_q = z_v + z_a - z_a.mean(1, keepdim=True)  # Combine streams
+        # log softmax used while learning to generate probabilities with higher numerical stability
+        if log:
+          q = F.log_softmax(z_q, dim=2)  # Log probabilities with action over second dimension
         else:
-          q = F.softmax(q, dim=2)  # Probabilities with action over second dimension
+          q = F.softmax(z_q, dim=2)  # Probabilities with action over second dimension
         return q
 
     def reset_noise(self):
@@ -54,7 +58,14 @@ class RainbowDQN(nn.Module):
     @staticmethod
     def get_linear_size(resolution):
         """
-        Calculates the size of the input features for the Linear layers
+        Calculates the size of the input features for the Linear layers depending on the input
+        resolution given to the CNN.
+
+        The output of the convolution of 1 feature map with a kenrel is calculated as follows
+        (for each dimension):
+            out_dim_size = ((input_size − kernel_size + 2 * padding) // stride) + 1
+        The input size to the linear layer is "flattened" to a 1 dimensional vector with size:
+            in_size = h * w * n_feature_maps
         """
         linear_size = 64  # number of filters before linear size
         for dim in resolution:
@@ -70,13 +81,15 @@ class NoisyLinear(nn.Module):
     From the paper "Noisy Networks for exploration"
     Source: https://arxiv.org/pdf/1706.10295.pdf
 
-    Factorised NoisyLinear layer with bias, i.e. uses an independent noise per each output and
+    Factorised NoisyLinear layer with bias, which uses an independent noise per each output and
     another independent noise per each input.
 
     This layer replaces a "linear" layer for one that describes the weights with a distribution
-    made of learnable parameters (mu, sigma). According to the paper, can be used to replace
-    e-greedy exploration.
-    # TODO: write equations for noisy layers so it is more understandable
+    made of learnable parameters (mu, sigma) and a random factor (epsilon).
+    According to the paper, can be used to replace e-greedy exploration.
+
+    Linear: outputs = weights * in_features + bias
+    Noisy: outputs = (µ_weights + σ_weights * ε_weights) * in_features + µ_bias + σ_bias * ε_bias
     """
     def __init__(self, in_features, out_features, std_init=0.5):
         super(NoisyLinear, self).__init__()
@@ -106,7 +119,7 @@ class NoisyLinear(nn.Module):
 
     @staticmethod
     def _scale_noise(size):
-        """ Sample values to compute random generation factor f(x) = sgn(x)p|x|"""
+        """ Sample values to compute random generation factor to scale sigmas f(x) = sgn(x)p|x|"""
         x = torch.randn(size)
         return x.sign().mul_(x.abs().sqrt_())
 
