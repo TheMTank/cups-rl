@@ -3,6 +3,7 @@
     "pickup_put_interaction": false,
     "lookupdown_actions": true,
     "max_episode_length": 1000,
+    "movement_reward": -0.01,
     "scene_id": "FloorPlan1",
     "grayscale": true,
     "resolution": [128, 128],

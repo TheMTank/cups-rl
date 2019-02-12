@@ -233,7 +233,7 @@ class AI2ThorEnv(gym.Env):
                                        cameraY=self.cameraY, renderDepthImage=True,
                                        renderClassImage=True, renderObjectImage=True,
                                        continuous=self.incremental_rotation_mode))
-        self.task.step_num = 0
+        self.task.step_num = 0  # needed so done returns False below. task.reset() also does this
 
         if self.num_random_actions_at_init > 0:
             print('Number of random actions at initialisation: {}'.format(

@@ -1,5 +1,4 @@
 {
-
     "open_close_interaction": true,
     "pickup_put_interaction": true,
     "lookupdown_actions": true,
@@ -23,7 +22,7 @@
     "incremental_rotation": false,
     "build_file_name": false,
     "task": {
-        "task_name": "PickUp",
+        "task_name": "PickUpTask",
         "target_object": "Mug"
     }
 }

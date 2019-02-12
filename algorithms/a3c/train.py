@@ -52,7 +52,6 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
     if args.atari:
         env = create_atari_env(args.atari_env_name)
     else:
-        # env = AI2ThorEnv(config_dict=args.config_dict)
         env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
@@ -122,8 +121,6 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 }
                 save_checkpoint(checkpoint_dict, args.checkpoint_path, fn)
 
-            episode_length += 1
-            total_length += 1
             if not env.task.task_has_language_instructions:
                 value, logit, (hx, cx) = model((image.unsqueeze(0).float(), (hx, cx)))
             else:
@@ -142,13 +139,14 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             action_int = action.numpy()[0][0].item()
             state, reward, done, _ = env.step(action_int)
 
+            episode_length += 1
+            total_length += 1
             done = done or episode_length >= args.max_episode_length
 
             with lock:
                 counter.value += 1
 
             if done:
-                total_length -= 1  # todo really shouldn't be needed? why off by 1?
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
                 all_rewards_in_episode = []
