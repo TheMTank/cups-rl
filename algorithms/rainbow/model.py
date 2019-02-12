@@ -65,11 +65,13 @@ class RainbowDQN(nn.Module):
         return linear_size
 
 
-# Factorised NoisyLinear layer with bias
 class NoisyLinear(nn.Module):
     """
     From the paper "Noisy Networks for exploration"
     Source: https://arxiv.org/pdf/1706.10295.pdf
+
+    Factorised NoisyLinear layer with bias, i.e. uses an independent noise per each output and
+    another independent noise per each input.
 
     This layer replaces a "linear" layer for one that describes the weights with a distribution
     made of learnable parameters (mu, sigma). According to the paper, can be used to replace
@@ -91,6 +93,11 @@ class NoisyLinear(nn.Module):
         self.reset_noise()
 
     def reset_parameters(self):
+        """
+        Learnable noise initialization.
+        µ is sampled from a uniform distribution U[− √1/size, + √1/size]
+        σ is initialized to std_init/size
+        """
         mu_range = 1 / math.sqrt(self.in_features)
         self.weight_mu.data.uniform_(-mu_range, mu_range)
         self.weight_sigma.data.fill_(self.std_init / math.sqrt(self.in_features))
@@ -99,10 +106,18 @@ class NoisyLinear(nn.Module):
 
     @staticmethod
     def _scale_noise(size):
+        """ Sample values to compute random generation factor f(x) = sgn(x)p|x|"""
         x = torch.randn(size)
         return x.sign().mul_(x.abs().sqrt_())
 
     def reset_noise(self):
+        """
+        Factorised Gaussian noise is used to reduce computation time of random number generation
+        instead of Independent Gaussian noise. The factors are defined as follows:
+        ε_weights_i,j = f(εi)f(εj)
+        ε_biases_j = f(εj)
+        f(x) = sgn(x)p|x|
+        """
         epsilon_in = self._scale_noise(self.in_features)
         epsilon_out = self._scale_noise(self.out_features)
         self.weight_epsilon.copy_(epsilon_out.ger(epsilon_in))

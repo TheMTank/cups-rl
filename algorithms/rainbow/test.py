@@ -12,8 +12,11 @@ import torch
 
 from algorithms.rainbow.env import Env
 
-# Globals
-# TODO: explain what is Ts and Qs
+""" Global variables used to track the evaluation results
+Ts               - list of evaluation steps at each evaluation period
+rewards          - list of rewards obtained at each evaluation period
+Qs               - list of Q obtained at each evaluation period  
+best_avg_reward  - stores the best average reward achieved to save the best model """
 Ts, rewards, Qs, best_avg_reward = [], [], [], -1e10
 
 
@@ -35,8 +38,8 @@ def test(env, T, args, dqn, val_mem, evaluate=False):
                 print("eval step {}".format(step_n))
             if done:
                 state, reward_sum, done = env.reset(), 0, False
-            # TODO: document what we are doing more precisely
-            action = dqn.act_e_greedy(state)  # Choose an action ε-greedily
+            # In evaluation we choose actions ε-greedily instead while fixing the noisy layers
+            action = dqn.act_e_greedy(state)
             state, reward, done, _ = env.step(action)  # Step
             reward_sum += reward
             if args.render and args.game != 'ai2thor':
