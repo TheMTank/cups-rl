@@ -9,7 +9,7 @@ Example of use:
 `python main.py`
 
 Runs Rainbow DQN on our AI2ThorEnv wrapper with default params. Optionally it can be run on any
-atari environment as well using the "game" flag, e.g. --game space_invaders.
+atari environment as well using the "game" flag, e.g. --game seaquest.
 """
 import argparse
 from datetime import datetime
@@ -26,6 +26,8 @@ from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 parser = argparse.ArgumentParser(description='Rainbow')
 parser.add_argument('--seed', type=int, default=123, help='Random seed')
 parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
+""" Game can be ai2thor to use our wrapper or one atari rom from the list here:
+    https://github.com/openai/atari-py/tree/master/atari_py/atari_roms """
 parser.add_argument('--game', type=str, default='ai2thor', help='ATARI game or environment')
 parser.add_argument('--T-max', type=int, default=int(50e6), metavar='STEPS',
                     help='Number of training steps (4x number of frames)')
@@ -102,14 +104,17 @@ if __name__ == '__main__':
 
     # Environment selection
     if args.game == 'ai2thor':
+        # TODO: add argument of config dict to change params
         env = MultipleStepsEnv(AI2ThorEnv(
             config_file='config_files/rainbow_example.json'),
                                args.history_length, args.device)
-        args.resolution = env.env.config['resolution']
+        args.resolution = env.config['resolution']
+        args.in_channels = env.observation_space.shape[0] * args.history_length
     else:
         env = Env(args)
         env.train()
         args.resolution = (84, 84)
+        args.in_channels = args.history_length
     action_space = env.action_space
 
     # Agent

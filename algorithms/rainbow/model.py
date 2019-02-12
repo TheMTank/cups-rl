@@ -21,8 +21,7 @@ class RainbowDQN(nn.Module):
         self.atoms = args.atoms
         self.action_space = action_space.n
         self.linear_in = self.get_linear_size(args.resolution)
-        # TODO: check what happens if RGB. It might be 3 * history_lenght. Adapt code
-        self.conv1 = nn.Conv2d(args.history_length, 32, 8, stride=4, padding=1)
+        self.conv1 = nn.Conv2d(args.in_channels, 32, 8, stride=4, padding=1)
         self.conv2 = nn.Conv2d(32, 64, 4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, 3)
         self.fc_h_v = NoisyLinear(self.linear_in, args.hidden_size, std_init=args.noisy_std)
