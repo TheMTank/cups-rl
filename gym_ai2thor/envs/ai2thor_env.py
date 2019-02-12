@@ -74,7 +74,7 @@ class AI2ThorEnv(gym.Env):
                                             shape=(channels, self.config['resolution'][0],
                                                    self.config['resolution'][1]),
                                             dtype=np.uint8)
-        # Rendering options
+        # Rendering options. Set segmentation and bounding box options off as default
         self.render_options = defaultdict(lambda: False)
         if 'render_options' in self.config:
             for option, value in self.config['render_options'].items():

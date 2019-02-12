@@ -17,6 +17,7 @@
     "resolution": [64, 64],
     "task": {
         "task_name": "PickUp",
-        "target_objects": {"Mug": 10}
+        "target_objects": {"Mug": 10},
+        "movement_reward": -1
     }
 }

@@ -41,7 +41,8 @@ class BaseTask:
         self.task_config = config
         self.max_episode_length = config['max_episode_length'] \
             if 'max_episode_length' in config else 1000
-        self.movement_reward = config['movement_reward'] if 'movement_reward' in config else -1
+        # default reward is negative to encourage the agent to move more
+        self.movement_reward = config['movement_reward'] if 'movement_reward' in config else -0.01
         self.step_num = 0
 
         self.reset()
