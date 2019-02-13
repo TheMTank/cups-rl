@@ -13,17 +13,17 @@ import torch
 from algorithms.rainbow.env import Env
 
 """ Global variables used to track the evaluation results
-Ts               - list of evaluation steps at each evaluation period
+steps            - list of evaluation steps at each evaluation period
 rewards          - list of rewards obtained at each evaluation period
 Qs               - list of Q obtained at each evaluation period  
 best_avg_reward  - stores the best average reward achieved to save the best model """
-Ts, rewards, Qs, best_avg_reward = [], [], [], -1e10
+steps, rewards, Qs, best_avg_reward = [], [], [], -1e10
 
 
 # Test DQN
 def test(env, T, args, dqn, val_mem, evaluate=False):
-    global Ts, rewards, Qs, best_avg_reward
-    Ts.append(T)
+    global steps, rewards, Qs, best_avg_reward
+    steps.append(T)
     T_rewards, T_Qs = [], []
     if args.game != 'ai2thor':
         env = Env(args)
@@ -60,8 +60,8 @@ def test(env, T, args, dqn, val_mem, evaluate=False):
         Qs.append(T_Qs)
 
         # Plot
-        _plot_line(Ts, rewards, 'Reward', path='results')
-        _plot_line(Ts, Qs, 'Q', path='results')
+        _plot_line(steps, rewards, 'Reward', path='results')
+        _plot_line(steps, Qs, 'Q', path='results')
 
         # Save model parameters if improved
         if avg_reward > best_avg_reward:

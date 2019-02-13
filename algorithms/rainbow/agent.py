@@ -18,9 +18,10 @@ class Agent:
     def __init__(self, args, env):
         """
         Q(s,a) is the expected reward. Z is the full distribution from which Q is generated.
-        Support represents the support of Z distribution.
-        Z is represented with a fixed number of "atoms", which are discrete positions equidistant
-        along its support defined between Vmin-Vmax.
+        Support represents the support of Z distribution (non-zero part of pdf)
+        Z is represented with a fixed number of "atoms", which are pairs of values (x_i, p_i)
+        composed by the discrete positions (x_i) equidistant along its support defined between
+        Vmin-Vmax and the probability mass or "weight" (p_i) for that particular position.
 
         As an example, for a given (s,a) pair, we can represent Z(s,a) with 8 atoms as follows:
 
@@ -31,7 +32,7 @@ class Agent:
            Vmin ----------------------- Vmax
         """
         self.action_space = env.action_space
-        self.atoms = args.atoms
+        self.atoms = args.num_atoms
         self.Vmin = args.V_min
         self.Vmax = args.V_max
         self.support = torch.linspace(args.V_min, args.V_max, self.atoms).to(device=args.device)
@@ -97,25 +98,25 @@ class Agent:
             Probabilities: p(s_t+n, ·; θonline), i.e. for all actions
             """
             pns = self.online_net(next_states)
-            """ We compute the expected Q from the N-step distribution 
-            d_t+n = (z, p(s_t+n, ·; θonline)) = Q(s_t+n, ·) = sum_i(z_i·p_i(s_t+n, ·)) ALL actions
-            """
+            # We compute the expected Q from the N-step distribution
+            # d_t+n = (z, p(s_t+n, ·; θonline)) = Q(s_t+n, ·) = sum_i(z_i·p_i(s_t+n, ·)) ALL actions
+
             dns = self.support.expand_as(pns) * pns
-            """ Choose optimal action a* from online network
-            argmax_a[(z, p(s_t+n, a; θonline))] """
+            # Choose optimal action a* from online network
+            # argmax_a[(z, p(s_t+n, a; θonline))]
             argmax_indices_ns = dns.sum(2).argmax(1)
-            """ Sample new target net noise, i.e. fix new random weights for noisy layers to
-            encourage exploration """
+            # Sample new target net noise, i.e. fix new random weights for noisy layers to
+            # encourage exploration
             self.target_net.reset_noise()
-            """ Calculate nth next state action probabilities with the target policy for N-step 
-            Learning. Probabilities p(s_t+n, ·; θtarget), i.e. for all actions """
+            # Calculate nth next state action probabilities with the target policy for N-step
+            # Learning. Probabilities p(s_t+n, ·; θtarget), i.e. for all actions
             pns = self.target_net(next_states)
             """ Calculate target probabilities for Double DQN. For that we compare the expected Q 
             from online greedy selection with the expected Q from the target network for the same 
             action. Probabilities p(s_t+n, argmax_a[(z, p(s_t+n, a; θonline))]; θtarget) """
             pns_a = pns[range(self.batch_size), argmax_indices_ns]
-            """ Apply distributional N-step Bellman operator Tz (Bellman operator T applied to z)
-            Tz = R^n + (γ^n)z (accounting for terminal states) """
+            # Apply distributional N-step Bellman operator Tz (Bellman operator T applied to z)
+            # Tz = R^n + (γ^n)z (accounting for terminal states)
             Tz = returns.unsqueeze(1) + nonterminals * (self.discount ** self.n) \
                  * self.support.unsqueeze(0)
             # Clamp values so they fall within the support of Z values

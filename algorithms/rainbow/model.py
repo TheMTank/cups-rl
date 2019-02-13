@@ -18,7 +18,7 @@ class RainbowDQN(nn.Module):
     """
     def __init__(self, args, action_space):
         super().__init__()
-        self.atoms = args.atoms
+        self.atoms = args.num_atoms
         self.action_space = action_space.n
         self.linear_in = self.get_linear_size(args.resolution)
         self.conv1 = nn.Conv2d(args.in_channels, 32, 8, stride=4, padding=1)
@@ -45,10 +45,10 @@ class RainbowDQN(nn.Module):
         z_q = z_v + z_a - z_a.mean(1, keepdim=True)  # Combine streams
         # log softmax used while learning to generate probabilities with higher numerical stability
         if log:
-          q = F.log_softmax(z_q, dim=2)  # Log probabilities with action over second dimension
+            z_q = F.log_softmax(z_q, dim=2)  # Log probabilities with action over second dimension
         else:
-          q = F.softmax(z_q, dim=2)  # Probabilities with action over second dimension
-        return q
+            z_q = F.softmax(z_q, dim=2)  # Probabilities with action over second dimension
+        return z_q
 
     def reset_noise(self):
         for name, module in self.named_children():
@@ -96,12 +96,19 @@ class NoisyLinear(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.std_init = std_init
+
         self.weight_mu = nn.Parameter(torch.empty(out_features, in_features))
         self.weight_sigma = nn.Parameter(torch.empty(out_features, in_features))
+        """ This is typically used to register a buffer that should not to be considered a 
+        model parameter. For example, BatchNorm’s running_mean is not a parameter, but is part of 
+        the persistent state.
+        Source:  https://pytorch.org/docs/stable/nn.html#torch.nn.Module.register_buffer """
         self.register_buffer('weight_epsilon', torch.empty(out_features, in_features))
+
         self.bias_mu = nn.Parameter(torch.empty(out_features))
         self.bias_sigma = nn.Parameter(torch.empty(out_features))
         self.register_buffer('bias_epsilon', torch.empty(out_features))
+
         self.reset_parameters()
         self.reset_noise()
 

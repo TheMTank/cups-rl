@@ -29,7 +29,8 @@ based on Ikostrikov's A3C*
 
 Implementations of these can be found in the algorithms folder and can be run on [AI2ThorEnv](https://arxiv.org/pdf/1710.02298.pdf) with:  
 
-`python algorithms/a3c/main.py`<br>
+`python algorithms/a3c/main.py`
+
 `python algorithms/rainbow/main.py`
 
 Check the argparse help for more details and variations of running the algorithm with different 

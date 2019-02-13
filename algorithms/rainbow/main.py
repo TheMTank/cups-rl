@@ -39,7 +39,7 @@ parser.add_argument('--hidden-size', type=int, default=512, metavar='SIZE',
                     help='Network hidden size')
 parser.add_argument('--noisy-std', type=float, default=0.8, metavar='σ',
                     help='Initial standard deviation of noisy linear layers')
-parser.add_argument('--atoms', type=int, default=51, metavar='C',
+parser.add_argument('--num-atoms', type=int, default=51, metavar='C',
                     help='Discretised size of value distribution')
 parser.add_argument('--V-min', type=float, default=-10, metavar='V',
                     help='Minimum of value distribution support')
@@ -60,7 +60,7 @@ parser.add_argument('--discount', type=float, default=0.99, metavar='γ',
                     help='Discount factor')
 parser.add_argument('--target-update', type=int, default=int(32e3), metavar='τ',
                     help='Number of steps after which to update target network')
-parser.add_argument('--reward-clip', type=int, default=1, metavar='VALUE',
+parser.add_argument('--reward-clip', type=int, default=0, metavar='VALUE',
                     help='Reward clipping (0 to disable)')
 parser.add_argument('--lr', type=float, default=0.0000625, metavar='η',
                     help='Learning rate')
@@ -125,8 +125,8 @@ if __name__ == '__main__':
 
     # Construct validation memory
     val_mem = ReplayMemory(args, args.evaluation_size)
-    T, done = 0, True
-    for T in range(args.evaluation_size):
+    mem_steps, done = 0, True
+    for mem_steps in range(args.evaluation_size):
         if done:
             state, done = env.reset(), False
         next_state, _, done, _ = env.step(env.action_space.sample())
@@ -135,20 +135,20 @@ if __name__ == '__main__':
 
     if args.evaluate:
         dqn.eval()  # Set DQN (online network) to evaluation mode
-        avg_reward, avg_Q = test(env, T, args, dqn, val_mem, evaluate=True)
+        avg_reward, avg_Q = test(env, mem_steps, args, dqn, val_mem, evaluate=True)
         print('Avg. reward: ' + str(avg_reward) + ' | Avg. Q: ' + str(avg_Q))
     else:
         # Training loop
         dqn.train()
-        T, done = 0, True
+        num_steps, done = 1, True
 
-        while T < args.T_max:
-            if T % 200 == 0:
-                print("step {}".format(T))
+        while num_steps < args.T_max:
+            if num_steps % 200 == 0:
+                print("step {}".format(num_steps))
 
             if done:
                 state, done = env.reset(), False
-            if T % args.replay_frequency == 0:
+            if num_steps % args.replay_frequency == 0:
                 dqn.reset_noise()  # Draw a new set of noisy epsilons
 
             action = dqn.act(state)  # Choose an action greedily (with noisy weights)
@@ -158,26 +158,26 @@ if __name__ == '__main__':
             mem.append(state, action, reward, done)  # Append transition to memory
             T += 1
 
-            if T % args.log_interval == 0:
-                log('T = ' + str(T) + ' / ' + str(args.T_max))
+            if num_steps % args.log_interval == 0:
+                log('num_steps = ' + str(num_steps) + ' / ' + str(args.T_max))
 
             # Train and test
-            if T >= args.learn_start:
+            if num_steps >= args.learn_start:
                 # Anneal importance sampling weight β to 1
                 mem.priority_weight = min(mem.priority_weight + priority_weight_increase, 1)
 
-                if T % args.replay_frequency == 0:
+                if num_steps % args.replay_frequency == 0:
                     dqn.learn(mem)  # Train with n-step distributional double-Q learning
 
-                if T % args.evaluation_interval == 0:
+                if num_steps % args.evaluation_interval == 0:
                     dqn.eval()  # Set DQN (online network) to evaluation mode
-                    avg_reward, avg_Q = test(env, T, args, dqn, val_mem)
-                    log('T = ' + str(T) + ' / ' + str(args.T_max) + ' | Avg. reward: ' +
+                    avg_reward, avg_Q = test(env, num_steps, args, dqn, val_mem)
+                    log('num_steps = ' + str(num_steps) + ' / ' + str(args.T_max) + ' | Avg. reward: ' +
                         str(avg_reward) + ' | Avg. Q: ' + str(avg_Q))
                     dqn.train()  # Set DQN (online network) back to training mode
 
                 # Update target network
-                if T % args.target_update == 0:
+                if num_steps % args.target_update == 0:
                     dqn.update_target_net()
             state = next_state
     env.close()

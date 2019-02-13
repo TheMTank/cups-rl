@@ -135,6 +135,7 @@ class MultipleStepsEnv(gym.Wrapper):
         If n_step == 1, we are simply using one frame as the input to our CNN.
         The reward, done and info belong to the last step only.
         """
+        # TODO: reward should keep the last "n" rewards for n-step
         while True:
             state, reward, done, info = self.env.step(action)
             observation = torch.from_numpy(state).float().to(self.device)
