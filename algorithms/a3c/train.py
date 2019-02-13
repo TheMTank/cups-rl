@@ -199,8 +199,9 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
         avg_reward_for_num_steps_list.append(avg_reward_for_num_steps)
 
         # Backprop and optimisation
-        R = torch.zeros(1, 1)
+        R = torch.zeros(1, 1) # todo or this?
         if not done:  # to change last reward to predicted value
+            # todo does this cause the value loss spike that happens every 20 or 100 or 1000?
             if not env.task.task_has_language_instructions:
                 value, _, _ = model((image.unsqueeze(0).float(), (hx, cx)))
             else:
@@ -251,6 +252,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             v_losses = []
 
         if rank == 0: # and args.verbose: todo
+            # todo don't need to print time every 20. Or print time elapsed instead!!!
             print('Step no: {}. total length: {}. Time taken for args.steps ({}): {}'.format(
                 episode_length,
                 total_length,

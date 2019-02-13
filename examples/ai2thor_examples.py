@@ -1,9 +1,10 @@
 import threading
 import time
 
-import ai2thor
+import ai2thor.controller
 
-def test_simple_example():
+
+def run_simple_example():
     """
     Taken from here: http://ai2thor.allenai.org/tutorials/examples
     """
@@ -31,7 +32,7 @@ def test_simple_example():
 
     controller.stop()
 
-def test_calling_complex_actions():
+def run_calling_complex_actions():
     """
     Examples of how to interact with environment internals e.g. picking up, placing and
     opening objects.
@@ -78,7 +79,7 @@ def test_calling_complex_actions():
 
     controller.stop()
 
-def test_multithreaded():
+def run_multithreaded():
     """
     Stress test and also shows how multi-threading can be used to greatly speed up processing,
     specially to support the rendering of class, object and depth images.
@@ -107,11 +108,10 @@ def test_multithreaded():
 
         render_depth_image, render_class_image, render_object_image = False, False, False
 
-        # 50 is an arbritary number
         for i in range(5):
             t_start = time.time()
             env.reset('FloorPlan1')
-            # env.step({'action': 'Initialize', 'gridSize': 0.25})
+            env.step({'action': 'Initialize', 'gridSize': 0.25})
 
             # Compare the performance with all the extra added information
             # Big take away is that Object instance information makes it much slower
@@ -138,7 +138,7 @@ def test_multithreaded():
             total_time = time.time() - t_start_total
             print('Thread num: {}. Total time for 10 steps: {}. {:.2f} fps'.
                   format(thread_num, total_time, 50 / total_time))
-            env.stop()
+        env.stop()
 
     threads = [threading.Thread(target=run, args=(thread_num, ))
                for thread_num in range(thread_count)]
@@ -156,6 +156,6 @@ def test_multithreaded():
     print('done')
 
 if __name__ == '__main__':
-    test_simple_example()
-    test_calling_complex_actions()
-    test_multithreaded()
+    run_simple_example()
+    run_calling_complex_actions()
+    run_multithreaded()

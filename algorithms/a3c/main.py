@@ -47,11 +47,9 @@ parser.add_argument('--max-grad-norm', type=float, default=50,
                     help='value loss coefficient (default: 50)')
 parser.add_argument('--seed', type=int, default=1,
                     help='random seed (default: 1)')
-parser.add_argument('--total-length', type=int, default=0,
-                    help='initial number of steps if resuming')
 parser.add_argument('--test-sleep-time', type=int, default=200,
                     help='number of seconds to wait before testing again (default: 200)')
-parser.add_argument('--episode_number', type=int, default=0,
+parser.add_argument('--checkpoint-freq', type=int, default=100000,
                     help='number of episodes passed for resuming')
 parser.add_argument('-eid', '--experiment-id', default=uuid.uuid4(),
                     help='random or chosen guid for folder creation for plots and checkpointing.'
@@ -64,6 +62,8 @@ parser.add_argument('--max-episode-length', type=int, default=1000,
                     help='maximum length of an episode (default: 1000000)')
 parser.add_argument('--task-name', default='NaturalLanguageLookAtObjectTask',
                     help='Choose task out of gym_ai2thor/tasks.py')
+parser.add_argument('--config-file-name', default='NL_lookat_bowls_vs_cups_fp1_config.json',
+                    help='File must be in gym_ai2thor/config_files')
 
 parser.add_argument('--no-shared', default=False,
                     help='use an optimizer without shared momentum.')
@@ -93,38 +93,31 @@ if __name__ == '__main__':
     # todo print all logs to experiment folder
 
     args = parser.parse_args()
+    args.episode_number = 0
+    args.total_length = 0  # set to 0 so that checkpoint can overwrite if necessary
 
-    torch.manual_seed(args.seed)
     if args.atari:
         env = create_atari_env(args.atari_env_name)
         args.frame_dim = 42  # fixed to be 42x42 in envs.py _process_frame42()
     else:
-        args.config_dict = {'max_episode_length': args.max_episode_length,
-                            'num_random_actions_at_init': 3,
-                            'lookupdown_actions': True,
-                            'open_close_interaction': False,
-                            'pickup_put_interaction': False,
-                            'incremental_rotation': True,
-                            'grayscale': False,
-                            'movement_reward': -0.1,
-                            'cameraY': -0.85,
-                            'gridSize': 0.05,
-                            'scene_id': 'FloorPlan1',
-                            'build_path': '/home/beduffy/all_projects/ai2thor/unity/build-test.x86_64', # todo args path or within project relative path
-                            'pickup_objects': ['Bowl', 'Mug'],  # todo maybe auto add?
-                            'task': {
-                                # 'task_name': args.task_name,
-                                'task_name': 'NaturalLanguagePickUpObjectTask',
-                                'list_of_instructions': ('Bowl', 'Mug')
-                            }}
-        env = AI2ThorEnv(config_dict=args.config_dict)
+        args.config_dict = {
+            'num_random_actions_at_init': 3  # random actions on reset to encourage robustness
+        }
+        config_file_dir_path = os.path.abspath(os.path.join(__file__, '../../..', 'gym_ai2thor',
+                                                            'config_files'))
+
+        # todo rotate_only needs to have large distance or new build path?
+        args.config_dict = {}
+        args.config_file_path = os.path.join(config_file_dir_path, args.config_file_name)
+        env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict)
         args.frame_dim = env.config['resolution'][-1]
 
     if env.task.task_has_language_instructions:
         # environment will return natural language sentence as part of state so process it with
         # Gated Attention (GA) variant of A3C
         shared_model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n,
-                                   args.frame_dim)
+                                   args.frame_dim, len(env.task.word_to_idx),
+                                   args.max_episode_length)
     else:
         shared_model = ActorCritic(env.observation_space.shape[0], env.action_space.n,
                                    args.frame_dim)
@@ -150,15 +143,15 @@ if __name__ == '__main__':
     # Checkpoint creation/loading below
     checkpoint_counter = False
     if not os.path.exists(args.checkpoint_path):
-        print(
-            'Tensorboard created experiment folder: {} and checkpoint folder made here: {}'.format(
-                args.experiment_path, args.checkpoint_path))
+        print('Tensorboard created experiment folder: {} and checkpoint folder'
+              ' made here: {}'.format(args.experiment_path, args.checkpoint_path))
         os.makedirs(args.checkpoint_path)
     else:
         print('Checkpoints path already exists at path: {}'.format(args.checkpoint_path))
         checkpoint_paths = glob.glob(os.path.join(args.checkpoint_path, '*'))
         if checkpoint_paths:
-            # Take checkpoint path with most experience e.g. 2000 from checkpoint_total_length_2000.pth.tar
+            # Take checkpoint path with most experience
+            # e.g. 2000 from checkpoint_total_length_2000.pth.tar
             checkpoint_file_name_ints = [
                 int(x.split('/')[-1].split('.pth.tar')[0].split('_')[-1])
                 for x in checkpoint_paths]
@@ -180,7 +173,7 @@ if __name__ == '__main__':
                         'optimizer'])  # todo check if overwrites learning rate. probably does
 
                 for param_group in optimizer.param_groups:
-                    print('Learning rate: ', param_group['lr'])  # oh it doesn't work?
+                    print('Learning rate: ', param_group['lr'])  # todo oh it doesn't work?
 
                 print("=> loaded checkpoint '{}' (total_length {})"
                       .format(checkpoint_to_load, checkpoint['total_length']))
@@ -193,6 +186,8 @@ if __name__ == '__main__':
         args_dict = vars(args)
         args_dict['experiment_id'] = str(args.experiment_id)
         json.dump(args_dict, f)
+    with open(os.path.join(args.experiment_path, 'latest_config.json'), 'w') as f:
+        json.dump(env.config, f)
 
     processes = []
     counter = mp.Value('i', 0 if not checkpoint_counter else checkpoint_counter)
@@ -213,10 +208,11 @@ if __name__ == '__main__':
             for p in processes:
                 p.join()
         else:
+            # synchronous so only 1 process
             rank = 0
             args.num_processes = 1
-            # test(args.num_processes, args, shared_model, counter)  # for checking test functionality
-            train(rank, args, shared_model, counter, lock, writer, optimizer)  # run train on main thread
+            # test(args.num_processes, args, shared_model, counter)  # check test functionality
+            train(rank, args, shared_model, counter, lock, writer, optimizer)
     finally:
         writer.export_scalars_to_json(os.path.join(args.experiment_path, 'all_scalars.json'))
         writer.close()

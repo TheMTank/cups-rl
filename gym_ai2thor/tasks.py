@@ -45,7 +45,7 @@ class BaseTask:
         self.task_has_language_instructions = False
         self.max_episode_length = self.config['max_episode_length'] \
             if 'max_episode_length' in self.config else 1000
-        self.movement_reward = self.config['movement_reward'] if 'movement_reward' in self.config else 0
+        self.movement_reward = self.config.get('movement_reward', 0)
         self.step_num = 0
 
     def transition_reward(self, state):
@@ -221,7 +221,8 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
                 # always last word of the sentence. Has to be spelled exactly
                 object_type = instruction.split(' ')[-1]
                 if object_type not in kwargs['pickup_objects']:
-                    raise ValueError('Target object {} is not in config[\'pickup_objects\']'.format(object_type))
+                    raise ValueError('Target object {} is not in '
+                                     'config[\'pickup_objects\']'.format(object_type))
 
         self.prev_inventory = []
 
@@ -242,8 +243,8 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
                 reward -= self.default_reward
             done = True
             print('{} reward collected for picking up object: {} at step: {}!'.format(reward,
-                                                                          self.curr_object_type,
-                                                                          self.step_num))
+                                                                    curr_inventory[0]['objectType'],
+                                                                    self.step_num))
 
         if self.max_episode_length and self.step_num >= self.max_episode_length:
             print('Reached maximum episode length: {}'.format(self.step_num))

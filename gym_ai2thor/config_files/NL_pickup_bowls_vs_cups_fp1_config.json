@@ -1,19 +1,11 @@
 {
-
     "open_close_interaction": false,
     "pickup_put_interaction": false,
     "lookupdown_actions": true,
+    "incremental_rotation": true,
     "pickup_objects": [
         "Bowl",
         "Mug"
-    ],
-    "acceptable_receptacles": [
-        "CounterTop",
-        "TableTop",
-        "Sink"
-    ],
-    "openable_objects": [
-        "Microwave"
     ],
     "max_episode_length": 1000,
     "movement_reward": -0.01,
@@ -22,7 +14,6 @@
     "resolution": [128, 128],
     "cameraY": -0.8,
     "gridSize": 0.05,
-    "incremental_rotation": true,
     "build_file_name": "build-test.x86_64",
     "task": {
         "task_name": "NaturalLanguageLookAtObjectTask",
