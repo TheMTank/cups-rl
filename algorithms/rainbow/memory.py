@@ -77,6 +77,7 @@ class ReplayMemory:
         self.n = args.multi_step
         # Initial importance sampling weight β, annealed to 1 over course of training
         self.priority_weight = args.priority_weight
+        # Priority exponent α
         self.priority_exponent = args.priority_exponent
         self.t = 0  # Internal episode timestep counter
         # Store transitions in a wrap-around cyclic buffer within a sum tree for querying priorities
@@ -142,6 +143,12 @@ class ReplayMemory:
         return prob, idx, tree_idx, state, action, R, next_state, nonterminal
 
     def sample(self, batch_size):
+        """
+        TODO: finish explaining
+        To sample batch_size transitions, the range [0, p_total] is divided equally into batch_size
+        ranges. Next, a value is uniformly sampled from each range. Finally the transitions that
+        correspond to each of these sampled values are retrieved from the tree
+        """
         # Retrieve sum of all priorities (used to create a normalised probability distribution)
         p_total = self.transitions.total()
         # Batch size number of segments, based on sum over all probabilities
@@ -162,6 +169,11 @@ class ReplayMemory:
         return tree_idxs, states, actions, returns, next_states, nonterminals, weights
 
     def update_priorities(self, idxs, priorities):
+        """
+        Original formula for priorities P(i) = p_i ** α / sum_k(p_k ** α).
+        We can ignore the constant sum of all elements since we are interested in retrieving the
+        highest/lowest values
+        """
         priorities = np.power(priorities, self.priority_exponent)
         [self.transitions.update(idx, priority) for idx, priority in zip(idxs, priorities)]
 

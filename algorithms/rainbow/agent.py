@@ -85,7 +85,9 @@ class Agent:
         idxs, states, actions, returns, next_states, nonterminals, weights = \
           mem.sample(self.batch_size)
 
-        # Calculate current state probabilities (online network noise already sampled)
+        """ Calculate current state probabilities (online network noise already sampled)
+        The log provides more stability for the gradients propagation during training and it is 
+        not needed for evaluation """
         log_ps = self.online_net(states, log=True)  # Log probabilities log p(s_t, ·; θonline)
         log_ps_a = log_ps[range(self.batch_size), actions]  # log p(s_t, a_t; θonline)
 

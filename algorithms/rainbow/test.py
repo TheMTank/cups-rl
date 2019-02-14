@@ -13,7 +13,7 @@ import torch
 from algorithms.rainbow.env import Env
 
 """ Global variables used to track the evaluation results
-steps            - list of evaluation steps at each evaluation period
+steps               - list of evaluation steps at each evaluation period
 rewards          - list of rewards obtained at each evaluation period
 Qs               - list of Q obtained at each evaluation period  
 best_avg_reward  - stores the best average reward achieved to save the best model """

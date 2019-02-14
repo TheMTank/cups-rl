@@ -81,6 +81,8 @@ parser.add_argument('--log-interval', type=int, default=25000, metavar='STEPS',
                     help='Number of training steps between logging status')
 parser.add_argument('--render', action='store_true', default=False,
                     help='Display screen (testing only)')
+parser.add_argument('--config-dict', type=dict, default=None,
+                    help='Dictionary to "manually" override ai2thor config files (optional)')
 
 if __name__ == '__main__':
     # Setup
@@ -104,10 +106,9 @@ if __name__ == '__main__':
 
     # Environment selection
     if args.game == 'ai2thor':
-        # TODO: add argument of config dict to change params
         env = MultipleStepsEnv(AI2ThorEnv(
-            config_file='config_files/rainbow_example.json'),
-                               args.history_length, args.device)
+            config_file='config_files/rainbow_example.json', config_dict=args.config_dict),
+            args.history_length, args.device)
         args.resolution = env.config['resolution']
         args.in_channels = env.observation_space.shape[0] * args.history_length
     else:
@@ -156,7 +157,7 @@ if __name__ == '__main__':
             if args.reward_clip > 0:
                 reward = max(min(reward, args.reward_clip), -args.reward_clip)  # Clip rewards
             mem.append(state, action, reward, done)  # Append transition to memory
-            T += 1
+            num_steps += 1
 
             if num_steps % args.log_interval == 0:
                 log('num_steps = ' + str(num_steps) + ' / ' + str(args.T_max))
@@ -172,8 +173,8 @@ if __name__ == '__main__':
                 if num_steps % args.evaluation_interval == 0:
                     dqn.eval()  # Set DQN (online network) to evaluation mode
                     avg_reward, avg_Q = test(env, num_steps, args, dqn, val_mem)
-                    log('num_steps = ' + str(num_steps) + ' / ' + str(args.T_max) + ' | Avg. reward: ' +
-                        str(avg_reward) + ' | Avg. Q: ' + str(avg_Q))
+                    log('num_steps = ' + str(num_steps) + ' / ' + str(args.T_max) +
+                        ' | Avg. reward: ' + str(avg_reward) + ' | Avg. Q: ' + str(avg_Q))
                     dqn.train()  # Set DQN (online network) back to training mode
 
                 # Update target network
