@@ -74,7 +74,7 @@ class Env:
         """
         # Repeat action 4 times, max pool over last 2 frames
         frame_buffer = torch.zeros(2, 84, 84, device=self.device)
-        reward, done = 0, False
+        reward, done, info = 0, False, None
         for t in range(4):
             reward += self.ale.act(self.actions.get(action))
             if t == 2:
@@ -93,7 +93,6 @@ class Env:
                 self.life_termination = not done  # Only set flag when not truly done
                 done = True
             self.lives = lives
-        info = None
         # Return state, reward, done, info
         return torch.stack(list(self.state_buffer), 0), reward, done, info
 
@@ -119,12 +118,12 @@ class MultipleStepsEnv(gym.Wrapper):
     is called. It is meant to be used only to wrap our ai2thor environment. Use Env class from
     this script to load the atari wrapped environments from the original repository.
     """
-    def __init__(self, env, n_steps, device):
+    def __init__(self, env, frame_stack, device):
         gym.Wrapper.__init__(self, env)
         self.config = env.config
-        self.n_steps = n_steps
+        self.frame_stack = frame_stack
         self.device = device
-        self.state_buffer = deque([], maxlen=n_steps)
+        self.state_buffer = deque([], maxlen=self.frame_stack)
 
     def step(self, action):
         """
@@ -133,14 +132,13 @@ class MultipleStepsEnv(gym.Wrapper):
         The frames are stacked one by one using a deque, which means that every step we move only
         the oldest frame is removed and the newest is appended.
         If n_step == 1, we are simply using one frame as the input to our CNN.
-        The reward, done and info belong to the last step only.
+        The done and info belong to the last step only.
         """
-        # TODO: reward should keep the last "n" rewards for n-step
         while True:
             state, reward, done, info = self.env.step(action)
             observation = torch.from_numpy(state).float().to(self.device)
             self.state_buffer.append(observation)
-            if len(self.state_buffer) == self.n_steps:
+            if len(self.state_buffer) == self.frame_stack:
                 break
         state = torch.cat(list(self.state_buffer), 0)
         # Return state, reward, done, info
@@ -148,5 +146,7 @@ class MultipleStepsEnv(gym.Wrapper):
 
     def reset(self):
         _ = self.env.reset()
+        self.state_buffer = deque([], maxlen=self.frame_stack)
         state, _, _, _ = self.step(self.env.action_space.sample())
+
         return state
