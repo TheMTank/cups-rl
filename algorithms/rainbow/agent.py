@@ -117,8 +117,9 @@ class Agent:
             from online greedy selection with the expected Q from the target network for the same 
             action. Probabilities p(s_t+n, argmax_a[(z, p(s_t+n, a; θonline))]; θtarget) """
             pns_a = pns[range(self.batch_size), argmax_indices_ns]
-            # Apply distributional N-step Bellman operator Tz (Bellman operator T applied to z)
-            # Tz = R^n + (γ^n)z (accounting for terminal states)
+            """ Apply distributional N-step Bellman operator Tz (Bellman operator T applied to z)
+            Tz = R^n + (γ^n)z (accounting for terminal states)
+            Look at in _get_sample_from_segment() from memory.py for more details """
             Tz = returns.unsqueeze(1) + nonterminals * (self.discount ** self.n) \
                  * self.support.unsqueeze(0)
             # Clamp values so they fall within the support of Z values

@@ -119,9 +119,14 @@ if __name__ == '__main__':
     action_space = env.action_space
 
     # Agent
-    # TODO: explain this process better. Why the memory and priorities this way?
     dqn = Agent(args, env)
     mem = ReplayMemory(args, args.memory_capacity)
+    """
+    Linear annealing of priority weight from args.priority_weight to 1. 
+    Typically, the unbiased nature of the updates is most important near convergence at the end of 
+    training, as the process is highly non-stationary anyway, due to changing policies, state 
+    distributions and bootstrap targets, that small bias can be ignored in this context.
+    """
     priority_weight_increase = (1 - args.priority_weight) / (args.T_max - args.learn_start)
 
     # Construct validation memory

@@ -22,6 +22,13 @@ steps, rewards, Qs, best_avg_reward = [], [], [], -1e10
 
 # Test DQN
 def test(env, T, args, dqn, val_mem, evaluate=False):
+    """
+    Explanation to our multiple tests for the special case of "ai2thor":
+    In AI2Thor environment the rendering is not optional, so using two instances of the environment
+    is not needed, but in Atari games we need to instantiate two environments to allow the choice of
+    multiple rendering options, e.g. having the option of training without rendering for efficiency
+    reasons and testing with rendering.
+    """
     global steps, rewards, Qs, best_avg_reward
     steps.append(T)
     T_rewards, T_Qs = [], []
@@ -46,7 +53,6 @@ def test(env, T, args, dqn, val_mem, evaluate=False):
                 env.render()
             if done:
                 T_rewards.append(reward_sum)
-    # TODO: explain why this is necessary
     if args.game != 'ai2thor':
         env.close()
     # Test Q-values over validation memory

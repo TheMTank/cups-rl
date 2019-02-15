@@ -1,6 +1,5 @@
 """
 Adapted from https://github.com/Kaixhin/Rainbow
-# TODO: explain more about why segment tree is the best structure
 """
 import random
 from collections import namedtuple
@@ -10,6 +9,15 @@ import numpy as np
 
 # Segment tree data structure where parent node values are sum/max of children node values
 class SegmentTree:
+    """
+    We use this structure because it has the following benefits:
+    - Insertion and update is O(1)
+    - Sampling according to priority order is O(log n)
+
+    Note that in practice we use a stratified sampling by dividing the memory into equal size
+    segments and sampling uniformly from each one of them at every step. This reduces the sampling
+    operation to O(1) as well.
+    """
     def __init__(self, size):
         self.index = 0
         self.size = size
@@ -144,16 +152,17 @@ class ReplayMemory:
 
     def sample(self, batch_size):
         """
-        TODO: finish explaining
         To sample batch_size transitions, the range [0, p_total] is divided equally into batch_size
         ranges. Next, a value is uniformly sampled from each range. Finally the transitions that
-        correspond to each of these sampled values are retrieved from the tree
+        correspond to each of these sampled values are retrieved from the sum-tree.
+        Note that for efficiency reasons sampling is not done according to the priorities, i.e.
+        prioritizing transitions with a higher prediction error which we can learn more from.
         """
         # Retrieve sum of all priorities (used to create a normalised probability distribution)
         p_total = self.transitions.total()
         # Batch size number of segments, based on sum over all probabilities
         segment = p_total / batch_size
-        # Get batch of valid samples
+        # Get batch of valid consecutive samples.
         batch = [self._get_sample_from_segment(segment, i) for i in range(batch_size)]
         probs, idxs, tree_idxs, states, actions, returns, next_states, nonterminals = zip(*batch)
         states, next_states, = torch.stack(states), torch.stack(next_states)
@@ -162,7 +171,7 @@ class ReplayMemory:
         # Calculate normalised probabilities
         probs = np.array(probs, dtype=np.float32) / p_total
         capacity = self.capacity if self.transitions.full else self.transitions.index
-        # Compute importance-sampling weights w
+        # Compute importance-sampling weights w_j = ((N * P(j))^−β) / max_i * w_i
         weights = (capacity * probs) ** -self.priority_weight
         # Normalise by max importance-sampling weight from batch
         weights = torch.tensor(weights / weights.max(), dtype=torch.float32, device=self.device)
