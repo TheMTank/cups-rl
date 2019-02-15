@@ -81,8 +81,8 @@ parser.add_argument('--log-interval', type=int, default=25000, metavar='STEPS',
                     help='Number of training steps between logging status')
 parser.add_argument('--render', action='store_true', default=False,
                     help='Display screen (testing only)')
-parser.add_argument('--config-dict', type=str, default=None,
-                    help='Json string to "manually" override ai2thor config files (optional)')
+parser.add_argument('--config-file', type=str, default='config_files/rainbow_example.json',
+                    help='Config file used for ai2thor environment definition')
 
 if __name__ == '__main__':
     # Setup
@@ -106,9 +106,8 @@ if __name__ == '__main__':
 
     # Environment selection
     if args.game == 'ai2thor':
-        env = MultipleStepsEnv(AI2ThorEnv(
-            config_file='config_files/rainbow_example.json', config_dict=args.config_dict),
-            args.history_length, args.device)
+        env = MultipleStepsEnv(AI2ThorEnv(config_file=args.config_file), args.history_length,
+                               args.device)
         args.resolution = env.config['resolution']
         args.in_channels = env.observation_space.shape[0] * args.history_length
     else:
