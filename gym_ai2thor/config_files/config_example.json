@@ -18,7 +18,7 @@
     "resolution": [128, 128],
     "cameraY": 0.0,
     "gridSize": 0.1,
-    "incremental_rotation": false,
+    "continuous_movement": false,
     "build_path": false,
     "task": {
         "task_name": "PickUp",

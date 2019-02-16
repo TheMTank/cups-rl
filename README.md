@@ -80,7 +80,7 @@ another one as well:
  'openable_objects': ['Microwave'],
  'scene_id': 'FloorPlan28',
  'gridSize': 0.1,
- 'incremental_rotation': true,
+ 'continuous_movement': true,
  'grayscale': True,
  'resolution': (300, 300),
  'task': {'task_name': 'PickUp',
