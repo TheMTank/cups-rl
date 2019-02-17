@@ -100,8 +100,10 @@ if __name__ == '__main__':
         env = create_atari_env(args.atari_env_name)
         args.frame_dim = 42  # fixed to be 42x42 in envs.py _process_frame42()
     else:
+        # todo rotate_only remove all objects except two
         args.config_dict = {
-            'num_random_actions_at_init': 3  # random actions on reset to encourage robustness
+            # todo leave it in config? or have it as argparse?
+            #'num_random_actions_at_init': 3  # random actions on reset to encourage robustness
         }
         config_file_dir_path = os.path.abspath(os.path.join(__file__, '../../..', 'gym_ai2thor',
                                                             'config_files'))

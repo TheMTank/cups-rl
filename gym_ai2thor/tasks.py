@@ -122,7 +122,6 @@ class NaturalLanguageBaseTask(BaseTask):
         # todo make sure object boxes is turned on in env. Need rainbow branch
         self.train_instructions = ('Bowl', 'Mug') if not kwargs['task'].get('list_of_instructions')\
             else kwargs['task']['list_of_instructions']
-        # todo pass as parameter and have default?
         self.word_to_idx = get_word_to_idx(self.train_instructions)
 
         # get current instruction and object type
@@ -157,12 +156,15 @@ class NaturalLanguageLookAtObjectTask(NaturalLanguageBaseTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # how far the target object is from the agent to receive reward
+        self.distance_threshold_3d = kwargs['task'].get('distance_threshold_3d', 1.0)
+        # self.terminal_if_lookat_wrong_object # todo hard to refactor and not worth it?
 
     def transition_reward(self, event):
         reward, done = self.movement_reward, False
         # check if current target object is in middle of screen and close
         target_objs = check_if_focus_and_close_enough_to_object_type(event, self.curr_object_type,
-                                                                     distance_threshold_3d=1.0)
+                                                 distance_threshold_3d=self.distance_threshold_3d)
         if target_objs > 0:
             print('Stared at {} and is close enough. Num objects in view and '
                   'close: {}'.format(self.curr_object_type, target_objs))

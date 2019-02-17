@@ -11,9 +11,10 @@
     "cameraY": -0.8,
     "gridSize": 0.05,
     "incremental_rotation": true,
-    "build_file_name": "build-test.x86_64",
+    "build_file_name": "bowls_vs_cups_rotate_only.x86_64",
     "task": {
         "task_name": "NaturalLanguageLookAtObjectTask",
-        "list_of_instructions": ["Bowl", "Mug"]
+        "list_of_instructions": ["Bowl", "Mug"],
+        "distance_threshold_3d": 3.0
     }
 }

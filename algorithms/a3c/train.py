@@ -33,7 +33,7 @@ def save_checkpoint(state, checkpoint_path, filename, is_best=False):
     fp = os.path.join(checkpoint_path, filename)
     torch.save(state, fp)
     print('Saved model to path: {}'.format(fp))
-    # if is_best:  # todo use this but just have to find way to measure best?
+    # if is_best:  # todo use this but just have to find way to measure best? avg reward?
     #     shutil.copyfile(fp, os.path.join(checkpoint_path, 'model_best.pth.tar'))
 
 def ensure_shared_grads(model, shared_model):
@@ -47,6 +47,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
     """
     Main A3C or A3C_LSTM_GA train loop and initialisation
     """
+    train_start_time = time.time()
     torch.manual_seed(args.seed + rank)
 
     if args.atari:
@@ -81,7 +82,6 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
     episode_total_rewards_list = []
     all_rewards_in_episode = []
     avg_reward_for_num_steps_list = []
-    episode_lengths = []
     p_losses = []
     v_losses = []
 
@@ -252,9 +252,12 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             v_losses = []
 
         if rank == 0: # and args.verbose: todo
-            # todo don't need to print time every 20. Or print time elapsed instead!!!
-            print('Step no: {}. total length: {}. Time taken for args.steps ({}): {}'.format(
+            print('Step no: {}. total length: {}. Time elapsed: {}m'.format(
                 episode_length,
                 total_length,
-                args.num_steps,
-                round(time.time() - interaction_start_time, 3)))
+                round((time.time() - train_start_time) / 60.0, 3)
+                ))
+
+            if num_backprops % 100 == 0:
+                print('Time taken for args.steps ({}): {}'.format(args.num_steps,
+                                                round(time.time() - interaction_start_time, 3)))
