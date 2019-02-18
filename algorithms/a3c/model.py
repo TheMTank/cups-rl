@@ -36,7 +36,7 @@ def calculate_input_width_height_for_A3C_LSTM_GA(frame_dim):
     except that there are only 3 conv layers and there is variation among the kernel_size, stride,
     the number of channels and there is no padding. Therefore these are hardcoded.
     Check A3C_LSTM_GA class for these numbers.
-    Returns tuple representing (width, height, num_output_filters)
+    Also, returns tuple representing (width, height, num_output_filters) instead of size
     """
 
     width = (frame_dim - 8 + 4) // 4 + 1
@@ -195,7 +195,7 @@ class A3C_LSTM_GA(torch.nn.Module):
             # todo first unsqueeze should be sequence length!!!
             # but for now im gonna try just one word. todo check when i bring multi word sentences back
             word_embedding = self.embedding(input_inst[0, i]).unsqueeze(0).unsqueeze(0)  # crazy todo
-            word_embedding = word_embedding.expand(input_inst.data.size(1), -1, -1) # only change seq len dimension
+            # word_embedding = word_embedding.expand(input_inst.data.size(1), -1, -1) # only change seq len dimension. # todo maybe this is totally wrong
             _, encoder_hidden = self.gru(word_embedding, encoder_hidden) # todo import pdb;pdb.set_trace(). see if this works and two unsqueezes were wrong?
         x_instr_rep = encoder_hidden.view(encoder_hidden.size(1), -1)
 

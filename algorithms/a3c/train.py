@@ -29,12 +29,12 @@ from algorithms.a3c.envs import create_atari_env
 from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
 from gym_ai2thor.task_utils import turn_instruction_str_to_tensor
 
-def save_checkpoint(state, checkpoint_path, filename, is_best=False):
+def save_checkpoint(save_object, checkpoint_path, filename, is_best=False):
     fp = os.path.join(checkpoint_path, filename)
-    torch.save(state, fp)
+    torch.save(save_object, fp)
     print('Saved model to path: {}'.format(fp))
-    # if is_best:  # todo use this but just have to find way to measure best? avg reward?
-    #     shutil.copyfile(fp, os.path.join(checkpoint_path, 'model_best.pth.tar'))
+    if is_best:  # todo use this but just have to find way to measure best? avg reward?
+        shutil.copyfile(fp, os.path.join(checkpoint_path, 'model_best.pth.tar'))
 
 def ensure_shared_grads(model, shared_model):
     for param, shared_param in zip(model.parameters(),
@@ -109,17 +109,18 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             # save model every args.checkpoint_freq
             if rank == 0 and total_length > 0 and total_length % (args.checkpoint_freq //
                                                                   args.num_processes) == 0:
-                # todo make function/clearer
                 fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
                 checkpoint_dict = {
                     'total_length': total_length,
                     'episode_number': episode_number,
                     'counter': counter.value,
-                    # todo do it nicely and in a more extensible way?
                     'state_dict': model.state_dict(),
                     'optimizer': optimizer.state_dict()
                 }
-                save_checkpoint(checkpoint_dict, args.checkpoint_path, fn)
+                # todo if avg_reward > best_avg_reward:
+                # best_so_far = True
+                best_so_far = False
+                save_checkpoint(checkpoint_dict, args.checkpoint_path, fn, best_so_far)
 
             if not env.task.task_has_language_instructions:
                 value, logit, (hx, cx) = model((image.unsqueeze(0).float(), (hx, cx)))
@@ -139,6 +140,14 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             action_int = action.numpy()[0][0].item()
             state, reward, done, _ = env.step(action_int)
 
+            # unpack state
+            if not env.task.task_has_language_instructions:
+                image = torch.from_numpy(state)
+            else:
+                (image, instruction) = state
+                image = torch.from_numpy(image)
+                instruction_indices = turn_instruction_str_to_tensor(instruction, env)
+
             episode_length += 1
             total_length += 1
             done = done or episode_length >= args.max_episode_length
@@ -153,8 +162,11 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
                 # reset and unpack state
                 state = env.reset()
-                if env.task.task_has_language_instructions:
+                if not env.task.task_has_language_instructions:
+                    image = torch.from_numpy(state)
+                else:
                     (image, instruction) = state
+                    image = torch.from_numpy(image)
                     instruction_indices = turn_instruction_str_to_tensor(instruction, env)
                 # logging, benchmarking and saving stats
                 print('Episode Over. Total Length: {}. Total reward for episode: {}. '
@@ -165,24 +177,13 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                       'Total reward for episode: {}'.format(rank, total_length, counter.value,
                                                             total_reward_for_episode))
                 writer.add_scalar('episode_lengths', episode_length, episode_number)
-                # todo do running mean reward
+                # todo do running mean reward and then use for saving best model into best_model.pth
                 writer.add_scalar('episode_total_rewards', total_reward_for_episode, episode_number)
-                # import pdb;pdb.set_trace()  # todo remove or make work
-                # writer.add_image('Image', torch.from_numpy(image).permute(2, 0, 1), episode_number)
-                # writer.add_image('Image', state, episode_number)  # was state
-                writer.add_text('Text', 'text logged at step: {}. '
-                                        'Episode num {}'.format(episode_length, episode_number),
-                                episode_length)
+                writer.add_image('Image', image, episode_number)
 
                 episode_number += 1
                 episode_length = 0
 
-            if not env.task.task_has_language_instructions:
-                image = torch.from_numpy(state)
-            else:
-                (image, instruction) = state
-                image = torch.from_numpy(image)
-                instruction_indices = turn_instruction_str_to_tensor(instruction, env)
             values.append(value)
             log_probs.append(log_prob)
             rewards.append(reward)
@@ -209,7 +210,10 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                                      instruction_indices.long(),
                                      (tx, hx, cx)))
             R = value.detach()
+            print('Predicted Value: ', R)
+        print('Value: ', R)
 
+        # if episode is terminal, 0 reward. Otherwise, predicted value
         values.append(R)
         policy_loss = 0
         value_loss = 0
@@ -242,7 +246,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
         v_losses.append(value_loss.item())
 
         num_backprops += 1
-        if len(p_losses) > 1000:  # 1000 * 20 (args.num_steps) = 20000
+        if len(p_losses) > 1000:  # 1000 * 20 (args.num_steps default) = 20000
             print(" ".join([
                 "Training thread: {}".format(rank),
                 "Num backprops: {}".format(num_backprops),

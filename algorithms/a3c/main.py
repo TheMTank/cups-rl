@@ -60,6 +60,8 @@ parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
 parser.add_argument('--max-episode-length', type=int, default=1000,
                     help='maximum length of an episode (default: 1000000)')
+parser.add_argument('--num-random-actions-at-init',  type=int, default=0,
+                    help='Number of random actions the agent does on initialisation')
 parser.add_argument('--task-name', default='NaturalLanguageLookAtObjectTask',
                     help='Choose task out of gym_ai2thor/tasks.py')
 parser.add_argument('--config-file-name', default='NL_lookat_bowls_vs_cups_fp1_config.json',
@@ -90,8 +92,6 @@ if __name__ == '__main__':
     os.environ['OMP_NUM_THREADS'] = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
-    # todo print all logs to experiment folder
-
     args = parser.parse_args()
     args.episode_number = 0
     args.total_length = 0  # set to 0 so that checkpoint can overwrite if necessary
@@ -100,15 +100,14 @@ if __name__ == '__main__':
         env = create_atari_env(args.atari_env_name)
         args.frame_dim = 42  # fixed to be 42x42 in envs.py _process_frame42()
     else:
-        # todo rotate_only remove all objects except two
         args.config_dict = {
-            # todo leave it in config? or have it as argparse?
-            #'num_random_actions_at_init': 3  # random actions on reset to encourage robustness
+            # random actions on reset to encourage robustness
+            'num_random_actions_at_init': args.num_random_actions_at_init,
+            'max_episode_length': args.max_episode_length
         }
         config_file_dir_path = os.path.abspath(os.path.join(__file__, '../../..', 'gym_ai2thor',
                                                             'config_files'))
 
-        # todo rotate_only needs to have large distance or new build path?
         args.config_dict = {}
         args.config_file_path = os.path.join(config_file_dir_path, args.config_file_name)
         env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict)
@@ -138,15 +137,15 @@ if __name__ == '__main__':
                                                                      str(args.experiment_id))))
     args.checkpoint_path = os.path.join(args.experiment_path, 'checkpoints')
     args.tensorboard_path = os.path.join(args.experiment_path, 'tensorboard_logs')
-    # creates run tensorboardX --logs_dir args.tensorboard_path in terminal and open browser
+    # run tensorboardX --logs_dir args.tensorboard_path in terminal and open browser e.g.
     # tensorboard --logdir experiments/{eid}/tensorboard_logs
     writer = SummaryWriter(comment='A3C', log_dir=args.tensorboard_path)  # this will create dirs
 
     # Checkpoint creation/loading below
     checkpoint_counter = False
     if not os.path.exists(args.checkpoint_path):
-        print('Tensorboard created experiment folder: {} and checkpoint folder'
-              ' made here: {}'.format(args.experiment_path, args.checkpoint_path))
+        print('-----------------\nTensorboard created experiment folder: {} and checkpoint folder '
+              'made here: {}\n-----------------'.format(args.experiment_path, args.checkpoint_path))
         os.makedirs(args.checkpoint_path)
     else:
         print('Checkpoints path already exists at path: {}'.format(args.checkpoint_path))
@@ -181,9 +180,8 @@ if __name__ == '__main__':
                       .format(checkpoint_to_load, checkpoint['total_length']))
         else:
             print('No checkpoint to load')
-        # todo have choice of checkpoint as well? args.resume could override the above
 
-    # Save argparse arguments from last run
+    # Save argparse arguments and environment config from last resume
     with open(os.path.join(args.experiment_path, 'latest_args.json'), 'w') as f:
         args_dict = vars(args)
         args_dict['experiment_id'] = str(args.experiment_id)
@@ -191,10 +189,10 @@ if __name__ == '__main__':
     with open(os.path.join(args.experiment_path, 'latest_config.json'), 'w') as f:
         json.dump(env.config, f)
 
+    # process initialisation and starting
     processes = []
     counter = mp.Value('i', 0 if not checkpoint_counter else checkpoint_counter)
     lock = mp.Lock()
-
     try:
         if not args.synchronous:
             # test runs continuously and if episode ends, sleeps for args.test_sleep_time seconds
