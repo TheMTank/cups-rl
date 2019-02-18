@@ -17,7 +17,7 @@ import torch
 import numpy as np
 
 from algorithms.rainbow.agent import Agent
-from algorithms.rainbow.env import Env, MultipleStepsEnv
+from algorithms.rainbow.env import Env, FrameStackEnv
 from algorithms.rainbow.memory import ReplayMemory
 from algorithms.rainbow.test import test
 
@@ -106,8 +106,8 @@ if __name__ == '__main__':
 
     # Environment selection
     if args.game == 'ai2thor':
-        env = MultipleStepsEnv(AI2ThorEnv(config_file=args.config_file), args.history_length,
-                               args.device)
+        env = FrameStackEnv(AI2ThorEnv(config_file=args.config_file), args.history_length,
+                            args.device)
         args.resolution = env.config['resolution']
         args.in_channels = env.observation_space.shape[0] * args.history_length
     else:

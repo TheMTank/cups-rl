@@ -112,7 +112,7 @@ class Env:
         cv2.destroyAllWindows()
 
 
-class MultipleStepsEnv(gym.Wrapper):
+class FrameStackEnv(gym.Wrapper):
     """
     Wraps our ai2thor gym environment to execute history_length steps every time its step function
     is called. It is meant to be used only to wrap our ai2thor environment. Use Env class from
@@ -140,6 +140,7 @@ class MultipleStepsEnv(gym.Wrapper):
             self.state_buffer.append(observation)
             if len(self.state_buffer) == self.frame_stack:
                 break
+        # num stacked frames x H x W
         state = torch.cat(list(self.state_buffer), 0)
         # Return state, reward, done, info
         return state, reward, done, info
