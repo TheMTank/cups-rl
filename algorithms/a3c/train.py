@@ -18,6 +18,7 @@ A3C_LSTM_GA model is used instead.
 
 import time
 import os
+import shutil
 
 import numpy as np
 import torch
@@ -29,11 +30,12 @@ from algorithms.a3c.envs import create_atari_env
 from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
 from gym_ai2thor.task_utils import turn_instruction_str_to_tensor
 
+
 def save_checkpoint(save_object, checkpoint_path, filename, is_best=False):
     fp = os.path.join(checkpoint_path, filename)
     torch.save(save_object, fp)
     print('Saved model to path: {}'.format(fp))
-    if is_best:  # todo use this but just have to find way to measure best? avg reward?
+    if is_best:
         shutil.copyfile(fp, os.path.join(checkpoint_path, 'model_best.pth.tar'))
 
 def ensure_shared_grads(model, shared_model):
@@ -78,10 +80,12 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
     done = True
 
     # monitoring
+    avg_over_num_episodes = 10
+    avg_rewards = []
+    avg_reward, best_avg_reward = -np.inf, -np.inf
     total_reward_for_num_steps_list = []
     episode_total_rewards_list = []
     all_rewards_in_episode = []
-    avg_reward_for_num_steps_list = []
     p_losses = []
     v_losses = []
 
@@ -117,9 +121,9 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                     'state_dict': model.state_dict(),
                     'optimizer': optimizer.state_dict()
                 }
-                # todo if avg_reward > best_avg_reward:
-                # best_so_far = True
                 best_so_far = False
+                if avg_reward > best_avg_reward:
+                    best_so_far = True
                 save_checkpoint(checkpoint_dict, args.checkpoint_path, fn, best_so_far)
 
             if not env.task.task_has_language_instructions:
@@ -158,16 +162,13 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             if done:
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
+                if len(episode_total_rewards_list) > avg_over_num_episodes:
+                    avg_reward = sum(episode_total_rewards_list[-avg_over_num_episodes:]) / \
+                                    len(episode_total_rewards_list[-avg_over_num_episodes:])
+                    avg_rewards.append(avg_reward)
+                    writer.add_scalar('avg_reward', avg_reward, episode_number)
                 all_rewards_in_episode = []
 
-                # reset and unpack state
-                state = env.reset()
-                if not env.task.task_has_language_instructions:
-                    image = torch.from_numpy(state)
-                else:
-                    (image, instruction) = state
-                    image = torch.from_numpy(image)
-                    instruction_indices = turn_instruction_str_to_tensor(instruction, env)
                 # logging, benchmarking and saving stats
                 print('Episode Over. Total Length: {}. Total reward for episode: {}. '
                       'Episode num: {}'.format(total_length,  total_reward_for_episode,
@@ -177,9 +178,17 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                       'Total reward for episode: {}'.format(rank, total_length, counter.value,
                                                             total_reward_for_episode))
                 writer.add_scalar('episode_lengths', episode_length, episode_number)
-                # todo do running mean reward and then use for saving best model into best_model.pth
                 writer.add_scalar('episode_total_rewards', total_reward_for_episode, episode_number)
                 writer.add_image('Image', image, episode_number)
+
+                # reset and unpack state
+                state = env.reset()
+                if not env.task.task_has_language_instructions:
+                    image = torch.from_numpy(state)
+                else:
+                    (image, instruction) = state
+                    image = torch.from_numpy(image)
+                    instruction_indices = turn_instruction_str_to_tensor(instruction, env)
 
                 episode_number += 1
                 episode_length = 0
@@ -192,13 +201,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             if done:
                 break
 
-        # No interaction with environment below.
-        # Monitoring
-        total_reward_for_num_steps = sum(rewards)
-        total_reward_for_num_steps_list.append(total_reward_for_num_steps)
-        avg_reward_for_num_steps = total_reward_for_num_steps / len(rewards)
-        avg_reward_for_num_steps_list.append(avg_reward_for_num_steps)
-
+        # No interaction with environment below
         # Backprop and optimisation
         R = torch.zeros(1, 1) # todo or this?
         if not done:  # to change last reward to predicted value
@@ -210,7 +213,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                                      instruction_indices.long(),
                                      (tx, hx, cx)))
             R = value.detach()
-            print('Predicted Value: ', R)
+            print('Predicted Value: ', R)  # todo only here for finding spike
         print('Value: ', R)
 
         # if episode is terminal, 0 reward. Otherwise, predicted value
@@ -238,15 +241,15 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
         ensure_shared_grads(model, shared_model)
         optimizer.step()
 
+        # benchmarking and general info
+        num_backprops += 1
         writer.add_scalar('policy_loss', policy_loss.item(), num_backprops)
         writer.add_scalar('value_loss', value_loss.item(), num_backprops)
 
-        # benchmarking
         p_losses.append(policy_loss.item())
         v_losses.append(value_loss.item())
 
-        num_backprops += 1
-        if len(p_losses) > 1000:  # 1000 * 20 (args.num_steps default) = 20000
+        if len(p_losses) > 1000:  # 1000 * 20 (args.num_steps default) = every 20000 steps
             print(" ".join([
                 "Training thread: {}".format(rank),
                 "Num backprops: {}".format(num_backprops),
@@ -255,7 +258,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             p_losses = []
             v_losses = []
 
-        if rank == 0: # and args.verbose: todo
+        if rank == 0 and args.verbose_num_steps:
             print('Step no: {}. total length: {}. Time elapsed: {}m'.format(
                 episode_length,
                 total_length,

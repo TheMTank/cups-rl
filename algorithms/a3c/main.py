@@ -56,6 +56,8 @@ parser.add_argument('-eid', '--experiment-id', default=uuid.uuid4(),
                          ' If experiment taken, will resume training!')
 parser.add_argument('--num-processes', type=int, default=4,
                     help='how many training processes to use (default: 1)')
+parser.add_argument('--verbose-num-steps', default=False,
+                    help='do not print step number every args.num_steps')
 parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
 parser.add_argument('--max-episode-length', type=int, default=1000,
@@ -132,13 +134,14 @@ if __name__ == '__main__':
         optimizer = my_optim.SharedAdam(shared_model.parameters(), lr=args.lr)
         optimizer.share_memory()
 
-    args.experiment_path = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), '..'
-                                                                     , '..', 'experiments',
+    args.experiment_path = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                                                     '..', '..', 'experiments',
                                                                      str(args.experiment_id))))
     args.checkpoint_path = os.path.join(args.experiment_path, 'checkpoints')
     args.tensorboard_path = os.path.join(args.experiment_path, 'tensorboard_logs')
     # run tensorboardX --logs_dir args.tensorboard_path in terminal and open browser e.g.
-    # tensorboard --logdir experiments/{eid}/tensorboard_logs
+    print('Tensorboard command:\n'
+          'tensorboard --logdir experiments/{}/tensorboard_logs'.format(args.experiment_id))
     writer = SummaryWriter(comment='A3C', log_dir=args.tensorboard_path)  # this will create dirs
 
     # Checkpoint creation/loading below
