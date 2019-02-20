@@ -29,8 +29,8 @@ from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
 from algorithms.a3c.test import test
 from algorithms.a3c.train import train
 
-# Based on
-# https://github.com/pytorch/examples/tree/master/mnist_hogwild
+
+# Based on https://github.com/pytorch/examples/tree/master/mnist_hogwild
 # Training settings
 parser = argparse.ArgumentParser(description='A3C')
 parser.add_argument('--lr', type=float, default=0.0001,
@@ -85,7 +85,6 @@ parser.add_argument('--atari-render', dest='atari_render', action='store_true',
                     help='Render atari')
 parser.add_argument('--atari-env-name', default='PongDeterministic-v4',
                     help='environment to train on (default: PongDeterministic-v4)')
-#
 parser.set_defaults(atari=False)
 parser.set_defaults(atari_render=False)
 
@@ -95,12 +94,13 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
     args = parser.parse_args()
+    # set to 0 so that checkpoint resume can overwrite if necessary
     args.episode_number = 0
-    args.total_length = 0  # set to 0 so that checkpoint can overwrite if necessary
+    args.total_length = 0
 
     if args.atari:
         env = create_atari_env(args.atari_env_name)
-        args.frame_dim = 42  # fixed to be 42x42 in envs.py _process_frame42()
+        args.frame_dim = 42  # fixed to be 42x42 for _process_frame42() in envs.py
     else:
         args.config_dict = {
             # random actions on reset to encourage robustness
@@ -161,10 +161,10 @@ if __name__ == '__main__':
                 for x in checkpoint_paths]
             idx_of_latest = checkpoint_file_name_ints.index(max(checkpoint_file_name_ints))
             checkpoint_to_load = checkpoint_paths[idx_of_latest]
-            print('Loading latest checkpoint: {}'.format(checkpoint_to_load))
+            print('Attempting to load latest checkpoint: {}'.format(checkpoint_to_load))
 
             if os.path.isfile(checkpoint_to_load):
-                print("=> loading checkpoint '{}'".format(checkpoint_to_load))
+                print("Succesfully loaded checkpoint {}".format(checkpoint_to_load))
                 checkpoint = torch.load(checkpoint_to_load)
                 args.total_length = checkpoint['total_length']
                 args.episode_number = checkpoint['episode_number']
@@ -173,18 +173,17 @@ if __name__ == '__main__':
                 print('Values from checkpoint: total_length: {}. episode_number: {}'.format(
                     checkpoint['total_length'], checkpoint['episode_number']))
                 shared_model.load_state_dict(checkpoint['state_dict'])
-                optimizer.load_state_dict(checkpoint[
-                        'optimizer'])  # todo check if overwrites learning rate. probably does
+                optimizer.load_state_dict(checkpoint['optimizer'])  # todo check if overwrites learning rate. probably does
 
                 for param_group in optimizer.param_groups:
-                    print('Learning rate: ', param_group['lr'])  # todo oh it doesn't work?
+                    print('Learning rate: ', param_group['lr'])  # todo oh it doesn't work? might be useful for cosine annealing
 
                 print("=> loaded checkpoint '{}' (total_length {})"
                       .format(checkpoint_to_load, checkpoint['total_length']))
         else:
             print('No checkpoint to load')
 
-    # Save argparse arguments and environment config from last resume
+    # Save argparse arguments and environment config from last resume or first start
     with open(os.path.join(args.experiment_path, 'latest_args.json'), 'w') as f:
         args_dict = vars(args)
         args_dict['experiment_id'] = str(args.experiment_id)
@@ -192,7 +191,7 @@ if __name__ == '__main__':
     with open(os.path.join(args.experiment_path, 'latest_config.json'), 'w') as f:
         json.dump(env.config, f)
 
-    # process initialisation and starting
+    # process initialisation and training/testing starting
     processes = []
     counter = mp.Value('i', 0 if not checkpoint_counter else checkpoint_counter)
     lock = mp.Lock()
@@ -211,7 +210,7 @@ if __name__ == '__main__':
             for p in processes:
                 p.join()
         else:
-            # synchronous so only 1 process
+            # synchronous so only 1 process. Best for debugging.
             rank = 0
             args.num_processes = 1
             # test(args.num_processes, args, shared_model, counter)  # check test functionality

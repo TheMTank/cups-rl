@@ -158,7 +158,7 @@ class NaturalLanguageLookAtObjectTask(NaturalLanguageBaseTask):
         super().__init__(**kwargs)
         # how far the target object is from the agent to receive reward
         self.distance_threshold_3d = kwargs['task'].get('distance_threshold_3d', 1.0)
-        # self.terminal_if_lookat_wrong_object # todo hard to refactor and not worth it?
+        # self.terminal_if_lookat_wrong_object # todo hard to refactor and not worth it? but cozmo had it this way
 
     def transition_reward(self, event):
         reward, done = self.movement_reward, False

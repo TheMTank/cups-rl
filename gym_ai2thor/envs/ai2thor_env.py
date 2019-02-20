@@ -244,8 +244,10 @@ class AI2ThorEnv(gym.Env):
                 if done:
                     return self.reset()  # if we end episode in random actions, reset again
 
+        if self.incremental_rotation_mode:
+            self.absolute_rotation = 0.0
         extra_state = self.task.reset()
-        image_state = self.preprocess(self.event.frame) # TODO: reset state puts the channel at the beginning!
+        image_state = self.preprocess(self.event.frame)
 
         if extra_state:
             state = (image_state, extra_state)

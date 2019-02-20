@@ -52,7 +52,7 @@ def normalized_columns_initializer(weights, std=1.0):
     """
 
     out = torch.randn(weights.size())
-    out *= std / torch.sqrt(out.pow(2).sum(1, keepdim=True).expand_as(out)) # todo expand_as(out) double check
+    out *= std / torch.sqrt(out.pow(2).sum(1, keepdim=True).expand_as(out))
     return out
 
 def weights_init(m):
@@ -75,7 +75,7 @@ def weights_init(m):
 
 class ActorCritic(torch.nn.Module):
     """
-    Mainly Ikostrikov's implementation of A3C (https://arxiv.org/abs/1602.01783).
+    Ikostrikov's implementation of A3C (https://arxiv.org/abs/1602.01783).
 
     Processes an input image (with num_input_channels) with 4 conv layers,
     interspersed with 4 elu activation functions. The output of the final layer is then flattened
