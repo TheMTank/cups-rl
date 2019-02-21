@@ -192,11 +192,10 @@ class A3C_LSTM_GA(torch.nn.Module):
         # Get the instruction representation
         encoder_hidden = torch.zeros(1, 1, self.gru_hidden_size)
         for i in range(input_inst.data.size(1)):
-            # todo first unsqueeze should be sequence length!!!
             # but for now im gonna try just one word. todo check when i bring multi word sentences back
-            word_embedding = self.embedding(input_inst[0, i]).unsqueeze(0).unsqueeze(0)  # crazy todo
-            # word_embedding = word_embedding.expand(input_inst.data.size(1), -1, -1) # only change seq len dimension. # todo maybe this is totally wrong
-            _, encoder_hidden = self.gru(word_embedding, encoder_hidden) # todo import pdb;pdb.set_trace(). see if this works and two unsqueezes were wrong?
+            word_embedding = self.embedding(input_inst[0, i].unsqueeze(0)).unsqueeze(0)  # 1x1x32
+            # todo understand https://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html. whole sequence and just 1
+            _, encoder_hidden = self.gru(word_embedding, encoder_hidden)
         x_instr_rep = encoder_hidden.view(encoder_hidden.size(1), -1)
 
         # Get the attention vector from the instruction representation
@@ -207,7 +206,7 @@ class A3C_LSTM_GA(torch.nn.Module):
         x_attention = x_attention.expand(1, self.num_output_filters, self.output_width,
                                          self.output_height)
         assert x_image_rep.size() == x_attention.size()
-        x = x_image_rep*x_attention
+        x = x_image_rep * x_attention  # element-wise multiplication between attention and filters
         x = x.view(x.size(0), -1)
 
         # A3C-LSTM

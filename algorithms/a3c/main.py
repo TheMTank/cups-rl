@@ -11,7 +11,6 @@ run on any atari environment as well using the --atari and --atari-env-name para
 """
 
 from __future__ import print_function
-
 import argparse
 import os
 import uuid
@@ -55,7 +54,7 @@ parser.add_argument('-eid', '--experiment-id', default=uuid.uuid4(),
                     help='random or chosen guid for folder creation for plots and checkpointing.'
                          ' If experiment taken, will resume training!')
 parser.add_argument('--num-processes', type=int, default=4,
-                    help='how many training processes to use (default: 1)')
+                    help='how many training processes to use (default: 4) except if synchronous')
 parser.add_argument('--verbose-num-steps', default=False,
                     help='do not print step number every args.num_steps')
 parser.add_argument('--num-steps', type=int, default=20,
@@ -164,19 +163,16 @@ if __name__ == '__main__':
             print('Attempting to load latest checkpoint: {}'.format(checkpoint_to_load))
 
             if os.path.isfile(checkpoint_to_load):
-                print("Succesfully loaded checkpoint {}".format(checkpoint_to_load))
+                print("Successfully loaded checkpoint {}".format(checkpoint_to_load))
                 checkpoint = torch.load(checkpoint_to_load)
                 args.total_length = checkpoint['total_length']
                 args.episode_number = checkpoint['episode_number']
-                checkpoint_counter = checkpoint.get('counter', False)
+                checkpoint_counter = checkpoint.get('counter', False)  # if not set, set to 0 later
 
                 print('Values from checkpoint: total_length: {}. episode_number: {}'.format(
                     checkpoint['total_length'], checkpoint['episode_number']))
                 shared_model.load_state_dict(checkpoint['state_dict'])
-                optimizer.load_state_dict(checkpoint['optimizer'])  # todo check if overwrites learning rate. probably does
-
-                for param_group in optimizer.param_groups:
-                    print('Learning rate: ', param_group['lr'])  # todo oh it doesn't work? might be useful for cosine annealing
+                optimizer.load_state_dict(checkpoint['optimizer'])
 
                 print("=> loaded checkpoint '{}' (total_length {})"
                       .format(checkpoint_to_load, checkpoint['total_length']))
