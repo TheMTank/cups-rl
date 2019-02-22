@@ -14,7 +14,7 @@
     "build_file_name": "bowls_vs_cups_rotate_only.x86_64",
     "task": {
         "task_name": "NaturalLanguageLookAtObjectTask",
-        "list_of_instructions": ["Bowl", "Mug"],
+        "list_of_instructions": ["go to the Bowl", "please navigate to my Mug"],
         "distance_threshold_3d": 3.0
     }
 }

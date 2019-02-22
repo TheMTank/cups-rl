@@ -192,9 +192,7 @@ class A3C_LSTM_GA(torch.nn.Module):
         # Get the instruction representation
         encoder_hidden = torch.zeros(1, 1, self.gru_hidden_size)
         for i in range(input_inst.data.size(1)):
-            # but for now im gonna try just one word. todo check when i bring multi word sentences back
-            word_embedding = self.embedding(input_inst[0, i].unsqueeze(0)).unsqueeze(0)  # 1x1x32
-            # todo understand https://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html. whole sequence and just 1
+            word_embedding = self.embedding(input_inst[0, i]).view(1, 1, -1)  # 1x1x32
             _, encoder_hidden = self.gru(word_embedding, encoder_hidden)
         x_instr_rep = encoder_hidden.view(encoder_hidden.size(1), -1)
 

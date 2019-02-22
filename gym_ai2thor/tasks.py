@@ -235,7 +235,7 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
         object_picked_up = not self.prev_inventory and curr_inventory
 
         # todo should config and ai2thor_env have options for specifying how close to the object you must be?
-        # and also how close your crosshair is
+        # and also how close your crosshair is # todo can be done in ai2thor_env since we use distance there already
 
         if object_picked_up:
             # Add reward from the specific object
