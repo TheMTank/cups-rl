@@ -83,7 +83,6 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
     avg_over_num_episodes = 10
     avg_rewards = []
     avg_reward, best_avg_reward = -np.inf, -np.inf
-    total_reward_for_num_steps_list = []
     episode_total_rewards_list = []
     all_rewards_in_episode = []
     p_losses = []
@@ -203,9 +202,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
         # No interaction with environment below
         # Backprop and optimisation
-        R = torch.zeros(1, 1) # todo or this?
-        if not done:  # to change last reward to predicted value
-            # todo does this cause the value loss spike that happens every 20 or 100 or 1000?
+        if not done:  # to change last return to predicted value
             if not env.task.task_has_language_instructions:
                 value, _, _ = model((image.unsqueeze(0).float(), (hx, cx)))
             else:
@@ -213,11 +210,8 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                                      instruction_indices.long(),
                                      (tx, hx, cx)))
             R = value.detach()
-            print('Predicted Value: ', R)  # todo only here for finding spike
-        print('Value: ', R)
 
-        # if episode is terminal, 0 reward. Otherwise, predicted value
-        values.append(R)
+        values.append(R)  # if episode is terminal, 0 reward. Otherwise, predicted value
         policy_loss = 0
         value_loss = 0
         gae = torch.zeros(1, 1)
@@ -267,4 +261,4 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
             if num_backprops % 100 == 0:
                 print('Time taken for args.steps ({}): {}'.format(args.num_steps,
-                                                round(time.time() - interaction_start_time, 3)))
+                       round(time.time() - interaction_start_time, 3)))

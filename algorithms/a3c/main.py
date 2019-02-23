@@ -139,15 +139,15 @@ if __name__ == '__main__':
     args.checkpoint_path = os.path.join(args.experiment_path, 'checkpoints')
     args.tensorboard_path = os.path.join(args.experiment_path, 'tensorboard_logs')
     # run tensorboardX --logs_dir args.tensorboard_path in terminal and open browser e.g.
-    print('Tensorboard command:\n'
-          'tensorboard --logdir experiments/{}/tensorboard_logs'.format(args.experiment_id))
+    print('-----------------\nTensorboard command:\n'
+          'tensorboard --logdir experiments/{}/tensorboard_logs\n-----------------'.format(args.experiment_id))
     writer = SummaryWriter(comment='A3C', log_dir=args.tensorboard_path)  # this will create dirs
 
     # Checkpoint creation/loading below
     checkpoint_counter = False
     if not os.path.exists(args.checkpoint_path):
-        print('-----------------\nTensorboard created experiment folder: {} and checkpoint folder '
-              'made here: {}\n-----------------'.format(args.experiment_path, args.checkpoint_path))
+        print('Tensorboard created experiment folder: {} and checkpoint folder '
+              'made here: {}'.format(args.experiment_path, args.checkpoint_path))
         os.makedirs(args.checkpoint_path)
     else:
         print('Checkpoints path already exists at path: {}'.format(args.checkpoint_path))
