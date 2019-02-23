@@ -23,6 +23,7 @@
     "task": {
         "task_name": "NaturalLanguagePickUpObjectTask",
         "list_of_instructions": ["Bowl", "Mug"],
-        "max_object_pickup_crosshair_distance": 50
+        "max_object_pickup_crosshair_distance": 50,
+        "max_object_pickup_euclidean_distance": 1.0
     }
 }

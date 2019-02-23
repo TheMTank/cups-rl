@@ -81,8 +81,8 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
     # monitoring
     avg_over_num_episodes = 10
-    avg_rewards = []
-    avg_reward, best_avg_reward = -np.inf, -np.inf
+    avg_episode_returns = []
+    avg_episode_return, best_avg_episode_return = -np.inf, -np.inf
     episode_total_rewards_list = []
     all_rewards_in_episode = []
     p_losses = []
@@ -121,7 +121,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                     'optimizer': optimizer.state_dict()
                 }
                 best_so_far = False
-                if avg_reward > best_avg_reward:
+                if avg_episode_return > best_avg_episode_return:
                     best_so_far = True
                 save_checkpoint(checkpoint_dict, args.checkpoint_path, fn, best_so_far)
 
@@ -159,19 +159,18 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 counter.value += 1
 
             if done:
+                # logging, benchmarking and saving stats
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
                 if len(episode_total_rewards_list) > avg_over_num_episodes:
-                    avg_reward = sum(episode_total_rewards_list[-avg_over_num_episodes:]) / \
+                    avg_episode_return = sum(episode_total_rewards_list[-avg_over_num_episodes:]) / \
                                     len(episode_total_rewards_list[-avg_over_num_episodes:])
-                    avg_rewards.append(avg_reward)
-                    writer.add_scalar('avg_reward', avg_reward, episode_number)
+                    avg_episode_returns.append(avg_episode_return)
+                    writer.add_scalar('avg_episode_returns', avg_episode_return, episode_number)
                 all_rewards_in_episode = []
 
-                # logging, benchmarking and saving stats
                 print('Rank: {}. Episode {} Over. Total Length: {}. Total reward for episode: {}. '
-                      'Episode num: {}'.format(rank, episode_number, total_length,
-                                               total_reward_for_episode, episode_number))
+                      .format(rank, episode_number, total_length, total_reward_for_episode))
                 print('Rank: {}. Step no: {}. total length: {}'.format(rank, episode_length,
                                                                        total_length))
                 print('Rank: {}. Total Length: {}. Counter across all processes: {}. '

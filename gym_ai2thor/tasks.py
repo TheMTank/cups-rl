@@ -48,6 +48,7 @@ class BaseTask:
         self.movement_reward = self.config.get('movement_reward', 0)
         self.step_num = 0
         self.max_object_pickup_crosshair_distance = float('inf')
+        self.max_object_pickup_euclidean_distance = None
 
     def transition_reward(self, state):
         """
@@ -236,7 +237,8 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
 
         self.max_object_pickup_crosshair_distance = kwargs['task'].get(
             'max_object_pickup_crosshair_distance', float('inf'))
-        # todo should config also specify 3d distance to object for pickup? Probably not needed, since default is good
+        self.max_object_pickup_euclidean_distance = kwargs['task'].get(
+            'max_object_pickup_euclidean_distance', None)
 
         self.prev_inventory = []
 
@@ -251,9 +253,10 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
             if curr_inventory[0]['objectType'] == self.curr_object_type:
                 reward += self.default_reward
             else:
+                print('Picked up wrong object')
                 reward -= self.default_reward
             done = True
-            print('{} reward collected for picking up object: {} at step: {}!'.format(reward,
+            print('{} reward collected for picking up {} object: {} at step: {}!'.format(reward,
                                                                     curr_inventory[0]['objectType'],
                                                                     self.step_num))
 

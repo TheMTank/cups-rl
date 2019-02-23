@@ -89,17 +89,22 @@ def check_if_focus_and_close_enough_to_object_type(event, object_type='Mug',
             continue
 
         x1, y1, x2, y2 = bounds
-        a_x, a_y, a_z = event.metadata['agent']['position']['x'], \
-                        event.metadata['agent']['position']['y'], \
-                        event.metadata['agent']['position']['z']
-        obj_x, obj_y, obj_z = obj['position']['x'], obj['position']['y'], obj['position']['z']
-        euclidean_distance_to_obj = math.sqrt((obj_x - a_x) ** 2 + (obj_y - a_y) ** 2 +
-                                              (obj_z - a_z) ** 2)
-        bool_list.append(check_if_focus_and_close_enough(x1, y1, x2, y2, euclidean_distance_to_obj,
+        euc_distance_to_obj = calculate_euc_distance_between_agent_and_object(
+            event.metadata['agent'], obj)
+        bool_list.append(check_if_focus_and_close_enough(x1, y1, x2, y2, euc_distance_to_obj,
                                                          distance_threshold_2d,
                                                          distance_threshold_3d, verbose))
 
     return sum(bool_list)
+
+def calculate_euc_distance_between_agent_and_object(event_metadata_agent, obj):
+    a_x, a_y, a_z = event_metadata_agent['position']['x'], \
+                    event_metadata_agent['position']['y'], \
+                    event_metadata_agent['position']['z']
+    obj_x, obj_y, obj_z = obj['position']['x'], obj['position']['y'], obj['position']['z']
+    euclidean_distance_to_obj = math.sqrt((obj_x - a_x) ** 2 + (obj_y - a_y) ** 2 +
+                                          (obj_z - a_z) ** 2)
+    return euclidean_distance_to_obj
 
 def check_if_focus_and_close_enough(x1, y1, x2, y2, distance_3d, distance_threshold_2d,
                                     distance_threshold_3d, verbose=False):

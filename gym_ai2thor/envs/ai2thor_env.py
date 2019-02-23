@@ -15,6 +15,7 @@ from gym.utils import seeding
 from gym_ai2thor.image_processing import rgb2gray
 from gym_ai2thor.utils import read_config
 from gym_ai2thor.tasks import TaskFactory
+from gym_ai2thor.task_utils import calculate_euc_distance_between_agent_and_object
 
 ALL_POSSIBLE_ACTIONS = [
     'MoveAhead',
@@ -149,7 +150,13 @@ class AI2ThorEnv(gym.Env):
                     if obj['pickupable'] and obj['distance'] < distance and \
                             obj['distance'] < self.task.max_object_pickup_crosshair_distance and \
                             obj['objectType'] in self.allowed_objects['pickupables']:
-                        closest_pickupable = obj
+                        if self.task.max_object_pickup_euclidean_dist:
+                            euc_distance_to_obj = calculate_euc_distance_between_agent_and_object(
+                                self.event.metadata['agent'], obj)
+                            if euc_distance_to_obj < self.task.max_object_pickup_euclidean_dist:
+                                closest_pickupable = obj
+                        else:
+                            closest_pickupable = obj
                 if closest_pickupable and not self.event.metadata['inventoryObjects']:
                     interaction_obj = closest_pickupable
                     self.event = self.controller.step(
