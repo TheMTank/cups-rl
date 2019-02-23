@@ -1,11 +1,16 @@
 {
     "open_close_interaction": false,
-    "pickup_put_interaction": false,
-    "lookupdown_actions": true,
+    "pickup_put_interaction": true,
+    "lookupdown_actions": false,
     "continuous_movement": true,
     "pickup_objects": [
         "Bowl",
         "Mug"
+    ],
+    "acceptable_receptacles": [
+        "CounterTop",
+        "TableTop",
+        "Sink"
     ],
     "max_episode_length": 1000,
     "movement_reward": -0.01,
@@ -16,7 +21,8 @@
     "gridSize": 0.05,
     "build_file_name": "build-test.x86_64",
     "task": {
-        "task_name": "NaturalLanguageLookAtObjectTask",
-        "list_of_instructions": ["Bowl", "Mug"]
+        "task_name": "NaturalLanguagePickUpObjectTask",
+        "list_of_instructions": ["Bowl", "Mug"],
+        "max_object_pickup_crosshair_distance": 50
     }
 }

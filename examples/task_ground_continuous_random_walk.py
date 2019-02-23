@@ -12,11 +12,12 @@ from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 parser = argparse.ArgumentParser(description='Provide build path')
 parser.add_argument('--build-file-name', required=True,
                     help='Required Unity build path for custom scenes (e.g. cups on ground)'
-                         'necessary build file with folder should be in gym_ai2thor/build_files')
+                         'necessary build file with folder should be in gym_ai2thor/build_files.'
+                         'Also needs build folder with specific name in same path with file')
 args = parser.parse_args()
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     config_dict = {
         'pickup_put_interaction': True,
         'open_close_interaction': False,  # disable opening/closing objects
@@ -52,6 +53,6 @@ if __name__ == '__main__':
                 break
 
             if step_num + 1 > 0 and (step_num + 1) % 100 == 0:
-                print('Episode: {}. Step: {}/{}. Time taken: {:.3f}s'.format(episode + 1,
+                print('Episode: {}. Step: {}/{}. Time taken for 100: {:.3f}s'.format(episode + 1,
                                          (step_num + 1), max_episode_length, time.time() - start))
                 start = time.time()

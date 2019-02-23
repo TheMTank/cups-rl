@@ -169,16 +169,18 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 all_rewards_in_episode = []
 
                 # logging, benchmarking and saving stats
-                print('Episode Over. Total Length: {}. Total reward for episode: {}. '
-                      'Episode num: {}'.format(total_length,  total_reward_for_episode,
-                                               episode_number))
-                print('Step no: {}. total length: {}'.format(episode_length, total_length))
+                print('Rank: {}. Episode {} Over. Total Length: {}. Total reward for episode: {}. '
+                      'Episode num: {}'.format(rank, episode_number, total_length,
+                                               total_reward_for_episode, episode_number))
+                print('Rank: {}. Step no: {}. total length: {}'.format(rank, episode_length,
+                                                                       total_length))
                 print('Rank: {}. Total Length: {}. Counter across all processes: {}. '
                       'Total reward for episode: {}'.format(rank, total_length, counter.value,
                                                             total_reward_for_episode))
-                writer.add_scalar('episode_lengths', episode_length, episode_number)
-                writer.add_scalar('episode_total_rewards', total_reward_for_episode, episode_number)
-                writer.add_image('Image', image, episode_number)
+                if rank == 0:
+                    writer.add_scalar('episode_lengths', episode_length, episode_number)
+                    writer.add_scalar('episode_total_rewards', total_reward_for_episode, episode_number)
+                    writer.add_image('Image', image, episode_number)
 
                 # reset and unpack state
                 state = env.reset()

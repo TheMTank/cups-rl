@@ -40,6 +40,6 @@ if __name__ == '__main__':
                 break
 
             if step_num + 1 > 0 and (step_num + 1) % 100 == 0:
-                print('Episode: {}. Step: {}/{}. Time taken: {:.3f}s'.format(episode + 1,
+                print('Episode: {}. Step: {}/{}. Time taken for 100: {:.3f}s'.format(episode + 1,
                                          (step_num + 1), max_episode_length, time.time() - start))
                 start = time.time()

@@ -25,19 +25,12 @@ def test(rank, args, shared_model, counter):
     if args.atari:
         env = create_atari_env(args.atari_env_name)
     else:
-        env = AI2ThorEnv(config_dict=args.config_dict)
-    env.seed(args.seed + rank)
-
-    if args.atari:
-        env = create_atari_env(args.atari_env_name)
-    else:
-        env = AI2ThorEnv(config_dict=args.config_dict)
+        env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
     if env.task.task_has_language_instructions:
         model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n,
-                                   args.frame_dim, len(env.task.word_to_idx),
-                                   args.max_episode_length)
+                            args.frame_dim, len(env.task.word_to_idx), args.max_episode_length)
     else:
         model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
 
@@ -96,11 +89,11 @@ def test(rank, args, shared_model, counter):
             done = True
 
         if done:
-            print("Time {}, num steps over all threads {}, FPS {:.0f}, episode reward {}, episode length {}".format(
-                time.strftime("%Hh %Mm %Ss",
-                              time.gmtime(time.time() - start_time)),
-                counter.value, counter.value / (time.time() - start_time),
-                reward_sum, episode_length))
+            print("In test. Time {}, num steps over all threads {}, FPS {:.0f}, episode reward "
+                  "{:.4f}, episode length {}".format(time.strftime("%Hh %Mm %Ss",
+                                             time.gmtime(time.time() - start_time)),
+                                        counter.value, counter.value / (time.time() - start_time),
+                                             reward_sum, episode_length))
             reward_sum = 0
             episode_length = 0
             actions.clear()

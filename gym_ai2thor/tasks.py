@@ -47,6 +47,7 @@ class BaseTask:
             if 'max_episode_length' in self.config else 1000
         self.movement_reward = self.config.get('movement_reward', 0)
         self.step_num = 0
+        self.max_object_pickup_crosshair_distance = float('inf')
 
     def transition_reward(self, state):
         """
@@ -82,6 +83,8 @@ class PickupTask(BaseTask):
         self.pickedup_objects = Counter()
         self.object_rewards = Counter(self.target_objects)  # all target objects give reward 1
         self.prev_inventory = []
+        self.max_object_pickup_crosshair_distance = kwargs['task'].get(
+                                            'max_object_pickup_crosshair_distance', float('inf'))
 
         self.reset()
 
@@ -115,6 +118,11 @@ class PickupTask(BaseTask):
 
 
 class NaturalLanguageBaseTask(BaseTask):
+    """
+    Natural Language base task for storing train_instructions, word_to_idx, curr_instruction and
+    target object. get_extra_state() for returning sentence instruction as part of state tuple.
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.task_has_language_instructions = True
@@ -226,6 +234,10 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
                     raise ValueError('Target object {} is not in '
                                      'config[\'pickup_objects\']'.format(object_type))
 
+        self.max_object_pickup_crosshair_distance = kwargs['task'].get(
+            'max_object_pickup_crosshair_distance', float('inf'))
+        # todo should config also specify 3d distance to object for pickup? Probably not needed, since default is good
+
         self.prev_inventory = []
 
     def transition_reward(self, event):
@@ -233,9 +245,6 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
         curr_inventory = event.metadata['inventoryObjects']
         # nothing previously in inventory and now there is something within inventory
         object_picked_up = not self.prev_inventory and curr_inventory
-
-        # todo should config and ai2thor_env have options for specifying how close to the object you must be?
-        # and also how close your crosshair is # todo can be done in ai2thor_env since we use distance there already
 
         if object_picked_up:
             # Add reward from the specific object

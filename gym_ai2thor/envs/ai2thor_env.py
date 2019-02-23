@@ -57,11 +57,13 @@ class AI2ThorEnv(gym.Env):
         self.num_random_actions_at_init = self.config.get('num_random_actions_at_init', 0)
         # Object settings
         # acceptable objects taken from config file.
+        self.allowed_objects = {}
         if self.config['pickup_put_interaction'] or \
                             self.config['open_close_interaction']:
-            self.objects = {'pickupables': self.config['pickup_objects'],
-                            'receptacles': self.config['acceptable_receptacles'],
-                            'openables':   self.config['openable_objects']}
+            self.allowed_objects['pickupables'] = self.config['pickup_objects']
+            self.allowed_objects['receptacles'] = self.config['acceptable_receptacles']
+        if self.config['open_close_interaction']:
+            self.allowed_objects['openables'] = self.config['openable_objects']
         # Action settings
         self.action_names = tuple(ALL_POSSIBLE_ACTIONS.copy())
         # remove open/close and pickup/put actions if respective interaction bool is set to False
@@ -130,7 +132,7 @@ class AI2ThorEnv(gym.Env):
                 for obj in visible_objects:
                     # look for closest receptacle to put object from inventory
                     if obj['receptacle'] and obj['distance'] < distance \
-                        and obj['objectType'] in self.objects['receptacles'] \
+                        and obj['objectType'] in self.allowed_objects['receptacles'] \
                             and len(obj['receptacleObjectIds']) < obj['receptacleCount']:
                         closest_receptacle = obj
                         distance = closest_receptacle['distance']
@@ -145,7 +147,8 @@ class AI2ThorEnv(gym.Env):
                 for obj in visible_objects:
                     # look for closest object to pick up
                     if obj['pickupable'] and obj['distance'] < distance and \
-                            obj['objectType'] in self.objects['pickupables']:
+                            obj['distance'] < self.task.max_object_pickup_crosshair_distance and \
+                            obj['objectType'] in self.allowed_objects['pickupables']:
                         closest_pickupable = obj
                 if closest_pickupable and not self.event.metadata['inventoryObjects']:
                     interaction_obj = closest_pickupable
@@ -156,7 +159,7 @@ class AI2ThorEnv(gym.Env):
                 for obj in visible_objects:
                     # look for closest closed receptacle to open it
                     if obj['openable'] and obj['distance'] < distance and not obj['isopen'] and \
-                            obj['objectType'] in self.objects['openables']:
+                            obj['objectType'] in self.allowed_objects['openables']:
                         closest_openable = obj
                         distance = closest_openable['distance']
                     if closest_openable:
@@ -169,7 +172,7 @@ class AI2ThorEnv(gym.Env):
                 for obj in visible_objects:
                     # look for closest opened receptacle to close it
                     if obj['openable'] and obj['distance'] < distance and obj['isopen'] and \
-                            obj['objectType'] in self.objects['openables']:
+                            obj['objectType'] in self.allowed_objects['openables']:
                         closest_openable = obj
                         distance = closest_openable['distance']
                     if closest_openable:

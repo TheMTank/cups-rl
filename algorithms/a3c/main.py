@@ -56,7 +56,7 @@ parser.add_argument('-eid', '--experiment-id', default=uuid.uuid4(),
 parser.add_argument('--num-processes', type=int, default=4,
                     help='how many training processes to use (default: 4) except if synchronous')
 parser.add_argument('--verbose-num-steps', default=False,
-                    help='do not print step number every args.num_steps')
+                    help='print step number every args.num_steps')
 parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
 parser.add_argument('--max-episode-length', type=int, default=1000,
@@ -206,7 +206,7 @@ if __name__ == '__main__':
             for p in processes:
                 p.join()
         else:
-            # synchronous so only 1 process. Best for debugging.
+            # synchronous so only 1 process. Best for debugging or just A2C
             rank = 0
             args.num_processes = 1
             # test(args.num_processes, args, shared_model, counter)  # check test functionality
