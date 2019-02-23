@@ -1,6 +1,6 @@
 """
 Here we try different cameraY (to bring the agent to the ground), gridSize (the amount of movement),
- incremental_rotation (not just 90 degrees and therefore continuous) and finally a specific unity
+ continuous_movement (not just 90 degree rotations and can move diagonally) and finally a specific unity
  build. For ours we placed many cups on the ground. Still picks random actions but shows how much
  we can vary the environment.
 """
@@ -28,11 +28,11 @@ if __name__ == '__main__':
         'grayscale': True,
         'resolution': [128, 128],
         'cameraY': -0.85,
-        'gridSize': 0.1,
-        'incremental_rotation': True,
-        'build_file_name': args.build_file_name,
+        'gridSize': 0.1,  # 0.01
+        'continuous_movement': True,
+        'build_file_name': args.build_path,
         'task': {
-            'task_name': 'PickUp',
+            'task_name': 'PickUpTask',
             'target_object': 'Cup'
         }
     }

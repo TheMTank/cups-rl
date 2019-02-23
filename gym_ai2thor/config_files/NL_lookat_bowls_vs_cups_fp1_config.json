@@ -9,7 +9,7 @@
     "resolution": [128, 128],
     "cameraY": -0.8,
     "gridSize": 0.05,
-    "incremental_rotation": true,
+    "continuous_movement": true,
     "build_file_name": "build-test.x86_64",
     "task": {
         "task_name": "NaturalLanguageLookAtObjectTask",

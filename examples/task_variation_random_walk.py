@@ -26,7 +26,7 @@ if __name__ == '__main__':
     }
 
     # Input config_dict to env which will overwrite a few values given in the default config_file.
-    # Therefore, a few warnings will occur due to this which is ok
+    # Therefore, a few harmless warnings are expected
     env = AI2ThorEnv(config_dict=config_dict)
     max_episode_length = env.task.max_episode_length
     N_EPISODES = 3

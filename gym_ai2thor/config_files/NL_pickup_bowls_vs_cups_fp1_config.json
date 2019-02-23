@@ -2,7 +2,7 @@
     "open_close_interaction": false,
     "pickup_put_interaction": false,
     "lookupdown_actions": true,
-    "incremental_rotation": true,
+    "continuous_movement": true,
     "pickup_objects": [
         "Bowl",
         "Mug"
