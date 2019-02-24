@@ -13,7 +13,7 @@
         "Sink"
     ],
     "max_episode_length": 1000,
-    "movement_reward": -0.01,
+    "movement_reward": -0.001,
     "scene_id": "FloorPlan1",
     "grayscale": true,
     "resolution": [128, 128],
@@ -23,7 +23,7 @@
     "task": {
         "task_name": "NaturalLanguagePickUpObjectTask",
         "list_of_instructions": ["Bowl", "Mug"],
-        "max_object_pickup_crosshair_distance": 50,
-        "max_object_pickup_euclidean_distance": 1.0
+        "max_object_pickup_crosshair_dist": 50,
+        "max_object_pickup_euclidean_dist": 0.3
     }
 }

@@ -4,7 +4,7 @@
     "lookupdown_actions": false,
     "moveupdown_actions": false,
     "max_episode_length": 1000,
-    "movement_reward": -0.01,
+    "movement_reward": -0.001,
     "scene_id": "FloorPlan2",
     "grayscale": true,
     "resolution": [128, 128],
