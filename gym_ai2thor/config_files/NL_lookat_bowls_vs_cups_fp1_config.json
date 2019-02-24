@@ -10,7 +10,7 @@
     "cameraY": -0.8,
     "gridSize": 0.05,
     "continuous_movement": true,
-    "build_file_name": "build-test.x86_64",
+    "build_file_name": "build_bowls_vs_cups_fp1_v_0.1.x86_64",
     "task": {
         "task_name": "NaturalLanguageLookAtObjectTask",
         "list_of_instructions": ["Bowl", "Mug"]

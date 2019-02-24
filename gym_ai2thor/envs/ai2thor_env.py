@@ -50,7 +50,6 @@ class AI2ThorEnv(gym.Env):
         # Loads config settings from file
         print('Reading in base config file at: {}'.format(config_file))
         self.config = read_config(config_file, config_dict)
-        self.scene_id = self.config['scene_id']
         # Randomness settings
         self.np_random = None
         if seed:
@@ -101,6 +100,16 @@ class AI2ThorEnv(gym.Env):
         
         # Create task from config
         self.task = TaskFactory.create_task(self.config)
+        # set scene_id
+        if self.task.random_scene_ids_on_reset:
+            self.scene_id = random.choice(self.task.random_scene_ids_on_reset)
+        else:
+            self.scene_id = self.config.get('scene_id')
+        if not self.scene_id:
+            raise ValueError('Need to specify scene_id in config')
+        # todo check for self.config['task'].get('list_of_xyz_starting_positions')
+        # todo and implement random.choice of starting position for specific task/scene
+        # todo precompute for all scenes and avoid objects too?
         # Start ai2thor
         self.controller = ai2thor.controller.Controller()
         if self.config.get('build_file_name'):
@@ -108,8 +117,9 @@ class AI2ThorEnv(gym.Env):
             self.build_file_path = os.path.abspath(os.path.join(__file__, '../../build_files',
                                                    self.config['build_file_name']))
             print('Build file path at: {}'.format(self.build_file_path))
+            # todo raise error if not found
             self.controller.local_executable_path = self.build_file_path
-        self.controller.start()
+            self.controller.start()
 
         self.reset_ever = False
 
@@ -148,7 +158,7 @@ class AI2ThorEnv(gym.Env):
                 for obj in visible_objects:
                     # look for closest object to pick up
                     if obj['pickupable'] and obj['distance'] < distance and \
-                            obj['distance'] < self.task.max_object_pickup_crosshair_distance and \
+                            obj['distance'] < self.task.max_object_pickup_crosshair_dist and \
                             obj['objectType'] in self.allowed_objects['pickupables']:
                         if self.task.max_object_pickup_euclidean_dist:
                             euc_distance_to_obj = calculate_euc_distance_between_agent_and_object(
@@ -243,6 +253,8 @@ class AI2ThorEnv(gym.Env):
     def reset(self):
         print('Resetting environment and starting new episode')
         self.reset_ever = True
+        if self.task.random_scene_ids_on_reset:
+            self.scene_id = random.choice(self.task.random_scene_ids_on_reset)
         self.controller.reset(self.scene_id)
         self.event = self.controller.step(dict(action='Initialize', gridSize=self.gridSize,
                                                cameraY=self.cameraY, renderDepthImage=True,
