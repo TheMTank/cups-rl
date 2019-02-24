@@ -1,8 +1,8 @@
 """
 Adapted from: https://github.com/devendrachaplot/DeepRL-Grounding/blob/master/env.py
 
-This contains auxiliary wrappers for the atari openAI gym environment e.g. proper resizing of the
-input frame and a running average normalisation of said frame after resizing
+This countains the GroundingEnv() with some additions to make it work with the ai2thor and atari
+code e.g. the small Task class because the real work was kept
 """
 
 from __future__ import print_function
@@ -175,7 +175,7 @@ class GroundingEnv:
 
         state = (screen_buf, self.instruction)
 
-        return state, reward, is_final, None
+        return state, reward, is_final, None  # todo don't return 4 or return 4 better
 
     def close(self):
         self.game.close()

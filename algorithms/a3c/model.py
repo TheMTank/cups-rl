@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def calculate_lstm_input_size_for_A3C(frame_dim, stride=2, kernel_size=3, padding=1,
+def calculate_lstm_input_size_for_A3C(resolution, stride=2, kernel_size=3, padding=1,
                                      num_filters=32):
     """
     Assumes square resolution image. Find LSTM size after 4 conv layers below in A3C using regular
@@ -23,14 +23,14 @@ def calculate_lstm_input_size_for_A3C(frame_dim, stride=2, kernel_size=3, paddin
     Therefore lstm input size after flattening would be (3 * 3 * num_filters)
     """
 
-    width = (frame_dim - kernel_size + 2 * padding) // stride + 1
+    width = (resolution[0] - kernel_size + 2 * padding) // stride + 1
     width = (width - kernel_size + 2 * padding) // stride + 1
     width = (width - kernel_size + 2 * padding) // stride + 1
     width = (width - kernel_size + 2 * padding) // stride + 1
 
     return width * width * num_filters
 
-def calculate_input_width_height_for_A3C_LSTM_GA(frame_dim):
+def calculate_input_width_height_for_A3C_LSTM_GA(resolution):
     """
     Assumes square resolution image. Similar to the calculate_lstm_input_size_for_A3C function
     except that there are only 3 conv layers and there is variation among the kernel_size, stride,
@@ -39,11 +39,15 @@ def calculate_input_width_height_for_A3C_LSTM_GA(frame_dim):
     Also, returns tuple representing (width, height, num_output_filters) instead of size
     """
 
-    width = (frame_dim - 8 + 4) // 4 + 1
+    width = (resolution[0] - 8) // 4 + 1
     width = (width - 4) // 2 + 1
     width = (width - 4) // 2 + 1
 
-    return width, width, 64
+    height = (resolution[1] - 8) // 4 + 1
+    height = (height - 4) // 2 + 1
+    height = (height - 4) // 2 + 1
+
+    return width, height, 64
 
 def normalized_columns_initializer(weights, std=1.0):
     """
@@ -84,7 +88,7 @@ class ActorCritic(torch.nn.Module):
     The final output is then the predicted value, action logits, hx and cx.
     """
 
-    def __init__(self, num_input_channels, num_outputs, frame_dim):
+    def __init__(self, num_input_channels, num_outputs, resolution):
         super(ActorCritic, self).__init__()
         self.conv1 = nn.Conv2d(num_input_channels, 32, 3, stride=2, padding=1)
         self.conv2 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
@@ -92,7 +96,7 @@ class ActorCritic(torch.nn.Module):
         self.conv4 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
 
         # assumes square image
-        self.lstm_cell_size = calculate_lstm_input_size_for_A3C(frame_dim)
+        self.lstm_cell_size = calculate_lstm_input_size_for_A3C(resolution)
 
         self.lstm = nn.LSTMCell(self.lstm_cell_size, 256)
 
@@ -135,7 +139,7 @@ class A3C_LSTM_GA(torch.nn.Module):
     mapping. There is also a time embedding layer to help stabilize value prediction.
     Only 3 conv layers compared to ActorCritic's 4 layers.
     """
-    def __init__(self, num_input_channels, num_outputs, frame_dim, vocab_size, episode_length):
+    def __init__(self, num_input_channels, num_outputs, resolution, vocab_size, episode_length):
         super(A3C_LSTM_GA, self).__init__()
 
         # Image Processing
@@ -144,7 +148,7 @@ class A3C_LSTM_GA(torch.nn.Module):
         self.conv3 = nn.Conv2d(64, 64, kernel_size=4, stride=2)
 
         self.output_width, self.output_height, \
-            self.num_output_filters = calculate_input_width_height_for_A3C_LSTM_GA(frame_dim)
+            self.num_output_filters = calculate_input_width_height_for_A3C_LSTM_GA(resolution)
         self.lstm_cell_size = self.output_width * self.output_height * self.num_output_filters
 
         # Instruction Processing
@@ -201,8 +205,8 @@ class A3C_LSTM_GA(torch.nn.Module):
 
         # Gated-Attention
         x_attention = x_attention.unsqueeze(2).unsqueeze(3)
-        x_attention = x_attention.expand(1, self.num_output_filters, self.output_width,
-                                         self.output_height)
+        x_attention = x_attention.expand(1, self.num_output_filters, self.output_height,
+                                         self.output_width)
         assert x_image_rep.size() == x_attention.size()
         x = x_image_rep * x_attention  # element-wise multiplication between attention and filters
         x = x.view(x.size(0), -1)
