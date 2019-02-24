@@ -10,6 +10,7 @@ from time import sleep
 import collections
 import codecs
 import json
+import warnings
 
 import numpy as np
 from gym import spaces
@@ -369,3 +370,6 @@ class GroundingEnv:
                 if word not in word_to_idx:
                     word_to_idx[word] = len(word_to_idx)
         return word_to_idx
+
+    def seed(self):
+        warnings.warn('seed() not implemented for GroundingEnv(). Only here so it does not crash')

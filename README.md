@@ -21,14 +21,20 @@ the current state of the art approaches to the problem:
 
 - [A3C](https://arxiv.org/abs/1602.01783) [Code from Ikostrikov](https://github.com/ikostrikov/pytorch-a3c)
 - [Gated-Attention Architectures for Task-Oriented Language Grounding](https://arxiv.org/abs/1706.07230) 
--- *Original code available on [DeepRL-Grounding](https://github.com/devendrachaplot/DeepRL-Grounding)* 
+-- A3C with gated attention (A3C_LSTM_GA) *Original code available on [DeepRL-Grounding](https://github.com/devendrachaplot/DeepRL-Grounding)* 
 also based on A3C made by Ikostrikov.
 
 Implementations of these can be found in the algorithms folder and a3c can be run on AI2ThorEnv with:  
-`python algorithms/a3c/main.py`
+- `python algorithms/a3c/main.py`
+- For running a config file which is set to the BowlsVsCups variant of the NaturalLanguagePickUpObjectTask in tasks.py for running A3C_LSTM_GA model:  
+`python algorithms/a3c/main.py --config-file-name NL_pickup_bowls_vs_cups_fp1_config.json --verbose-num-steps True --num-random-actions-at-init 4`
+- For running [ViZDoom]() synchronous with 1 process
+`python algorithms/a3c/main.py --verbose-num-steps True --sync --vizdoom -v 1`
+- For running atari with 8 processes:  
+`python algorithms/a3c/main.py --atari --num-processes 8`
 
 Check the argparse help for more details and variations of running the algorithm with different 
-hyperparams and on the atari environment as well.
+hyperparams. 
 
 ## Installation
 

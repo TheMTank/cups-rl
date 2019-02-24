@@ -47,8 +47,10 @@ class BaseTask:
             if 'max_episode_length' in self.config else 1000
         self.movement_reward = self.config.get('movement_reward', 0)
         self.step_num = 0
-        self.max_object_pickup_crosshair_distance = float('inf')
-        self.max_object_pickup_euclidean_distance = None
+        self.max_object_pickup_crosshair_dist = float('inf')
+        self.max_object_pickup_euclidean_dist = None
+        self.random_scene_ids_on_reset = self.config['task'].get('random_scene_ids_on_reset')
+
 
     def transition_reward(self, state):
         """
@@ -84,8 +86,8 @@ class PickupTask(BaseTask):
         self.pickedup_objects = Counter()
         self.object_rewards = Counter(self.target_objects)  # all target objects give reward 1
         self.prev_inventory = []
-        self.max_object_pickup_crosshair_distance = kwargs['task'].get(
-                                            'max_object_pickup_crosshair_distance', float('inf'))
+        self.max_object_pickup_crosshair_dist = kwargs['task'].get(
+                                            'max_object_pickup_crosshair_dist', float('inf'))
 
         self.reset()
 
@@ -167,7 +169,7 @@ class NaturalLanguageLookAtObjectTask(NaturalLanguageBaseTask):
         super().__init__(**kwargs)
         # how far the target object is from the agent to receive reward
         self.distance_threshold_3d = kwargs['task'].get('distance_threshold_3d', 1.0)
-        # self.terminal_if_lookat_wrong_object # todo hard to refactor and not worth it? but cozmo had it this way
+        # self.terminal_if_lookat_wrong_object # todo hard to refactor and not worth it? but cozmo had it this way. how to define what the wrong object is? Impossible? So rare too.
 
     def transition_reward(self, event):
         reward, done = self.movement_reward, False
@@ -235,10 +237,10 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
                     raise ValueError('Target object {} is not in '
                                      'config[\'pickup_objects\']'.format(object_type))
 
-        self.max_object_pickup_crosshair_distance = kwargs['task'].get(
-            'max_object_pickup_crosshair_distance', float('inf'))
-        self.max_object_pickup_euclidean_distance = kwargs['task'].get(
-            'max_object_pickup_euclidean_distance', None)
+        self.max_object_pickup_crosshair_dist = kwargs['task'].get(
+            'max_object_pickup_crosshair_dist', float('inf'))
+        self.max_object_pickup_euclidean_dist = kwargs['task'].get(
+            'max_object_pickup_euclidean_dist', None)
 
         self.prev_inventory = []
 
@@ -256,7 +258,7 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
                 print('Picked up wrong object')
                 reward -= self.default_reward
             done = True
-            print('{} reward collected for picking up {} object: {} at step: {}!'.format(reward,
+            print('{} reward collected for picking up object: {} at step: {}!'.format(reward,
                                                                     curr_inventory[0]['objectType'],
                                                                     self.step_num))
 
