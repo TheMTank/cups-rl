@@ -118,19 +118,20 @@ parser.add_argument('--interactive', type=int, default=0,
                     (default: 0)""")
 parser.add_argument('--all-instr-file', type=str,
                     default="vizdoom_data/instructions_all.json",
-                    help="""All instructions file
+                    help="""All instructions file path relative to a3c folder
                     (default: vizdoom_data/instructions_all.json)""")
 parser.add_argument('--train-instr-file', type=str,
                     default="vizdoom_data/instructions_train.json",
-                    help="""Train instructions file
+                    help="""Train instructions file path relative to a3c folder
                     (default: vizdoom_data/instructions_train.json)""")
 parser.add_argument('--test-instr-file', type=str,
                     default="vizdoom_data/instructions_test.json",
-                    help="""Test instructions file
+                    help="""Test instructions file path relative to a3c folder
                     (default: vizdoom_data/instructions_test.json)""")
 parser.add_argument('--object-size-file', type=str,
                     default="vizdoom_data/object_sizes.txt",
-                    help='Object size file (default: data/object_sizes.txt)')
+                    help='Object size file path relative to a3c folder '
+                         '(default: data/object_sizes.txt)')
 parser.add_argument('-e', '--evaluate', type=int, default=0,
                     help="""0:Train, 1:Evaluate MultiTask Generalization
                     2:Evaluate Zero-shot Generalization (default: 0)""")
@@ -170,7 +171,6 @@ if __name__ == '__main__':
         env.game_init()
         args.resolution = (args.frame_width, args.frame_height)
     else:
-        args.ai2thor = True
         args.config_dict = {
             # random actions on reset to encourage robustness
             'num_random_actions_at_init': args.num_random_actions_at_init,
@@ -179,7 +179,6 @@ if __name__ == '__main__':
         config_file_dir_path = os.path.abspath(os.path.join(__file__, '../../..', 'gym_ai2thor',
                                                             'config_files'))
 
-        args.config_dict = {}
         args.config_file_path = os.path.join(config_file_dir_path, args.config_file_name)
         env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict)
         args.resolution = (env.config['resolution'][0], env.config['resolution'][1])
@@ -224,7 +223,7 @@ if __name__ == '__main__':
         os.makedirs(args.checkpoint_path)
     else:
         print('Checkpoints path already exists at path: {}'.format(args.checkpoint_path))
-        checkpoint_paths = glob.glob(os.path.join(args.checkpoint_path, '*'))
+        checkpoint_paths = glob.glob(os.path.join(args.checkpoint_path, 'checkpoint_total_length*'))
         if checkpoint_paths:
             # Take checkpoint path with most experience
             # e.g. 2000 from checkpoint_total_length_2000.pth.tar
@@ -260,6 +259,7 @@ if __name__ == '__main__':
     if not args.vizdoom and not args.atari:
         with open(os.path.join(args.experiment_path, 'latest_config.json'), 'w') as f:
             json.dump(env.config, f)
+        # todo maybe load last config instead of allowing the ability to accidently change it on resume?
 
     # process initialisation and training/testing starting
     processes = []

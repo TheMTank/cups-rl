@@ -109,7 +109,7 @@ class AI2ThorEnv(gym.Env):
             raise ValueError('Need to specify scene_id in config')
         # todo check for self.config['task'].get('list_of_xyz_starting_positions')
         # todo and implement random.choice of starting position for specific task/scene
-        # todo precompute for all scenes and avoid objects too?
+        # todo precompute all valid locations for all scenes and avoid objects too?
         # Start ai2thor
         self.controller = ai2thor.controller.Controller()
         if self.config.get('build_file_name'):
@@ -117,7 +117,9 @@ class AI2ThorEnv(gym.Env):
             self.build_file_path = os.path.abspath(os.path.join(__file__, '../../build_files',
                                                    self.config['build_file_name']))
             print('Build file path at: {}'.format(self.build_file_path))
-            # todo raise error if not found
+            if not os.path.exists(self.build_file_path):
+                raise ValueError('Unity build file at:\n{}\n does not exist'.format(
+                    self.build_file_path))
             self.controller.local_executable_path = self.build_file_path
             self.controller.start()
 
@@ -160,9 +162,11 @@ class AI2ThorEnv(gym.Env):
                     if obj['pickupable'] and obj['distance'] < distance and \
                             obj['distance'] < self.task.max_object_pickup_crosshair_dist and \
                             obj['objectType'] in self.allowed_objects['pickupables']:
+                        # todo max_object_pickup_crosshair_dist is not in pixel space!!! 0-2 or so.
                         if self.task.max_object_pickup_euclidean_dist:
                             euc_distance_to_obj = calculate_euc_distance_between_agent_and_object(
                                 self.event.metadata['agent'], obj)
+                            print(euc_distance_to_obj, obj['distance'])
                             if euc_distance_to_obj < self.task.max_object_pickup_euclidean_dist:
                                 closest_pickupable = obj
                         else:
