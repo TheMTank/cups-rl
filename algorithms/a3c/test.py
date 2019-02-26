@@ -14,8 +14,8 @@ import torch
 import torch.nn.functional as F
 
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
-from gym_ai2thor.task_utils import turn_instruction_str_to_tensor
-from algorithms.a3c.envs import create_atari_env
+from gym_ai2thor.task_utils import unpack_state
+from algorithms.a3c.env_atari import create_atari_env
 from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
 
 
@@ -24,26 +24,29 @@ def test(rank, args, shared_model, counter):
 
     if args.atari:
         env = create_atari_env(args.atari_env_name)
+    elif args.vizdoom:
+        # many more dependencies required for VizDoom
+        from algorithms.a3c.env_vizdoom import GroundingEnv
+
+        env = GroundingEnv(args)
+        env.game_init()
     else:
         env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
     if env.task.task_has_language_instructions:
         model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n,
-                            args.frame_dim, len(env.task.word_to_idx), args.max_episode_length)
+                            args.resolution, len(env.task.word_to_idx), args.max_episode_length)
     else:
-        model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
+        model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.resolution)
 
     model.eval()
 
+    # instruction_indices is None if task doesn't require language instructions
+    # import pdb;pdb.set_trace()
     state = env.reset()
-    if not env.task.task_has_language_instructions:
-        image = torch.from_numpy(state)
-    else:
-        # natural language instruction is within state so unpack tuple
-        (image, instruction) = state
-        image = torch.from_numpy(image)
-        instruction_indices = turn_instruction_str_to_tensor(instruction, env)
+    image_state, instruction_indices = unpack_state(state, env)
+
     done = True
 
     start_time = time.time()
@@ -67,10 +70,10 @@ def test(rank, args, shared_model, counter):
 
         with torch.no_grad():
             if not env.task.task_has_language_instructions:
-                value, logit, (hx, cx) = model((image.unsqueeze(0).float(), (hx, cx)))
+                value, logit, (hx, cx) = model((image_state.unsqueeze(0).float(), (hx, cx)))
             else:
                 tx = torch.from_numpy(np.array([episode_length])).long()
-                value, logit, (hx, cx) = model((image.unsqueeze(0).float(),
+                value, logit, (hx, cx) = model((image_state.unsqueeze(0).float(),
                                                 instruction_indices.long(),
                                                 (tx, hx, cx)))
         prob = F.softmax(logit, dim=-1)
@@ -81,7 +84,7 @@ def test(rank, args, shared_model, counter):
         reward_sum += reward
 
         # a quick hack to prevent the agent from stucking
-        # i.e. in test mode an agent can repeat an action ad infinitum
+        # i.e. in test mode an agent can repeat an action ad infinitum and we avoid this
         actions.append(action[0, 0])
         if actions.count(actions[0]) == actions.maxlen:
             print('In test. Episode over because agent repeated action {} times'.format(
@@ -98,14 +101,7 @@ def test(rank, args, shared_model, counter):
             episode_length = 0
             actions.clear()
             state = env.reset()
-            if env.task.task_has_language_instructions:
-                (image, instruction) = state
-                instruction_indices = turn_instruction_str_to_tensor(instruction, env)
+
             time.sleep(args.test_sleep_time)
 
-        if not env.task.task_has_language_instructions:
-            image = torch.from_numpy(state)
-        else:
-            (image, instruction) = state
-            image = torch.from_numpy(image)
-            instruction_indices = turn_instruction_str_to_tensor(instruction, env)
+        image_state, instruction_indices = unpack_state(state, env)

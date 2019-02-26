@@ -26,9 +26,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
-from algorithms.a3c.envs import create_atari_env
+from algorithms.a3c.env_atari import create_atari_env
 from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
-from gym_ai2thor.task_utils import turn_instruction_str_to_tensor
+from gym_ai2thor.task_utils import unpack_state
 
 
 def save_checkpoint(save_object, checkpoint_path, filename, is_best=False):
@@ -54,29 +54,31 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
     if args.atari:
         env = create_atari_env(args.atari_env_name)
+    elif args.vizdoom:
+        # many more dependencies required for VizDoom
+        from algorithms.a3c.env_vizdoom import GroundingEnv
+
+        env = GroundingEnv(args)
+        env.game_init()
     else:
         env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
     if env.task.task_has_language_instructions:
         model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n,
-                            args.frame_dim, len(env.task.word_to_idx), args.max_episode_length)
+                            args.resolution, len(env.task.word_to_idx), args.max_episode_length)
     else:
-        model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.frame_dim)
+        model = ActorCritic(env.observation_space.shape[0], env.action_space.n, args.resolution)
 
     if optimizer is None:
         optimizer = optim.Adam(shared_model.parameters(), lr=args.lr)
 
     model.train()
 
+    # instruction_indices is None if task doesn't require language instructions
     state = env.reset()
-    if not env.task.task_has_language_instructions:
-        image = torch.from_numpy(state)
-    else:
-        # natural language instruction is within state so unpack tuple
-        (image, instruction) = state
-        image = torch.from_numpy(image)
-        instruction_indices = turn_instruction_str_to_tensor(instruction, env)
+    image_state, instruction_indices = unpack_state(state, env)
+
     done = True
 
     # monitoring
@@ -126,10 +128,10 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 save_checkpoint(checkpoint_dict, args.checkpoint_path, fn, best_so_far)
 
             if not env.task.task_has_language_instructions:
-                value, logit, (hx, cx) = model((image.unsqueeze(0).float(), (hx, cx)))
+                value, logit, (hx, cx) = model((image_state.unsqueeze(0).float(), (hx, cx)))
             else:
                 tx = torch.from_numpy(np.array([episode_length])).long()
-                value, logit, (hx, cx) = model((image.unsqueeze(0).float(),
+                value, logit, (hx, cx) = model((image_state.unsqueeze(0).float(),
                                                 instruction_indices.long(),
                                                 (tx, hx, cx)))
             prob = F.softmax(logit, dim=-1)
@@ -143,14 +145,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             action_int = action.numpy()[0][0].item()
             state, reward, done, _ = env.step(action_int)
 
-            # unpack state
-            if not env.task.task_has_language_instructions:
-                image = torch.from_numpy(state)
-            else:
-                (image, instruction) = state
-                image = torch.from_numpy(image)
-                instruction_indices = turn_instruction_str_to_tensor(instruction, env)
-
+            image_state, instruction_indices = unpack_state(state, env)
             episode_length += 1
             total_length += 1
             done = done or episode_length >= args.max_episode_length
@@ -169,7 +164,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                     writer.add_scalar('avg_episode_returns', avg_episode_return, episode_number)
                 all_rewards_in_episode = []
 
-                print('Rank: {}. Episode {} Over. Total Length: {}. Total reward for episode: {}. '
+                print('Rank: {}. Episode {} Over. Total Length: {}. Total reward for episode: {:.4f}. '
                       .format(rank, episode_number, total_length, total_reward_for_episode))
                 print('Rank: {}. Step no: {}. total length: {}'.format(rank, episode_length,
                                                                        total_length))
@@ -179,16 +174,11 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 if rank == 0:
                     writer.add_scalar('episode_lengths', episode_length, episode_number)
                     writer.add_scalar('episode_total_rewards', total_reward_for_episode, episode_number)
-                    writer.add_image('Image', image, episode_number)
+                    writer.add_image('Image', image_state, episode_number)
 
-                # reset and unpack state
+                # instruction_indices is None if task doesn't require language instructions
                 state = env.reset()
-                if not env.task.task_has_language_instructions:
-                    image = torch.from_numpy(state)
-                else:
-                    (image, instruction) = state
-                    image = torch.from_numpy(image)
-                    instruction_indices = turn_instruction_str_to_tensor(instruction, env)
+                image_state, instruction_indices = unpack_state(state, env)
 
                 episode_number += 1
                 episode_length = 0
@@ -205,13 +195,17 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
         # Backprop and optimisation
         if not done:  # to change last return to predicted value
             if not env.task.task_has_language_instructions:
-                value, _, _ = model((image.unsqueeze(0).float(), (hx, cx)))
+                value, _, _ = model((image_state.unsqueeze(0).float(), (hx, cx)))
             else:
-                value, _, _ = model((image.unsqueeze(0).float(),
+                value, _, _ = model((image_state.unsqueeze(0).float(),
                                      instruction_indices.long(),
                                      (tx, hx, cx)))
             R = value.detach()
+        else:
+            # todo how did this ever work before when it didn't work before? was the value spike loss bug?
+            R = 0.0
 
+        # todo where is this set?
         values.append(R)  # if episode is terminal, 0 reward. Otherwise, predicted value
         policy_loss = 0
         value_loss = 0

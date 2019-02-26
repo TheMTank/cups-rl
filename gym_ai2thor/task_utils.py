@@ -65,6 +65,25 @@ def turn_instruction_str_to_tensor(instruction, env):
     instruction_indices = torch.from_numpy(instruction_indices).view(1, -1)
     return instruction_indices
 
+def unpack_state(state, env):
+    """
+    Returns (tensor image, None) if no natural language instructions and
+    (tensor image, instruction embedding indices) if the task involves natural language.
+    More specifically converts from numpy to tensor image and from string to embedding indices array
+    and returns unpacked state into a tuple.
+    """
+    instruction_indices = None
+    if not env.task.task_has_language_instructions:
+        image_state = state
+    else:
+        # natural language instruction is within state so unpack tuple
+        (image_state, instruction) = state
+
+        instruction_indices = turn_instruction_str_to_tensor(instruction, env)
+    image_state = torch.from_numpy(image_state)
+
+    return image_state, instruction_indices
+
 ##############################
 #----- Reward Functions -----#
 ##############################
@@ -97,13 +116,16 @@ def check_if_focus_and_close_enough_to_object_type(event, object_type='Mug',
 
     return sum(bool_list)
 
-def calculate_euc_distance_between_agent_and_object(event_metadata_agent, obj):
+def calculate_euc_distance_between_agent_and_object(event_metadata_agent, obj, two_dimensions=True):
     a_x, a_y, a_z = event_metadata_agent['position']['x'], \
                     event_metadata_agent['position']['y'], \
                     event_metadata_agent['position']['z']
     obj_x, obj_y, obj_z = obj['position']['x'], obj['position']['y'], obj['position']['z']
-    euclidean_distance_to_obj = math.sqrt((obj_x - a_x) ** 2 + (obj_y - a_y) ** 2 +
-                                          (obj_z - a_z) ** 2)
+    if two_dimensions:
+        euclidean_distance_to_obj = math.sqrt((obj_x - a_x) ** 2 + (obj_z - a_z) ** 2)
+    else:
+        euclidean_distance_to_obj = math.sqrt((obj_x - a_x) ** 2 + (obj_y - a_y) ** 2 +
+                                              (obj_z - a_z) ** 2)
     return euclidean_distance_to_obj
 
 def check_if_focus_and_close_enough(x1, y1, x2, y2, distance_3d, distance_threshold_2d,
