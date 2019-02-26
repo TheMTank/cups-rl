@@ -11,6 +11,7 @@ import collections
 import codecs
 import json
 import warnings
+import os
 
 import numpy as np
 from gym import spaces
@@ -38,10 +39,13 @@ class GroundingEnv:
           args: dictionary of parameters.
         """
         self.params = args
+        self.curr_file_folder = os.path.dirname(os.path.realpath(__file__))
 
-        # Reading train and test instructions.
-        self.train_instructions = self.get_instr(self.params.train_instr_file)
-        self.test_instructions = self.get_instr(self.params.test_instr_file)
+        # Reading train and test instructions, relative converted to absolute path
+        self.train_instructions = self.get_instr(os.path.join(self.curr_file_folder,
+                                                 self.params.train_instr_file))
+        self.test_instructions = self.get_instr(os.path.join(self.curr_file_folder,
+                                                             self.params.test_instr_file))
 
         if self.params.use_train_instructions:
             self.instructions = self.train_instructions
@@ -50,8 +54,9 @@ class GroundingEnv:
 
         self.word_to_idx = self.get_word_to_idx()
         self.objects, self.object_dict = \
-            self.get_all_objects(self.params.all_instr_file)
-        self.object_sizes = self.read_size_file(self.params.object_size_file)
+            self.get_all_objects(os.path.join(self.curr_file_folder, self.params.all_instr_file))
+        self.object_sizes = self.read_size_file(os.path.join(self.curr_file_folder,
+                                                             self.params.object_size_file))
         self.objects_info = self.get_objects_info()
 
         # extra stuff to make it work with ai2thor A3C
@@ -66,6 +71,7 @@ class GroundingEnv:
     def game_init(self):
         """Starts the doom game engine."""
         game = DoomGame()
+        self.params.scenario_path = os.path.join(self.curr_file_folder, self.params.scenario_path)
         game = set_doom_configuration(game, self.params)
         game.init()
         self.game = game
@@ -75,8 +81,6 @@ class GroundingEnv:
         Returns:
            state: A tuple of screen buffer state and instruction.
            reward: Reward at that step.
-           is_final: Flag indicating terminal state.
-           extra_args: Dictionary of additional arguments/parameters.
         """
 
         self.game.new_episode()
@@ -134,13 +138,12 @@ class GroundingEnv:
                                     self.params.frame_width)
 
         state = (screen_buf, self.instruction)
-        reward = self.get_reward()
-        is_final = False
-        extra_args = None
 
         print('New instruction: {}'.format(self.instruction))
 
-        return state, reward, is_final, extra_args
+        # this function used to return a tuple of size 4, get_reward() was calculated
+        # but this was removed to make it the same as OpenAI gym style for maximum flexibility
+        return state
 
     def step(self, action_id):
         """Executes an action in the environment to reach a new state.
@@ -176,7 +179,7 @@ class GroundingEnv:
 
         state = (screen_buf, self.instruction)
 
-        return state, reward, is_final, None  # todo don't return 4 or return 4 better
+        return state, reward, is_final, None
 
     def close(self):
         self.game.close()
@@ -371,5 +374,6 @@ class GroundingEnv:
                     word_to_idx[word] = len(word_to_idx)
         return word_to_idx
 
-    def seed(self):
-        warnings.warn('seed() not implemented for GroundingEnv(). Only here so it does not crash')
+    def seed(self, seed):
+        warnings.warn('seed() not implemented for GroundingEnv(). Only here so it does not crash'
+                      'and for compatibility with other Gym environments')
