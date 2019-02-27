@@ -43,7 +43,6 @@ def test(rank, args, shared_model, counter):
     model.eval()
 
     # instruction_indices is None if task doesn't require language instructions
-    # import pdb;pdb.set_trace()
     state = env.reset()
     image_state, instruction_indices = unpack_state(state, env)
 

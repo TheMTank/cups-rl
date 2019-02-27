@@ -76,6 +76,9 @@ parser.add_argument('--task-name', default='NaturalLanguageLookAtObjectTask',
                     help='Choose task out of gym_ai2thor/tasks.py')
 parser.add_argument('--config-file-name', default='NL_lookat_bowls_vs_cups_fp1_config.json',
                     help='File must be in gym_ai2thor/config_files')
+parser.add_argument('--resume-latest-config', default=1,
+                    help='File must be in gym_ai2thor/config_files')
+
 parser.add_argument('--max-episode-length', type=int, default=1000,
                     help='maximum length of an episode (default: 1000000)')
 parser.add_argument('--num-random-actions-at-init', type=int, default=0,
@@ -134,9 +137,8 @@ parser.add_argument('--object-size-file', type=str,
                          '(default: data/object_sizes.txt)')
 parser.add_argument('-e', '--evaluate', type=int, default=0,
                     help="""0:Train, 1:Evaluate MultiTask Generalization
-                    2:Evaluate Zero-shot Generalization (default: 0)""")
-parser.add_argument('--dump-location', type=str, default="./saved/",
-                    help='path to dump models and log (default: ./saved/)')  # todo add this and check how to dump log
+                    2:Evaluate Zero-shot Generalization (default: 0)
+                    async must be on and will only run test function""")
 
 if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
@@ -145,7 +147,15 @@ if __name__ == '__main__':
     # set to 0 so that checkpoint resume can overwrite if necessary
     args.episode_number = 0
     args.total_length = 0
+    if not args.experiment_id:
+        args.experiment_id = datetime.datetime.now().strftime("%Y-%m-%d-") \
+                                                                     + str(uuid.uuid4())
+    args.experiment_path = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__),
+                           '..', '..', 'experiments', args.experiment_id)))
+    args.checkpoint_path = os.path.join(args.experiment_path, 'checkpoints')
+    args.tensorboard_path = os.path.join(args.experiment_path, 'tensorboard_logs')
 
+    # Create environment from choices of Atari, ViZDoom and our ai2thor wrapper with tasks
     if args.atari:
         env = create_atari_env(args.atari_env_name)
         args.resolution = (42, 42)  # fixed to be 42x42 for _process_frame42() in envs.py
@@ -155,15 +165,12 @@ if __name__ == '__main__':
 
         if args.evaluate == 0:
             args.use_train_instructions = 1
-            log_filename = "train.log"
         elif args.evaluate == 1:
             args.use_train_instructions = 1
             args.num_processes = 0
-            log_filename = "test-MT.log"
         elif args.evaluate == 2:
             args.use_train_instructions = 0
             args.num_processes = 0
-            log_filename = "test-ZSL.log"
         else:
             assert False, "Invalid evaluation type"
 
@@ -171,18 +178,36 @@ if __name__ == '__main__':
         env.game_init()
         args.resolution = (args.frame_width, args.frame_height)
     else:
-        args.config_dict = {
-            # random actions on reset to encourage robustness
-            'num_random_actions_at_init': args.num_random_actions_at_init,
-            'max_episode_length': args.max_episode_length
-        }
+        # if you resume a checkpoint and if args.resume_latest_config == True, changes to the file
+        # will be overwritten by the latest_config.json file. Set to False if you want to change
+        # config settings in the config file after resuming and in the middle of training
+        args.last_config_resume_path = os.path.join(args.experiment_path, 'latest_config.json')
+        args.config_dict = {}
+        if args.resume_latest_config:
+            print('args.resume_latest_config is set on')
+            # read last_config.json if it exists, else create it below
+            if os.path.exists(args.last_config_resume_path):
+                print('Folder for this args.experiment_id "{}" and latest_config file existed'
+                      .format(args.experiment_id))
+                with open(args.last_config_resume_path, 'r') as f:
+                    print('Loading config_dict from file: {}'.format(args.last_config_resume_path))
+                    print('Therefore changes to args.config_file_name won\'t affect the env.\n'
+                          'Set to args.resume_latest_config to 0 if you don\'t want this')
+                    args.config_dict = json.load(f)
+        else:
+            print('Loading most params from args.config-file-name')
+
+        # random actions on reset to encourage robustness
+        args.config_dict['num_random_actions_at_init'] = args.num_random_actions_at_init
+        args.config_dict['max_episode_length'] = args.max_episode_length
+        # use given config file to start config and then allow config_dict to overwrite values
         config_file_dir_path = os.path.abspath(os.path.join(__file__, '../../..', 'gym_ai2thor',
                                                             'config_files'))
-
         args.config_file_path = os.path.join(config_file_dir_path, args.config_file_name)
         env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict)
         args.resolution = (env.config['resolution'][0], env.config['resolution'][1])
 
+    # Create shared model
     if env.task.task_has_language_instructions:
         # environment will return natural language sentence as part of state so process it with
         # Gated Attention (GA) variant of A3C
@@ -194,35 +219,32 @@ if __name__ == '__main__':
                                    args.resolution)
     shared_model.share_memory()
 
-    env.close()  # above env initialisation was only to find certain params needed
-
+    # Create optimizer
     if args.no_shared:
         optimizer = None
     else:
         optimizer = my_optim.SharedAdam(shared_model.parameters(), lr=args.lr)
         optimizer.share_memory()
 
-    if not args.experiment_id:
-        args.experiment_id = datetime.datetime.now().strftime("%Y-%m-%d-") \
-                                                                     + str(uuid.uuid4())
-    args.experiment_path = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__),
-                           '..', '..', 'experiments', args.experiment_id)))
-    args.checkpoint_path = os.path.join(args.experiment_path, 'checkpoints')
-    args.tensorboard_path = os.path.join(args.experiment_path, 'tensorboard_logs')
+    env.close()  # above env initialisation was only to find certain params needed for models
+
+    # Creating TensorBoard writer and necessary folders
+    writer = SummaryWriter(comment='A3C',
+                           log_dir=args.tensorboard_path)  # this will create dirs
     # run tensorboardX --logs_dir args.tensorboard_path in terminal and open browser e.g.
     print('-----------------\nTensorboard command:\n'
           'tensorboard --logdir experiments/{}/tensorboard_logs'
           '\n-----------------'.format(args.experiment_id))
-    writer = SummaryWriter(comment='A3C', log_dir=args.tensorboard_path)  # this will create dirs
 
     # Checkpoint creation/loading below
     checkpoint_counter = False
     if not os.path.exists(args.checkpoint_path):
         print('Tensorboard created experiment folder: {} and checkpoint folder '
-              'made here: {}'.format(args.experiment_path, args.checkpoint_path))
+                     'made here: {}'.format(args.experiment_path, args.checkpoint_path))
         os.makedirs(args.checkpoint_path)
     else:
         print('Checkpoints path already exists at path: {}'.format(args.checkpoint_path))
+        # look for checkpoints and find one with largest total_length
         checkpoint_paths = glob.glob(os.path.join(args.checkpoint_path, 'checkpoint_total_length*'))
         if checkpoint_paths:
             # Take checkpoint path with most experience
@@ -234,6 +256,7 @@ if __name__ == '__main__':
             checkpoint_to_load = checkpoint_paths[idx_of_latest]
             print('Attempting to load latest checkpoint: {}'.format(checkpoint_to_load))
 
+            # load checkpoint and unpack values
             if os.path.isfile(checkpoint_to_load):
                 print("Successfully loaded checkpoint {}".format(checkpoint_to_load))
                 checkpoint = torch.load(checkpoint_to_load)
@@ -249,7 +272,7 @@ if __name__ == '__main__':
                 print("=> loaded checkpoint '{}' (total_length {})"
                       .format(checkpoint_to_load, checkpoint['total_length']))
         else:
-            print('No checkpoint to load')
+            print('No model checkpoint to load')
 
     # Save argparse arguments and environment config from last resume or first start
     with open(os.path.join(args.experiment_path, 'latest_args.json'), 'w') as f:
@@ -257,10 +280,11 @@ if __name__ == '__main__':
         args_dict['experiment_id'] = str(args.experiment_id)
         json.dump(args_dict, f)
     if not args.vizdoom and not args.atari:
-        with open(os.path.join(args.experiment_path, 'latest_config.json'), 'w') as f:
+        # Save ai2thor config
+        with open(args.last_config_resume_path, 'w') as f:
             json.dump(env.config, f)
-        # todo maybe load last config instead of allowing the ability to accidently change it on resume?
 
+    # todo try fix multiprocessing again
     # process initialisation and training/testing starting
     processes = []
     counter = mp.Value('i', 0 if not checkpoint_counter else checkpoint_counter)
@@ -285,6 +309,8 @@ if __name__ == '__main__':
             args.num_processes = 1
             # test(args.num_processes, args, shared_model, counter)  # check test functionality
             train(rank, args, shared_model, counter, lock, writer, optimizer)
+    except Exception as e:
+        print(e)
     finally:
         writer.export_scalars_to_json(os.path.join(args.experiment_path, 'all_scalars.json'))
         writer.close()

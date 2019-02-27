@@ -157,15 +157,16 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 # logging, benchmarking and saving stats
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
+                # only calculate after after set number of episodes have passed
                 if len(episode_total_rewards_list) > avg_over_num_episodes:
-                    avg_episode_return = sum(episode_total_rewards_list[-avg_over_num_episodes:]) / \
-                                    len(episode_total_rewards_list[-avg_over_num_episodes:])
+                    avg_episode_return = sum(episode_total_rewards_list[-avg_over_num_episodes:]) \
+                                        / len(episode_total_rewards_list[-avg_over_num_episodes:])
                     avg_episode_returns.append(avg_episode_return)
                     writer.add_scalar('avg_episode_returns', avg_episode_return, episode_number)
                 all_rewards_in_episode = []
 
-                print('Rank: {}. Episode {} Over. Total Length: {}. Total reward for episode: {:.4f}. '
-                      .format(rank, episode_number, total_length, total_reward_for_episode))
+                print('Rank: {}. Episode {} Over. Total Length: {}. Total reward for episode: '
+                      '{:.4f}'.format(rank, episode_number, total_length, total_reward_for_episode))
                 print('Rank: {}. Step no: {}. total length: {}'.format(rank, episode_length,
                                                                        total_length))
                 print('Rank: {}. Total Length: {}. Counter across all processes: {}. '
@@ -173,7 +174,8 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                                                             total_reward_for_episode))
                 if rank == 0:
                     writer.add_scalar('episode_lengths', episode_length, episode_number)
-                    writer.add_scalar('episode_total_rewards', total_reward_for_episode, episode_number)
+                    writer.add_scalar('episode_total_rewards', total_reward_for_episode,
+                                      episode_number)
                     writer.add_image('Image', image_state, episode_number)
 
                 # instruction_indices is None if task doesn't require language instructions
@@ -193,6 +195,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
         # No interaction with environment below
         # Backprop and optimisation
+        R = torch.zeros(1, 1)
         if not done:  # to change last return to predicted value
             if not env.task.task_has_language_instructions:
                 value, _, _ = model((image_state.unsqueeze(0).float(), (hx, cx)))
@@ -201,11 +204,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                                      instruction_indices.long(),
                                      (tx, hx, cx)))
             R = value.detach()
-        else:
-            # todo how did this ever work before when it didn't work before? was the value spike loss bug?
-            R = 0.0
 
-        # todo where is this set?
         values.append(R)  # if episode is terminal, 0 reward. Otherwise, predicted value
         policy_loss = 0
         value_loss = 0

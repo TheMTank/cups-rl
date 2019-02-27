@@ -259,6 +259,7 @@ class AI2ThorEnv(gym.Env):
         self.reset_ever = True
         if self.task.random_scene_ids_on_reset:
             self.scene_id = random.choice(self.task.random_scene_ids_on_reset)
+            print('Changing to scene_id: {}'.format(self.scene_id))
         self.controller.reset(self.scene_id)
         self.event = self.controller.step(dict(action='Initialize', gridSize=self.gridSize,
                                                cameraY=self.cameraY, renderDepthImage=True,
