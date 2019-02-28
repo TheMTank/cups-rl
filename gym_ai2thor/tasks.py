@@ -32,6 +32,8 @@ class TaskFactory:
             return NaturalLanguageNavigateToObjectTask(**config)
         elif task_name == 'NaturalLanguagePickUpObjectTask':
             return NaturalLanguagePickUpObjectTask(**config)
+        elif task_name == 'NaturalLanguagePickUpMultipleObjectTask':
+            return NaturalLanguagePickUpMultipleObjectTask(**config)
         else:
             raise NotImplementedError('{} is not yet implemented!'.format(task_name))
 
@@ -271,3 +273,64 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
 
     def reset(self):
         return super(NaturalLanguagePickUpObjectTask, self).reset()
+
+class NaturalLanguagePickUpMultipleObjectTask(NaturalLanguageBaseTask):
+    """
+    This task consists of requiring the agent to pickup many different objects that are specified in
+    the current instruction. The difference is that the episode doesn't terminate on pickup.
+    Need a specific build file to disable only 1 item in inventory.
+    Rewards are only collected if the right object was added to the inventory.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # make sure pickup objects is turned on and target objects are in pick up objects
+        if not kwargs.get('pickup_put_interaction'):
+            raise ValueError('Need to turn on pickup_put_interaction in config')
+        if not kwargs.get('pickup_objects'):
+            raise ValueError('Need to specify pickup_objects in config')
+        else:
+            for instruction in self.train_instructions:
+                # always last word of the sentence. Has to be spelled exactly
+                object_type = instruction.split(' ')[-1]
+                if object_type not in kwargs['pickup_objects']:
+                    raise ValueError('Target object {} is not in '
+                                     'config[\'pickup_objects\']'.format(object_type))
+
+        self.max_object_pickup_crosshair_dist = kwargs['task'].get(
+            'max_object_pickup_crosshair_dist', float('inf'))
+        self.max_object_pickup_euclidean_dist = kwargs['task'].get(
+            'max_object_pickup_euclidean_dist', None)
+
+        self.prev_inventory = []
+
+    def transition_reward(self, event):
+        reward, done = self.movement_reward, False
+        curr_inventory = event.metadata['inventoryObjects']
+
+        # nothing previously in inventory and now there is something within inventory
+        object_picked_up = curr_inventory and len(self.prev_inventory) != len(curr_inventory)
+
+        if object_picked_up:
+            # Add reward from the specific object
+            if curr_inventory[-1]['objectType'] == self.curr_object_type:
+                reward += self.default_reward
+            else:
+                print('Picked up wrong object')
+                reward -= self.default_reward
+            print('{} reward collected for picking up object: {} at step: {}!'.format(reward,
+                                                                    curr_inventory[-1]['objectType'],
+                                                                    self.step_num))
+            print('Inventory: {}'.format(curr_inventory))
+
+        if self.max_episode_length and self.step_num >= self.max_episode_length:
+            print('Reached maximum episode length: {}'.format(self.step_num))
+            done = True
+            print('Collected {} objects'.format(len(curr_inventory)))
+
+        self.prev_inventory = event.metadata['inventoryObjects']
+        return reward, done
+
+    def reset(self):
+        self.prev_inventory = []
+        return super(NaturalLanguagePickUpMultipleObjectTask, self).reset()

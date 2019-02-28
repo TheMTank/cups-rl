@@ -1,6 +1,7 @@
 {
     "open_close_interaction": false,
     "pickup_put_interaction": true,
+    "put_interaction": false,
     "lookupdown_actions": false,
     "continuous_movement": true,
     "pickup_objects": [

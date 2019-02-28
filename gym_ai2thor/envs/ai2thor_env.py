@@ -74,6 +74,9 @@ class AI2ThorEnv(gym.Env):
         if not self.config['pickup_put_interaction']:
             self.action_names = tuple([action_name for action_name in self.action_names if 'Pickup'
                                        not in action_name and 'Put' not in action_name])
+        if self.config.get('put_interaction') and not self.config('put_interaction'):
+            self.action_names = tuple([action_name for action_name in self.action_names
+                                       if 'Put' not in action_name])
         if not self.config.get('lookupdown_actions', True):
             self.action_names = tuple([action_name for action_name in self.action_names
                                        if 'Look' not in action_name])
@@ -138,8 +141,9 @@ class AI2ThorEnv(gym.Env):
         if action_str.endswith('Object'):  # All interactions end with 'Object'
             # Interaction actions
             interaction_obj, distance = None, float('inf')
-            inventory_before = self.event.metadata['inventoryObjects'][0]['objectType'] \
-                if self.event.metadata['inventoryObjects'] else []
+            inventory_before = [x['objectType'] for x in
+                                   self.event.metadata['inventoryObjects']] \
+                                   if self.event.metadata['inventoryObjects'] else []
             if action_str.startswith('Put'):
                 closest_receptacle = None
                 for obj in visible_objects:
@@ -162,16 +166,16 @@ class AI2ThorEnv(gym.Env):
                     if obj['pickupable'] and obj['distance'] < distance and \
                             obj['distance'] < self.task.max_object_pickup_crosshair_dist and \
                             obj['objectType'] in self.allowed_objects['pickupables']:
-                        # todo max_object_pickup_crosshair_dist is not in pixel space!!! 0-2 or so.
                         if self.task.max_object_pickup_euclidean_dist:
                             euc_distance_to_obj = calculate_euc_distance_between_agent_and_object(
                                 self.event.metadata['agent'], obj)
-                            print(euc_distance_to_obj, obj['distance'])
+                            print('3D dist: {}. distance to crosshair: {}'.format(
+                                euc_distance_to_obj, obj['distance']))
                             if euc_distance_to_obj < self.task.max_object_pickup_euclidean_dist:
                                 closest_pickupable = obj
                         else:
                             closest_pickupable = obj
-                if closest_pickupable and not self.event.metadata['inventoryObjects']:
+                if closest_pickupable:# and not self.event.metadata['inventoryObjects']: # todo option to check for this@?
                     interaction_obj = closest_pickupable
                     self.event = self.controller.step(
                         dict(action=action_str, objectId=interaction_obj['objectId']))
@@ -205,8 +209,9 @@ class AI2ThorEnv(gym.Env):
                 raise error.InvalidAction('Invalid interaction {}'.format(action_str))
             # print what object was interacted with and state of inventory
             if interaction_obj and verbose:
-                inventory_after = self.event.metadata['inventoryObjects'][0]['objectType'] \
-                    if self.event.metadata['inventoryObjects'] else []
+                inventory_after = [x['objectType'] for x in
+                                   self.event.metadata['inventoryObjects']] \
+                                   if self.event.metadata['inventoryObjects'] else []
                 if action_str in ['PutObject', 'PickupObject']:
                     inventory_changed_str = 'Inventory before/after: {}/{}.'.format(
                                                             inventory_before, inventory_after)
