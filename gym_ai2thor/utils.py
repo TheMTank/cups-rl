@@ -57,6 +57,7 @@ def read_config(config_path, config_dict=None):
                         config[key][task_key] = config_dict[key][task_key]
             # else just a regular check
             elif key in config:
+                # todo possibly only warn if actually overwriting and not just for every key. yes
                 warnings.warn('Key: {} already in config file with value {}. '
                               'Overwriting with value: {}'.format(key, config[key],
                                                                   config_dict[key]))

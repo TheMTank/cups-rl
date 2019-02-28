@@ -136,7 +136,8 @@ tasks.py for more details.
 
 We encourage you to explore the scripts on the `examples` folder to guide you on the wrapper
  functionalities and explore how to create more customized versions of ai2thor environments and 
- tasks. 
+ tasks. Config files and tasks can be combined together to form Task variants e.g. Natural language pick up task but only allowing 
+ cups and bowls to be picked up hence: `gym_ai2thor/config_files/NL_pickup_bowls_vs_cups_fp1_config.json`
 
 Here is the desired result of an example task in which the goal of the agent is to place a cup in the 
 microwave.
@@ -148,7 +149,7 @@ microwave.
 
 ## The Team
 
-[The M Tank](http://www.themtank.org/) is a non-partisan organisation that works solely to recognise the multifaceted 
+[MTank](http://www.themtank.org/) is a non-partisan organisation that works solely to recognise the multifaceted 
 nature of Artificial Intelligence research and to highlight key developments within all sectors affected by these 
 advancements. Through the creation of unique resources, the combination of ideas and their provision to the public, 
 this project hopes to encourage the dialogue which is beginning to take place globally. 

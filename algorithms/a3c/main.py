@@ -72,12 +72,11 @@ parser.add_argument('-async', '--asynchronous', dest='synchronous', action='stor
 parser.set_defaults(synchronous=False)
 
 # ai2thor settings
-parser.add_argument('--task-name', default='NaturalLanguageLookAtObjectTask',
-                    help='Choose task out of gym_ai2thor/tasks.py')
-parser.add_argument('--config-file-name', default='NL_lookat_bowls_vs_cups_fp1_config.json',
+parser.add_argument('--config-file-name', default='NL_pickup_multiple_cups_only_fp404_v0.1.json',
                     help='File must be in gym_ai2thor/config_files')
 parser.add_argument('--resume-latest-config', default=1,
-                    help='File must be in gym_ai2thor/config_files')
+                    help='Whether to resume latest_config.json found in experiment folder'
+                         'Default is set so user cannot override settings from text file')
 
 parser.add_argument('--max-episode-length', type=int, default=1000,
                     help='maximum length of an episode (default: 1000000)')
@@ -228,14 +227,6 @@ if __name__ == '__main__':
 
     env.close()  # above env initialisation was only to find certain params needed for models
 
-    # Creating TensorBoard writer and necessary folders
-    writer = SummaryWriter(comment='A3C',
-                           log_dir=args.tensorboard_path)  # this will create dirs
-    # run tensorboardX --logs_dir args.tensorboard_path in terminal and open browser e.g.
-    print('-----------------\nTensorboard command:\n'
-          'tensorboard --logdir experiments/{}/tensorboard_logs'
-          '\n-----------------'.format(args.experiment_id))
-
     # Checkpoint creation/loading below
     checkpoint_counter = False
     if not os.path.exists(args.checkpoint_path):
@@ -274,6 +265,14 @@ if __name__ == '__main__':
         else:
             print('No model checkpoint to load')
 
+    # Creating TensorBoard writer and necessary folders
+    writer = SummaryWriter(comment='A3C',  # this will create dirs
+                           log_dir=args.tensorboard_path, purge_step=args.episode_number)
+    # run tensorboardX --logs_dir args.tensorboard_path in terminal and open browser e.g.
+    print('-----------------\nTensorboard command:\n'
+          'tensorboard --logdir experiments/{}/tensorboard_logs'
+          '\n-----------------'.format(args.experiment_id))
+
     # Save argparse arguments and environment config from last resume or first start
     with open(os.path.join(args.experiment_path, 'latest_args.json'), 'w') as f:
         args_dict = vars(args)
@@ -309,8 +308,6 @@ if __name__ == '__main__':
             args.num_processes = 1
             # test(args.num_processes, args, shared_model, counter)  # check test functionality
             train(rank, args, shared_model, counter, lock, writer, optimizer)
-    except Exception as e:
-        print(e)
     finally:
         writer.export_scalars_to_json(os.path.join(args.experiment_path, 'all_scalars.json'))
         writer.close()
