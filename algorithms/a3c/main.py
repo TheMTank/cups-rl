@@ -146,6 +146,7 @@ if __name__ == '__main__':
     # set to 0 so that checkpoint resume can overwrite if necessary
     args.episode_number = 0
     args.total_length = 0
+    args.num_backprops = 0
     if not args.experiment_id:
         args.experiment_id = datetime.datetime.now().strftime("%Y-%m-%d-") \
                                                                      + str(uuid.uuid4())
@@ -253,6 +254,7 @@ if __name__ == '__main__':
                 checkpoint = torch.load(checkpoint_to_load)
                 args.total_length = checkpoint['total_length']
                 args.episode_number = checkpoint['episode_number']
+                args.num_backprops = checkpoint.get('num_backprops', 0)
                 checkpoint_counter = checkpoint.get('counter', False)  # if not set, set to 0 later
 
                 print('Values from checkpoint: total_length: {}. episode_number: {}'.format(

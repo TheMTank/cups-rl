@@ -227,7 +227,7 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # make sure pickup objects is turned on and target objects are in pick up objects
-        if not kwargs.get('pickup_put_interaction'):
+        if not kwargs.get('pickup_put_interaction') and not kwargs.get('pickup_interaction'):
             raise ValueError('Need to turn on pickup_put_interaction in config')
         if not kwargs.get('pickup_objects'):
             raise ValueError('Need to specify pickup_objects in config')
@@ -274,6 +274,7 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
     def reset(self):
         return super(NaturalLanguagePickUpObjectTask, self).reset()
 
+
 class NaturalLanguagePickUpMultipleObjectTask(NaturalLanguageBaseTask):
     """
     This task consists of requiring the agent to pickup many different objects that are specified in
@@ -285,7 +286,7 @@ class NaturalLanguagePickUpMultipleObjectTask(NaturalLanguageBaseTask):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # make sure pickup objects is turned on and target objects are in pick up objects
-        if not kwargs.get('pickup_put_interaction'):
+        if not kwargs.get('pickup_put_interaction') and not kwargs.get('pickup_interaction'):
             raise ValueError('Need to turn on pickup_put_interaction in config')
         if not kwargs.get('pickup_objects'):
             raise ValueError('Need to specify pickup_objects in config')

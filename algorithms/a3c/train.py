@@ -93,7 +93,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
     total_length = args.total_length
     episode_number = args.episode_number
     episode_length = 0
-    num_backprops = 0
+    num_backprops = args.num_backprops
     while True:
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
@@ -118,6 +118,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 checkpoint_dict = {
                     'total_length': total_length,
                     'episode_number': episode_number,
+                    'num_backprops': num_backprops,
                     'counter': counter.value,
                     'state_dict': model.state_dict(),
                     'optimizer': optimizer.state_dict()
@@ -231,8 +232,9 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
         # benchmarking and general info
         num_backprops += 1
-        writer.add_scalar('policy_loss', policy_loss.item(), num_backprops)
-        writer.add_scalar('value_loss', value_loss.item(), num_backprops)
+        if rank == 0:
+            writer.add_scalar('policy_loss', policy_loss.item(), num_backprops)
+            writer.add_scalar('value_loss', value_loss.item(), num_backprops)
 
         p_losses.append(policy_loss.item())
         v_losses.append(value_loss.item())
