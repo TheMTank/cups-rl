@@ -32,13 +32,20 @@ from algorithms.a3c.train import train
 
 
 # Based on https://github.com/pytorch/examples/tree/master/mnist_hogwild
-# Training settings
+# Training/testing settings below
 parser = argparse.ArgumentParser(description='A3C/A3C_GA')
-# A3C, experiment and logging setting
+# A3C settings
 parser.add_argument('--lr', type=float, default=0.0001,
                     help='learning rate (default: 0.0001)')
 parser.add_argument('--gamma', type=float, default=0.99,
-                    help='discount factor for rewards (default: 0.99)')
+                    help='discount factor for returns (default: 0.99)')
+# todo rename tau to lambda and find out why it is higher than gamma?
+'''
+https://arxiv.org/pdf/1506.02438.pdf
+. On the other hand, λ < 1
+introduces bias only when the value function is inaccurate. Empirically, we find that the best value
+of λ is much lower than the best value of 
+'''
 parser.add_argument('--tau', type=float, default=1.00,
                     help='parameter for GAE (default: 1.00)')
 parser.add_argument('--entropy-coef', type=float, default=0.01,
@@ -47,6 +54,18 @@ parser.add_argument('--value-loss-coef', type=float, default=0.5,
                     help='value loss coefficient (default: 0.5)')
 parser.add_argument('--max-grad-norm', type=float, default=50,
                     help='value loss coefficient (default: 50)')
+parser.add_argument('--no-shared', default=False,
+                    help='use an optimizer without shared momentum.')
+parser.add_argument('--num-processes', type=int, default=4,
+                    help='how many training processes to use (default: 4) except if synchronous')
+parser.add_argument('-sync', '--synchronous', dest='synchronous', action='store_true',
+                    help='Useful for debugging purposes e.g. import pdb; pdb.set_trace(). '
+                         'Overwrites args.num_processes as everything is in main thread. '
+                         '1 train() function is run and no test()')
+parser.add_argument('-async', '--asynchronous', dest='synchronous', action='store_false')
+parser.set_defaults(synchronous=False)
+
+# experiment, environment and logging setting
 parser.add_argument('--seed', type=int, default=1,
                     help='random seed (default: 1)')
 parser.add_argument('--test-sleep-time', type=int, default=200,
@@ -60,16 +79,6 @@ parser.add_argument('--verbose-num-steps', default=False,
                     help='print step number every args.num_steps')
 parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
-parser.add_argument('--no-shared', default=False,
-                    help='use an optimizer without shared momentum.')
-parser.add_argument('--num-processes', type=int, default=4,
-                    help='how many training processes to use (default: 4) except if synchronous')
-parser.add_argument('-sync', '--synchronous', dest='synchronous', action='store_true',
-                    help='Useful for debugging purposes e.g. import pdb; pdb.set_trace(). '
-                         'Overwrites args.num_processes as everything is in main thread. '
-                         '1 train() function is run and no test()')
-parser.add_argument('-async', '--asynchronous', dest='synchronous', action='store_false')
-parser.set_defaults(synchronous=False)
 
 # ai2thor settings
 parser.add_argument('--config-file-name', default='NL_pickup_multiple_cups_only_fp404_v0.1.json',

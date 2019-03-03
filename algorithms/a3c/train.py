@@ -78,10 +78,9 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
     # instruction_indices is None if task doesn't require language instructions
     state = env.reset()
     image_state, instruction_indices = unpack_state(state, env)
-
     done = True
 
-    # monitoring
+    # monitoring and logging variables
     avg_over_num_episodes = 10
     avg_episode_returns = []
     avg_episode_return, best_avg_episode_return = -np.inf, -np.inf
@@ -89,11 +88,12 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
     all_rewards_in_episode = []
     p_losses = []
     v_losses = []
-
     total_length = args.total_length
     episode_number = args.episode_number
     episode_length = 0
     num_backprops = args.num_backprops
+
+    # main infinite loop
     while True:
         # Sync with the shared model
         model.load_state_dict(shared_model.state_dict())
@@ -110,6 +110,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
         entropies = []
 
         interaction_start_time = time.time()
+        # interact with environment for args.num_steps to get log_probs+entropies+rewards+values
         for step in range(args.num_steps):
             # save model every args.checkpoint_freq
             if rank == 0 and total_length > 0 and total_length % (args.checkpoint_freq //
@@ -128,34 +129,39 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                     best_so_far = True
                 save_checkpoint(checkpoint_dict, args.checkpoint_path, fn, best_so_far)
 
+            # Run model to get predicted value, action logits and LSTM hidden+cell state
             if not env.task.task_has_language_instructions:
                 value, logit, (hx, cx) = model((image_state.unsqueeze(0).float(), (hx, cx)))
             else:
+                # Time embedding from integer to stabilise value prediction and instruction indices
                 tx = torch.from_numpy(np.array([episode_length])).long()
                 value, logit, (hx, cx) = model((image_state.unsqueeze(0).float(),
                                                 instruction_indices.long(),
                                                 (tx, hx, cx)))
+            # Calculate probabilities from action logit, all log probabilities and entropy
             prob = F.softmax(logit, dim=-1)
             log_prob = F.log_softmax(logit, dim=-1)
             entropy = -(log_prob * prob).sum(1, keepdim=True)
-            entropies.append(entropy)
 
+            # sample action, get log_prob for specific action and action int for environment step
             action = prob.multinomial(num_samples=1).detach()
             log_prob = log_prob.gather(1, action)
-
             action_int = action.numpy()[0][0].item()
+            # step and unpack state. Store value, log_prob, reward and entropy at end of the loop
             state, reward, done, _ = env.step(action_int)
-
             image_state, instruction_indices = unpack_state(state, env)
+
             episode_length += 1
             total_length += 1
             done = done or episode_length >= args.max_episode_length
 
             with lock:
+                # increment global step counter variable across processes
                 counter.value += 1
 
+            # logging, benchmarking and saving stats
             if done:
-                # logging, benchmarking and saving stats
+                all_rewards_in_episode.append(reward)
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 episode_total_rewards_list.append(total_reward_for_episode)
                 # only calculate after after set number of episodes have passed
@@ -189,44 +195,48 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             values.append(value)
             log_probs.append(log_prob)
             rewards.append(reward)
-            all_rewards_in_episode.append(reward)
+            entropies.append(entropy)
 
             if done:
                 break
 
-        # No interaction with environment below
-        # Backprop and optimisation
-        R = torch.zeros(1, 1)
-        if not done:  # to change last return to predicted value
+        # Calculation of returns, advantages, value_loss, GAE, policy_loss.
+        # Then backprop and optimisation. No interaction with environment below.
+        curr_return = torch.zeros(1, 1)
+        # change current return to predicted value if episode wasn't terminal
+        if not done:
             if not env.task.task_has_language_instructions:
                 value, _, _ = model((image_state.unsqueeze(0).float(), (hx, cx)))
             else:
                 value, _, _ = model((image_state.unsqueeze(0).float(),
                                      instruction_indices.long(),
                                      (tx, hx, cx)))
-            R = value.detach()
+            curr_return = value.detach()
 
-        values.append(R)  # if episode is terminal, 0 reward. Otherwise, predicted value
+        # if episode is terminal, curr_return is 0. Otherwise, predicted value is curr_return
+        # This is because V_t+1(S) will need need to succeed for terminal state below: values[i + 1]
+        values.append(curr_return)
         policy_loss = 0
         value_loss = 0
         gae = torch.zeros(1, 1)
         for i in reversed(range(len(rewards))):
-            R = args.gamma * R + rewards[i]
-            advantage = R - values[i]
+            # Calculate returns, advantages and value_loss
+            curr_return = args.gamma * curr_return + rewards[i]
+            advantage = curr_return - values[i]
             value_loss = value_loss + 0.5 * advantage.pow(2)
 
-            # Generalized Advantage Estimation
+            # Generalized Advantage Estimation (GAE).TD residual: delta_t = r_t + 𝛾 * V_t+1 - V_t
             delta_t = rewards[i] + args.gamma * values[i + 1] - values[i]
             gae = gae * args.gamma * args.tau + delta_t
 
+            # log probability of action multiple by GAE with entropy to encourage exploration
             policy_loss = policy_loss - log_probs[i] * gae.detach() - \
                           args.entropy_coef * entropies[i]
 
+        # Backprop, gradient norm clipping and optimisation
         optimizer.zero_grad()
-
         (policy_loss + args.value_loss_coef * value_loss).backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-
         ensure_shared_grads(model, shared_model)
         optimizer.step()
 
@@ -235,7 +245,6 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
         if rank == 0:
             writer.add_scalar('policy_loss', policy_loss.item(), num_backprops)
             writer.add_scalar('value_loss', value_loss.item(), num_backprops)
-
         p_losses.append(policy_loss.item())
         v_losses.append(value_loss.item())
 
