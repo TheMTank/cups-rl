@@ -4,14 +4,15 @@ inheriting the predefined methods and can be extended for particular tasks.
 """
 import random
 import os
+import warnings
 
 import ai2thor.controller
 import numpy as np
 from skimage import transform
-
 import gym
 from gym import error, spaces
 from gym.utils import seeding
+
 from gym_ai2thor.image_processing import rgb2gray
 from gym_ai2thor.utils import read_config
 from gym_ai2thor.tasks import TaskFactory
@@ -58,10 +59,11 @@ class AI2ThorEnv(gym.Env):
         # Object settings
         # acceptable objects taken from config file.
         self.allowed_objects = {}
-        if self.config['pickup_put_interaction'] or \
-                            self.config['open_close_interaction']:
+        if self.config['pickup_put_interaction']:
             self.allowed_objects['pickupables'] = self.config['pickup_objects']
-            self.allowed_objects['receptacles'] = self.config['acceptable_receptacles']
+            self.allowed_objects['receptacles'] = self.config.get('acceptable_receptacles', [])
+            if not self.allowed_objects['receptacles']:
+                warnings.warn('list of receptacles is empty or wasn\'t given')
         if self.config['open_close_interaction']:
             self.allowed_objects['openables'] = self.config['openable_objects']
         # Action settings
@@ -74,7 +76,7 @@ class AI2ThorEnv(gym.Env):
         if not self.config['pickup_put_interaction']:
             self.action_names = tuple([action_name for action_name in self.action_names if 'Pickup'
                                        not in action_name and 'Put' not in action_name])
-        if self.config.get('put_interaction') and not self.config('put_interaction'):
+        if self.config.get('put_interaction'):
             self.action_names = tuple([action_name for action_name in self.action_names
                                        if 'Put' not in action_name])
         if not self.config.get('lookupdown_actions', True):

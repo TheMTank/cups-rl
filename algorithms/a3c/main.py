@@ -66,23 +66,25 @@ parser.add_argument('-async', '--asynchronous', dest='synchronous', action='stor
 parser.set_defaults(synchronous=False)
 
 # experiment, environment and logging setting
+parser.add_argument('-eid', '--experiment-id', default=False,
+                    help='random or chosen guid for folder creation for plots and checkpointing.'
+                         ' If experiment folder and id taken, will resume training!')
 parser.add_argument('--seed', type=int, default=1,
                     help='random seed (default: 1)')
 parser.add_argument('--test-sleep-time', type=int, default=200,
                     help='number of seconds to wait before testing again (default: 200)')
 parser.add_argument('--checkpoint-freq', type=int, default=100000,
                     help='number of episodes passed for resuming')
-parser.add_argument('-eid', '--experiment-id', default=False,
-                    help='random or chosen guid for folder creation for plots and checkpointing.'
-                         ' If experiment folder and id taken, will resume training!')
 parser.add_argument('--verbose-num-steps', default=False,
                     help='print step number every args.num_steps')
 parser.add_argument('--num-steps', type=int, default=20,
                     help='number of forward steps in A3C (default: 20)')
 
 # ai2thor settings
-parser.add_argument('--config-file-name', default='NL_pickup_multiple_cups_only_fp404_v0.1.json',
-                    help='File must be in gym_ai2thor/config_files')
+parser.add_argument('--config-file-name', default='default_config.json',
+                    help='File must be in gym_ai2thor/config_files. Other good variants with '
+                         'natural language are: NL_pickup_5_objects_surround_fp_211_v0.1.json and'
+                         'NL_pickup_multiple_cups_only_fp404_v0.1.json')
 parser.add_argument('--resume-latest-config', default=1,
                     help='Whether to resume latest_config.json found in experiment folder'
                          'Default is set so user cannot override settings from text file')
@@ -150,6 +152,8 @@ parser.add_argument('-e', '--evaluate', type=int, default=0,
 
 if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
+
+    # todo add to README.md more info
 
     args = parser.parse_args()
     # set to 0 so that checkpoint resume can overwrite if necessary
