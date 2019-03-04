@@ -21,7 +21,7 @@ steps, rewards, Qs, best_avg_reward = [], [], [], -1e10
 
 
 # Test DQN
-def test(env, T, args, dqn, val_mem, evaluate=False):
+def test(env, T, args, dqn, val_mem, evaluate_only=False):
     """
     Explanation to our multiple tests for the special case of "ai2thor":
     In AI2Thor environment the rendering is not optional, so using two instances of the environment
@@ -55,17 +55,18 @@ def test(env, T, args, dqn, val_mem, evaluate=False):
                 T_rewards.append(reward_sum)
     if args.game != 'ai2thor':
         env.close()
-    # Test Q-values over validation memory
+    # Test Q-values over validation memory completely independently of evaluation episodes
     for state in val_mem:  # Iterate over valid states
         T_Qs.append(dqn.evaluate_q(state))
 
     avg_reward, avg_Q = sum(T_rewards) / len(T_rewards), sum(T_Qs) / len(T_Qs)
-    if not evaluate:
+    if not evaluate_only:
         # Append to results
         rewards.append(T_rewards)
         Qs.append(T_Qs)
 
         # Plot
+        # TODO: check plots again. Something looks fishy...
         _plot_line(steps, rewards, 'Reward', path='results')
         _plot_line(steps, Qs, 'Q', path='results')
 

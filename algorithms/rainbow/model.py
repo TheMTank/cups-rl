@@ -144,6 +144,8 @@ class NoisyLinear(nn.Module):
         self.bias_epsilon.copy_(epsilon_out)
 
     def forward(self, layer_input):
+        # PyTorch nn.Module have an attribute self.training to indicate training or evaluation mode
+        # You can switch between training and evaluation with dqn.train() or dqn.eval()
         if self.training:
             return F.linear(layer_input, self.weight_mu + self.weight_sigma * self.weight_epsilon,
                             self.bias_mu + self.bias_sigma * self.bias_epsilon)

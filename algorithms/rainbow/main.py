@@ -11,17 +11,19 @@ Example of use:
 Runs Rainbow DQN on our AI2ThorEnv wrapper with default params. Optionally it can be run on any
 atari environment as well using the "game" flag, e.g. --game seaquest.
 """
+
 import argparse
 from datetime import datetime
-import torch
+
 import numpy as np
+import torch
 
 from algorithms.rainbow.agent import Agent
 from algorithms.rainbow.env import Env, FrameStackEnv
 from algorithms.rainbow.memory import ReplayMemory
 from algorithms.rainbow.test import test
-
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
+
 
 parser = argparse.ArgumentParser(description='Rainbow')
 parser.add_argument('--seed', type=int, default=123, help='Random seed')
@@ -30,7 +32,7 @@ parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
     https://github.com/openai/atari-py/tree/master/atari_py/atari_roms """
 parser.add_argument('--game', type=str, default='ai2thor', help='ATARI game or environment')
 parser.add_argument('--T-max', type=int, default=int(50e6), metavar='STEPS',
-                    help='Number of training steps (4x number of frames)')
+                    help='Number of training steps')
 parser.add_argument('--max-episode-length', type=int, default=int(1e3), metavar='LENGTH',
                     help='Max episode length (0 to disable)')
 parser.add_argument('--history-length', type=int, default=1, metavar='T',
@@ -70,14 +72,14 @@ parser.add_argument('--batch-size', type=int, default=32, metavar='SIZE',
                     help='Batch size')
 parser.add_argument('--learn-start', type=int, default=int(20e3), metavar='STEPS',
                     help='Number of steps before starting training')
-parser.add_argument('--evaluate', action='store_true', help='Evaluate only')
+parser.add_argument('--evaluate-only', action='store_true', help='Evaluate only')
 parser.add_argument('--evaluation-interval', type=int, default=1e5, metavar='STEPS',
                     help='Number of training steps between evaluations')
 parser.add_argument('--evaluation-episodes', type=int, default=10, metavar='N',
                     help='Number of evaluation episodes to average over')
 parser.add_argument('--evaluation-size', type=int, default=500, metavar='N',
                     help='Number of transitions to use for validating Q')
-parser.add_argument('--log-interval', type=int, default=25000, metavar='STEPS',
+parser.add_argument('--log-interval', type=int, default=200, metavar='STEPS',
                     help='Number of training steps between logging status')
 parser.add_argument('--render', action='store_true', default=False,
                     help='Display screen (testing only)')
@@ -85,11 +87,11 @@ parser.add_argument('--config-file', type=str, default='config_files/rainbow_exa
                     help='Config file used for ai2thor environment definition')
 
 if __name__ == '__main__':
-    # Setup
+    # Setup arguments, seeds and cuda
     args = parser.parse_args()
-    print(' ' * 26 + 'Options')
+    print('-' * 10 + '\n' + 'Options' + '\n' + '-' * 10)
     for k, v in vars(args).items():
-        print(' ' * 26 + k + ': ' + str(v))
+        print(' ' * 4 + k + ': ' + str(v))
     np.random.seed(args.seed)
     torch.manual_seed(np.random.randint(1, 10000))
     if torch.cuda.is_available() and not args.disable_cuda:
@@ -121,7 +123,8 @@ if __name__ == '__main__':
     dqn = Agent(args, env)
     mem = ReplayMemory(args, args.memory_capacity)
     """
-    Linear annealing of priority weight from args.priority_weight to 1. 
+    Priority weights are linearly annealed and increase every step by priority_weight_increase from 
+    args.priority_weight to 1. 
     Typically, the unbiased nature of the updates is most important near convergence at the end of 
     training, as the process is highly non-stationary anyway, due to changing policies, state 
     distributions and bootstrap targets, that small bias can be ignored in this context.
@@ -135,22 +138,21 @@ if __name__ == '__main__':
         if done:
             state, done = env.reset(), False
         next_state, _, done, _ = env.step(env.action_space.sample())
+        # No need to store actions or rewards because we only use the state to evaluate Q
+        # TODO: more explanation, why is Q with this constant memory a good evaluation?
         val_mem.append(state, None, None, done)
         state = next_state
 
-    if args.evaluate:
+    if args.evaluate_only:
         dqn.eval()  # Set DQN (online network) to evaluation mode
-        avg_reward, avg_Q = test(env, mem_steps, args, dqn, val_mem, evaluate=True)
+        avg_reward, avg_Q = test(env, mem_steps, args, dqn, val_mem, evaluate_only=True)
         print('Avg. reward: ' + str(avg_reward) + ' | Avg. Q: ' + str(avg_Q))
     else:
         # Training loop
         dqn.train()
-        num_steps, done = 1, True
+        num_steps, done = 0, True
 
         while num_steps < args.T_max:
-            if num_steps % 200 == 0:
-                print("step {}".format(num_steps))
-
             if done:
                 state, done = env.reset(), False
             if num_steps % args.replay_frequency == 0:
@@ -175,7 +177,8 @@ if __name__ == '__main__':
                     dqn.learn(mem)  # Train with n-step distributional double-Q learning
 
                 if num_steps % args.evaluation_interval == 0:
-                    dqn.eval()  # Set DQN (online network) to evaluation mode
+                    dqn.eval()  # Set DQN (online network) to evaluation mode. Fixed linear layers
+                    # Test and save best model
                     avg_reward, avg_Q = test(env, num_steps, args, dqn, val_mem)
                     log('num_steps = ' + str(num_steps) + ' / ' + str(args.T_max) +
                         ' | Avg. reward: ' + str(avg_reward) + ' | Avg. Q: ' + str(avg_Q))

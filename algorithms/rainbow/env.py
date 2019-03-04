@@ -16,15 +16,17 @@ class Env:
     """
     ATARI games environment definition as from original implementation
     """
+
     def __init__(self, args):
         self.device = args.device
         self.ale = atari_py.ALEInterface()
-        self.ale.setInt('random_seed', args.seed)
-        self.ale.setInt('max_num_frames_per_episode', args.max_episode_length)
-        self.ale.setFloat('repeat_action_probability', 0)  # Disable sticky actions
-        self.ale.setInt('frame_skip', 0)
-        self.ale.setBool('color_averaging', False)
-        self.ale.loadROM(atari_py.get_game_path(args.game))  # ROM loading must be done after setting options
+        self.ale.setInt("random_seed", args.seed)
+        self.ale.setInt("max_num_frames_per_episode", args.max_episode_length)
+        self.ale.setFloat("repeat_action_probability", 0)  # Disable sticky actions
+        self.ale.setInt("frame_skip", 0)
+        self.ale.setBool("color_averaging", False)
+        # ROM loading must be done after setting options
+        self.ale.loadROM(atari_py.get_game_path(args.game))
         actions = self.ale.getMinimalActionSet()
         self.actions = dict([i, e] for i, e in zip(range(len(actions)), actions))
         self.action_space = spaces.Discrete(len(self.actions))
@@ -70,7 +72,7 @@ class Env:
         2. Some atari roms render only every second frame, so in order to not get an empty frame and
          use the same code for all atari games they max pool frames 3 & 4.
         A more detailed explanation from D. Takeshi can be found on:
-        https://danieltakeshi.github.io/2016/11/25/frame-skipping-and-preprocessing-for-deep-q-networks-on-atari-2600-games/
+        https://tinyurl.com/yx9pgxm9
         """
         # Repeat action 4 times, max pool over last 2 frames
         frame_buffer = torch.zeros(2, 84, 84, device=self.device)
@@ -105,7 +107,7 @@ class Env:
         self.training = False
 
     def render(self):
-        cv2.imshow('screen', self.ale.getScreenRGB()[:, :, ::-1])
+        cv2.imshow("screen", self.ale.getScreenRGB()[:, :, ::-1])
         cv2.waitKey(1)
 
     def close(self):
@@ -118,36 +120,38 @@ class FrameStackEnv(gym.Wrapper):
     is called. It is meant to be used only to wrap our ai2thor environment. Use Env class from
     this script to load the atari wrapped environments from the original repository.
     """
-    def __init__(self, env, frame_stack, device):
+
+    def __init__(self, env, num_frame_stack, device):
         gym.Wrapper.__init__(self, env)
         self.config = env.config
-        self.frame_stack = frame_stack
+        self.num_frame_stack = num_frame_stack
         self.device = device
-        self.state_buffer = deque([], maxlen=self.frame_stack)
+        self.state_buffer = deque([], maxlen=self.num_frame_stack)
 
     def step(self, action):
         """
-        We stack n_step frames together so that the CNN can capture the consistency of movements as
-        it is done in DQN nature paper for atari environments.
+        We stack num_frame_stack frames together so that the CNN can capture the consistency of
+        movements as it is done in DQN nature paper for atari environments.
         The frames are stacked one by one using a deque, which means that every step we move only
         the oldest frame is removed and the newest is appended.
-        If n_step == 1, we are simply using one frame as the input to our CNN.
+        If num_frame_stack == 1, we are simply using one frame as the input to our CNN.
         The done and info belong to the last step only.
         """
-        while True:
+        if len(self.state_buffer) == 0:
+            # TODO: If deque empty, stack initial state self.num_frame_stack times
+            # stack frames until max
+            state, reward, done, info = self.env.step(action)
+        else:
             state, reward, done, info = self.env.step(action)
             observation = torch.from_numpy(state).float().to(self.device)
             self.state_buffer.append(observation)
-            if len(self.state_buffer) == self.frame_stack:
-                break
         # num stacked frames x H x W
         state = torch.cat(list(self.state_buffer), 0)
         # Return state, reward, done, info
         return state, reward, done, info
 
     def reset(self):
-        _ = self.env.reset()
-        self.state_buffer = deque([], maxlen=self.frame_stack)
-        state, _, _, _ = self.step(self.env.action_space.sample())
-
+        # TODO: check that it works
+        state = self.env.reset()
+        self.state_buffer = deque([], maxlen=self.num_frame_stack)
         return state

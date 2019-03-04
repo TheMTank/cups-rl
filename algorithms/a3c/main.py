@@ -24,8 +24,8 @@ from algorithms.a3c.model import ActorCritic
 from algorithms.a3c.test import test
 from algorithms.a3c.train import train
 
-# Based on
-# https://github.com/pytorch/examples/tree/master/mnist_hogwild
+
+# Based on: https://github.com/pytorch/examples/tree/master/mnist_hogwild
 # Training settings
 parser = argparse.ArgumentParser(description='A3C')
 parser.add_argument('--lr', type=float, default=0.0001,

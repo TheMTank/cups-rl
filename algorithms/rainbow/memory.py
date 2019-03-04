@@ -101,11 +101,12 @@ class ReplayMemory:
 
     # Returns a transition with blank states where appropriate
     def _get_transition(self, idx):
+        # TODO: add docstring
         transition = np.array([None] * (self.history + self.n))
         transition[self.history - 1] = self.transitions.get(idx)
         for t in range(self.history - 2, -1, -1):  # e.g. 2 1 0
             if transition[t + 1].timestep == 0:
-                transition[t] =self.blank_trans  # If future frame has timestep 0
+                transition[t] = self.blank_trans  # If future frame has timestep 0
             else:
                 transition[t] = self.transitions.get(idx - self.history + 1 + t)
         for t in range(self.history, self.history + self.n):  # e.g. 4 5 6
@@ -117,6 +118,7 @@ class ReplayMemory:
 
     # Returns a valid sample from a segment
     def _get_sample_from_segment(self, segment, i):
+        # TODO: add docstring
         valid = False
         while not valid:
             # Uniformly sample an element from within a segment
@@ -129,6 +131,7 @@ class ReplayMemory:
                 # Note that conditions are valid but extra conservative around buffer index 0
                 valid = True
 
+        # TODO: fix comment in line immediately below
         # Retrieve all required transition data (from t - h to t + n)
         transition = self._get_transition(idx)
         # Create un-discretised state and nth next state
@@ -171,7 +174,8 @@ class ReplayMemory:
         # Calculate normalised probabilities
         probs = np.array(probs, dtype=np.float32) / p_total
         capacity = self.capacity if self.transitions.full else self.transitions.index
-        # Compute importance-sampling weights w_j = ((N * P(j))^−β) / max_i * w_i
+        # TODO: describe the formulas separately and not as a whole
+        # Compute importance-sampling weights w_j = ((N * P(j))^−β) / max(w_i)
         weights = (capacity * probs) ** -self.priority_weight
         # Normalise by max importance-sampling weight from batch
         weights = torch.tensor(weights / weights.max(), dtype=torch.float32, device=self.device)
