@@ -210,7 +210,8 @@ class GroundingEnv:
         return reward
 
     def get_agent_and_object_positions(self):
-        """Get agent and object positions based on the difficulty
+        """
+        Get agent and object positions based on the difficulty
         of the environment.
         """
         object_x_coordinates = []

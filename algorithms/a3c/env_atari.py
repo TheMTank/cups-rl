@@ -6,11 +6,8 @@ input frame and a running average normalisation of said frame after resizing
 """
 
 from __future__ import print_function
-from time import sleep
-import collections
-import codecs
-import json
 
+import cv2
 import gym
 import numpy as np
 from gym import spaces

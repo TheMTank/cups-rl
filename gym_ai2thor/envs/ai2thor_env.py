@@ -126,7 +126,7 @@ class AI2ThorEnv(gym.Env):
                 raise ValueError('Unity build file at:\n{}\n does not exist'.format(
                     self.build_file_path))
             self.controller.local_executable_path = self.build_file_path
-            self.controller.start()
+        self.controller.start()
 
         self.reset_ever = False
 

@@ -101,6 +101,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             cx = torch.zeros(1, 256)
             hx = torch.zeros(1, 256)
         else:
+            # Detach hidden states to make sure we don't backprop through more than args.num_steps hidden states
             cx = cx.detach()
             hx = hx.detach()
 

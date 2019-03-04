@@ -22,7 +22,7 @@ def calculate_lstm_input_size_for_A3C(resolution, stride=2, kernel_size=3, paddi
     11x11 after 2 layers -> 6x6 after 3 -> and finally 3x3 after 4 layers
     Therefore lstm input size after flattening would be (3 * 3 * num_filters)
     """
-
+    # todo make it work for rectangular images
     width = (resolution[0] - kernel_size + 2 * padding) // stride + 1
     width = (width - kernel_size + 2 * padding) // stride + 1
     width = (width - kernel_size + 2 * padding) // stride + 1
@@ -32,10 +32,10 @@ def calculate_lstm_input_size_for_A3C(resolution, stride=2, kernel_size=3, paddi
 
 def calculate_input_width_height_for_A3C_LSTM_GA(resolution):
     """
-    Assumes square resolution image. Similar to the calculate_lstm_input_size_for_A3C function
-    except that there are only 3 conv layers and there is variation among the kernel_size, stride,
-    the number of channels and there is no padding. Therefore these are hardcoded.
-    Check A3C_LSTM_GA class for these numbers.
+    Does't assume square resolution image (since ViZDoom default is not square).
+    Similar to the calculate_lstm_input_size_for_A3C function except that there are only
+    3 conv layers and there is variation among the kernel_size, stride, the number of channels
+    and there is no padding. Therefore these are hardcoded. Check A3C_LSTM_GA class for these numbers.
     Also, returns tuple representing (width, height, num_output_filters) instead of size
     """
 
@@ -138,6 +138,7 @@ class A3C_LSTM_GA(torch.nn.Module):
     could learn and language ground itself in the meaning of "red" with a filter that learns this
     mapping. There is also a time embedding layer to help stabilize value prediction.
     Only 3 conv layers compared to ActorCritic's 4 layers.
+    Originally ran on ViZDoom environment with a non-square image state
     """
     def __init__(self, num_input_channels, num_outputs, resolution, vocab_size, episode_length):
         super(A3C_LSTM_GA, self).__init__()

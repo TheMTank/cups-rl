@@ -53,7 +53,6 @@ class BaseTask:
         self.max_object_pickup_euclidean_dist = None
         self.random_scene_ids_on_reset = self.config['task'].get('random_scene_ids_on_reset')
 
-
     def transition_reward(self, state):
         """
         Returns the reward given the corresponding information (state, dictionary with objects
