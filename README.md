@@ -137,10 +137,10 @@ microwave.
   <p>Example of task "place cup in microwave"</p>
 </div>
 
-Semi-optimal A3C agent learning on NaturalLanguagePickUpMultipleObjectTask with the object being CUPS! 
-<video autoplay loop muted playsinline>
-  <source src="docs/bowls_fp_404_compressed.mp4" type="video/mp4">
-</video>
+<div align="center">
+  <img src="docs/bowls_fp_404_compressed_gif.gif" width="294px" />
+  <p>Semi-optimal A3C agent learning on NaturalLanguagePickUpMultipleObjectTask with the object being CUPS!</p>
+</div>
 
 ## The Team
 
