@@ -1,4 +1,4 @@
-# ai2thor-experiments
+# cups-rl
 
 This project will focus primarily on the implementation and benchmark of different approaches to 
 domain and task transfer learning in reinforcement learning. The focus lies on a diverse set of 
@@ -11,6 +11,8 @@ We included our own wrapper for the environment as well to support the modificat
 within an openAI gym interface, so that new and more complex tasks can be developed efficiently to 
 train and test the agent.
 
+We will release a blog soon which will go into more detail about this repo and the first results of algorithms trained on these tasks.
+Keep an eye out! 
 More detailed information on ai2thor environment can be found on their 
 [tutorial](http://ai2thor.allenai.org/tutorials/installation).
 
@@ -32,11 +34,11 @@ hyperparams and on the atari environment as well.
 
 ## Installation
 
-Clone ai2thor-experiments repository:
+Clone cups-rl repository:
 
 ```
-# AI2THOR_EXPERIMENTS=/path/to/clone/ai2thor-experiments
-git clone https://github.com/TheMTank/ai2thor-experiments.git $AI2THOR_EXPERIMENTS
+# AI2THOR_EXPERIMENTS=/path/to/clone/cups-rl
+git clone https://github.com/TheMTank/cups-rl.git $AI2THOR_EXPERIMENTS
 ```
 
 Install Python dependencies (Currently only supporting python 3.5+):
@@ -135,6 +137,11 @@ microwave.
   <p>Example of task "place cup in microwave"</p>
 </div>
 
+Semi-optimal A3C agent learning on NaturalLanguagePickUpMultipleObjectTask with the object being CUPS! 
+<video autoplay loop muted playsinline>
+  <source src="docs//home/beduffy/Downloads/bowls_fp_404_compressed.mp4" type="video/mp4">
+</video>
+
 ## The Team
 
 [The M Tank](http://www.themtank.org/) is a non-partisan organisation that works solely to recognise the multifaceted 
@@ -146,4 +153,4 @@ To produce value for the individual, for researchers, for institutions and for t
 
 ## License
 
-This project is released under the [MIT license](https://github.com/TheMTank/ai2thor-experiments/master/LICENSE).
+This project is released under the [MIT license](https://github.com/TheMTank/cups-rl/master/LICENSE).
