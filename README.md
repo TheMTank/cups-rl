@@ -139,7 +139,7 @@ microwave.
 
 Semi-optimal A3C agent learning on NaturalLanguagePickUpMultipleObjectTask with the object being CUPS! 
 <video autoplay loop muted playsinline>
-  <source src="docs//home/beduffy/Downloads/bowls_fp_404_compressed.mp4" type="video/mp4">
+  <source src="docs/bowls_fp_404_compressed.mp4" type="video/mp4">
 </video>
 
 ## The Team
