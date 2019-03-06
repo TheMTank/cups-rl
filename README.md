@@ -132,8 +132,8 @@ Here is the desired result of an example task in which the goal of the agent is 
 microwave.
 
 <div align="center">
-  <img src="docs/cup_into_microwave.gif" width="294px" />
-  <p>Example of task "place cup in microwave"</p>
+  <img src="docs/cup_into_sink.gif" width="294px" />
+  <p>Example of task "place cup in sink"</p>
 </div>
 
 <div align="center">
