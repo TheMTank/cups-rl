@@ -1,4 +1,4 @@
-# cups-rl
+# cups-rl -- Customizable Unity Photorealistic Simulation for Reinforcement Learning algorithms
 
 This project will focus primarily on the implementation and benchmark of different approaches to 
 domain and task transfer learning in reinforcement learning. The focus lies on a diverse set of 
@@ -11,8 +11,7 @@ We included our own wrapper for the environment as well to support the modificat
 within an openAI gym interface, so that new and more complex tasks can be developed efficiently to 
 train and test the agent.
 
-We will release a blog soon which will go into more detail about this repo and the first results of algorithms trained on these tasks.
-Keep an eye out! 
+We will release a blog soon which will go into more detail about this repo and how to use all of the features of our wrapper.
 More detailed information on ai2thor environment can be found on their 
 [tutorial](http://ai2thor.allenai.org/tutorials/installation).
 
@@ -37,15 +36,15 @@ hyperparams and on the atari environment as well.
 Clone cups-rl repository:
 
 ```
-# AI2THOR_EXPERIMENTS=/path/to/clone/cups-rl
-git clone https://github.com/TheMTank/cups-rl.git $AI2THOR_EXPERIMENTS
+# CUPS_RL=/path/to/clone/cups-rl
+git clone https://github.com/TheMTank/cups-rl.git $CUPS_RL
 ```
 
 Install Python dependencies (Currently only supporting python 3.5+):
 
-`pip install -r $AI2THOR_EXPERIMENTS/requirements.txt`
+`pip install -r $CUPS_RL/requirements.txt`
 
-Finally, add `AI2THOR_EXPERIMENTS` to your PYTHONPATH environment variable and you are done.
+Finally, add `CUPS_RL` to your PYTHONPATH environment variable and you are done.
 
 ## How to use
 
@@ -139,7 +138,7 @@ microwave.
 
 <div align="center">
   <img src="docs/bowls_fp_404_compressed_gif.gif" width="294px" />
-  <p>Semi-optimal A3C agent learning on NaturalLanguagePickUpMultipleObjectTask with the object being CUPS!</p>
+  <p>A3C agent learning during training on NaturalLanguagePickUpMultipleObjectTask in one of our customized scenes and tasks with the target object being CUPS!</p>
 </div>
 
 ## The Team
