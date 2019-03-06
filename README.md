@@ -15,6 +15,12 @@ We will release a blog soon which will go into more detail about this repo and h
 More detailed information on ai2thor environment can be found on their 
 [tutorial](http://ai2thor.allenai.org/tutorials/installation).
 
+
+<div align="center">
+  <img src="docs/bowls_fp_404_compressed_gif.gif" width="294px" />
+  <p>A3C agent learning during training on NaturalLanguagePickUpMultipleObjectTask in one of our customized scenes and tasks with the target object being CUPS!</p>
+</div>
+
 ## Overview
 
 This project will include implementations and adaptations of the following papers as a benchmark of 
@@ -129,17 +135,13 @@ We encourage you to explore the scripts on the `examples` folder to guide you on
  tasks. 
 
 Here is the desired result of an example task in which the goal of the agent is to place a cup in the 
-microwave.
+sink.
 
 <div align="center">
   <img src="docs/cup_into_sink.gif" width="294px" />
   <p>Example of task "place cup in sink"</p>
 </div>
 
-<div align="center">
-  <img src="docs/bowls_fp_404_compressed_gif.gif" width="294px" />
-  <p>A3C agent learning during training on NaturalLanguagePickUpMultipleObjectTask in one of our customized scenes and tasks with the target object being CUPS!</p>
-</div>
 
 ## The Team
 
