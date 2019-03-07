@@ -16,19 +16,23 @@ import torch.nn.functional as F
 def calculate_lstm_input_size_for_A3C(resolution, stride=2, kernel_size=3, padding=1,
                                      num_filters=32):
     """
-    Assumes square resolution image. Find LSTM size after 4 conv layers below in A3C using regular
+    Find LSTM size after 4 conv layers below in A3C using regular
     convolution math. For example:
     42x42 -> (42 − 3 + 2)÷ 2 + 1 = 21x21 after 1 layer
     11x11 after 2 layers -> 6x6 after 3 -> and finally 3x3 after 4 layers
     Therefore lstm input size after flattening would be (3 * 3 * num_filters)
     """
-    # todo make it work for rectangular images
     width = (resolution[0] - kernel_size + 2 * padding) // stride + 1
     width = (width - kernel_size + 2 * padding) // stride + 1
     width = (width - kernel_size + 2 * padding) // stride + 1
     width = (width - kernel_size + 2 * padding) // stride + 1
 
-    return width * width * num_filters
+    height = (resolution[1] - kernel_size + 2 * padding) // stride + 1
+    height = (height - kernel_size + 2 * padding) // stride + 1
+    height = (height - kernel_size + 2 * padding) // stride + 1
+    height = (height - kernel_size + 2 * padding) // stride + 1
+
+    return width * height * num_filters
 
 def calculate_input_width_height_for_A3C_LSTM_GA(resolution):
     """
