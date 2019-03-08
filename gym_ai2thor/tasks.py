@@ -144,7 +144,7 @@ class NaturalLanguageBaseTask(BaseTask):
         print('Current instruction: {}. object type (last word in sentence): {}'.format(
             self.curr_instruction, self.curr_object_type))
 
-        self.default_reward = 1
+        self.default_reward = kwargs['task'].get('default_reward', 1)
 
     def get_extra_state(self):
         return self.curr_instruction
@@ -254,6 +254,7 @@ class NaturalLanguagePickUpObjectTask(NaturalLanguageBaseTask):
         if object_picked_up:
             # Add reward from the specific object
             if curr_inventory[0]['objectType'] == self.curr_object_type:
+                print('Picked up correct object')
                 reward += self.default_reward
             else:
                 print('Picked up wrong object')

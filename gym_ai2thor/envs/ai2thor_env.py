@@ -40,6 +40,7 @@ class AI2ThorEnv(gym.Env):
     """
     This class wraps the ai2thor environment
     """
+    # todo get rid of seed?
     def __init__(self, seed=None, config_file='config_files/default_config.json', config_dict=None):
         """
         :param seed:         (int)   Random seed

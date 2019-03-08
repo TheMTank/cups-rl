@@ -17,6 +17,7 @@
         "task_name": "NaturalLanguagePickUpObjectTask",
         "list_of_instructions": ["Newspaper", "RemoteControl", "CellPhone", "TissueBoxEmpty", "Book"],
         "max_object_pickup_crosshair_dist": 1.2,
-        "max_object_pickup_euclidean_dist": 0.55
+        "max_object_pickup_euclidean_dist": 0.55,
+        "default_reward": 5
     }
 }

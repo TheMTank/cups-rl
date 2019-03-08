@@ -217,7 +217,8 @@ if __name__ == '__main__':
         config_file_dir_path = os.path.abspath(os.path.join(__file__, '../../..', 'gym_ai2thor',
                                                             'config_files'))
         args.config_file_path = os.path.join(config_file_dir_path, args.config_file_name)
-        env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict)
+        env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict,
+                         seed=args.seed)  # todo decide
         args.resolution = (env.config['resolution'][0], env.config['resolution'][1])
 
     # Create shared model
@@ -245,7 +246,7 @@ if __name__ == '__main__':
     checkpoint_counter = False
     if not os.path.exists(args.checkpoint_path):
         print('Tensorboard created experiment folder: {} and checkpoint folder '
-                     'made here: {}'.format(args.experiment_path, args.checkpoint_path))
+              'made here: {}'.format(args.experiment_path, args.checkpoint_path))
         os.makedirs(args.checkpoint_path)
     else:
         print('Checkpoints path already exists at path: {}'.format(args.checkpoint_path))

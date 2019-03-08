@@ -21,7 +21,7 @@ More detailed information on ai2thor environment can be found on their
   <p>A3C agent learning during training on NaturalLanguagePickUpMultipleObjectTask in one of our customized scenes and tasks with the target object being CUPS!</p>
 </div>
 
-## Overview
+## Running algorithms on ai2thor
 
 This project will include implementations and adaptations of the following papers as a benchmark of 
 the current state of the art approaches to the problem:
@@ -80,8 +80,10 @@ for episode in range(N_EPISODES):
 
 ### Environment and Task configurations
 
+##### JSON config files and config_dict
+
 The environment is typically defined by a JSON configuration file located on the `gym_ai2thor/config_files` 
-folder. You can find a full example at `config_example.json` to see how to customize it. Here there is 
+folder. You can find a full example at `default_config.json` to see how to customize it. Here there is 
 another one as well:
 
 ```
@@ -103,7 +105,11 @@ another one as well:
 For experimentation it is important to be able to make slight modifications of the environment 
  without having to create a new config file each time. The class `AI2ThorEnv` includes the keyword 
  argument `config_dict`, that allows to input a python dictionary **in addition to** the config file 
- that overrides the parameters described in the config.
+ that overrides the parameters described in the config. In summary, the full interface to the constructor:  
+ 
+ `env = AI2ThorEnv(env = AI2ThorEnv(config_file=config_file_name, config_dict=config_dict))` 
+
+##### Tasks and TaskFactory
 
 The tasks are defined in `envs/tasks.py` and allow for particular configurations regarding the 
 rewards given and termination conditions for an episode. You can use the tasks that we defined
@@ -138,12 +144,16 @@ class MoveAheadTask(BaseTask):
         self.step_num = 0
 ```
 
-Some tasks allow you return extra state by filling in the get_extra_state() function but again check 
+Some tasks allow you return extra state by filling in the get_extra_state() function (e.g. for returning a Natural Language instruction within the state). Again, check 
 tasks.py for more details.
+
+##### Examples and Task variants
 
 We encourage you to explore the scripts on the `examples` folder to guide you on the wrapper
  functionalities and explore how to create more customized versions of ai2thor environments and 
- tasks. Config files and tasks can be combined together to form Task variants e.g. Natural language pick up task but only allowing 
+ tasks. 
+ 
+ And most importantly, config files and tasks can be combined together to form **Task variants** e.g. NaturalLanguagePickUpObjectTask but only allowing 
  cups and bowls to be picked up hence: `gym_ai2thor/config_files/NL_pickup_bowls_vs_cups_fp1_config.json`
 
 Here is the desired result of an example task in which the goal of the agent is to place a cup in the 

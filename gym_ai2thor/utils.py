@@ -51,15 +51,16 @@ def read_config(config_path, config_dict=None):
             if key == 'task':
                 for task_key in config_dict[key]:
                     if task_key in config[key]:
-                        warnings.warn('Key: [\'{}\'][\'{}\'] already in config file with value {}. '
-                                      'Overwriting with value: {}'.format(key, task_key,
+                        if config[key][task_key] != config_dict[key][task_key]:
+                            warnings.warn('Key: [\'{}\'][\'{}\'] already in config file with value '
+                                          '{}. Overwriting with value: {}'.format(key, task_key,
                                                 config[key][task_key], config_dict[key][task_key]))
-                        config[key][task_key] = config_dict[key][task_key]
+                            config[key][task_key] = config_dict[key][task_key]
             # else just a regular check
             elif key in config:
-                # todo possibly only warn if actually overwriting and not just for every key. yes
-                warnings.warn('Key: {} already in config file with value {}. '
-                              'Overwriting with value: {}'.format(key, config[key],
+                if config[key] != config_dict[key]:
+                    warnings.warn('Key: {} already in config file with value {}. '
+                                  'Overwriting with value: {}'.format(key, config[key],
                                                                   config_dict[key]))
             config[key] = config_dict[key]
 
