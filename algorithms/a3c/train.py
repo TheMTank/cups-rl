@@ -161,10 +161,11 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 # increment global step counter variable across processes
                 counter.value += 1
 
-            # logging, benchmarking and saving stats
+            # logging, saving stats, benchmarking and resetting
             if done:
                 all_rewards_in_episode.append(reward)
                 total_reward_for_episode = sum(all_rewards_in_episode)
+                all_rewards_in_episode = []
                 episode_total_rewards_list.append(total_reward_for_episode)
                 # only calculate after after set number of episodes have passed
                 if len(episode_total_rewards_list) > avg_over_num_episodes:
@@ -172,7 +173,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                                         / len(episode_total_rewards_list[-avg_over_num_episodes:])
                     avg_episode_returns.append(avg_episode_return)
                     writer.add_scalar('avg_episode_returns', avg_episode_return, episode_number)
-                all_rewards_in_episode = []
+                # todo something is still not right here
 
                 print('Rank: {}. Episode {} Over. Total Length: {}. Total reward for episode: '
                       '{:.4f}'.format(rank, episode_number, total_length, total_reward_for_episode))
@@ -185,7 +186,6 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                     writer.add_scalar('episode_lengths', episode_length, episode_number)
                     writer.add_scalar('episode_total_rewards', total_reward_for_episode,
                                       episode_number)
-                    writer.add_image('Image', image_state, episode_number)
 
                 # instruction_indices is None if task doesn't require language instructions
                 state = env.reset()
@@ -216,7 +216,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             curr_return = value.detach()
 
         # if episode is terminal, curr_return is 0. Otherwise, predicted value is curr_return
-        # This is because V_t+1(S) will need need to succeed for terminal state below: values[i + 1]
+        # This is because V_t+1(S) will need to succeed for terminal state below: values[i + 1]
         values.append(curr_return)
         policy_loss = 0
         value_loss = 0
@@ -227,11 +227,11 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             advantage = curr_return - values[i]
             value_loss = value_loss + 0.5 * advantage.pow(2)
 
-            # Generalized Advantage Estimation (GAE).TD residual: delta_t = r_t + 𝛾 * V_t+1 - V_t
+            # Generalized Advantage Estimation (GAE). TD residual: delta_t = r_t + 𝛾 * V_t+1 - V_t
             delta_t = rewards[i] + args.gamma * values[i + 1] - values[i]
             gae = gae * args.gamma * args.tau + delta_t
 
-            # log probability of action multiple by GAE with entropy to encourage exploration
+            # log probability of action multipled with GAE with entropy to encourage exploration
             policy_loss = policy_loss - log_probs[i] * gae.detach() - \
                           args.entropy_coef * entropies[i]
 

@@ -14,7 +14,7 @@ import torch.nn.functional as F
 
 
 def calculate_lstm_input_size_for_A3C(resolution, stride=2, kernel_size=3, padding=1,
-                                     num_filters=32):
+                                      num_filters=32):
     """
     Find LSTM size after 4 conv layers below in A3C using regular
     convolution math. For example:
@@ -34,13 +34,13 @@ def calculate_lstm_input_size_for_A3C(resolution, stride=2, kernel_size=3, paddi
 
     return width * height * num_filters
 
+
 def calculate_input_width_height_for_A3C_LSTM_GA(resolution):
     """
-    Does't assume square resolution image (since ViZDoom default is not square).
     Similar to the calculate_lstm_input_size_for_A3C function except that there are only
     3 conv layers and there is variation among the kernel_size, stride, the number of channels
-    and there is no padding. Therefore these are hardcoded. Check A3C_LSTM_GA class for these numbers.
-    Also, returns tuple representing (width, height, num_output_filters) instead of size
+    and there is no padding. Therefore these are hardcoded. Check A3C_LSTM_GA class for these
+    numbers. Also, returns tuple representing (width, height, num_output_filters) instead of size
     """
 
     width = (resolution[0] - 8) // 4 + 1
@@ -53,7 +53,9 @@ def calculate_input_width_height_for_A3C_LSTM_GA(resolution):
 
     return width, height, 64
 
+
 def normalized_columns_initializer(weights, std=1.0):
+    # todo can still explain more
     """
     Weights are normalized over their column. Also, allows control over std which is useful for
     initialising action logit output so that all actions have similar likelihood
@@ -63,7 +65,9 @@ def normalized_columns_initializer(weights, std=1.0):
     out *= std / torch.sqrt(out.pow(2).sum(1, keepdim=True).expand_as(out))
     return out
 
+
 def weights_init(m):
+    # todo add docstring on why magic numbers like 6 and name of normalisation
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
         weight_shape = list(m.weight.data.size())
@@ -99,7 +103,6 @@ class ActorCritic(torch.nn.Module):
         self.conv3 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
         self.conv4 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
 
-        # assumes square image
         self.lstm_cell_size = calculate_lstm_input_size_for_A3C(resolution)
 
         self.lstm = nn.LSTMCell(self.lstm_cell_size, 256)
@@ -136,13 +139,74 @@ class ActorCritic(torch.nn.Module):
 
 class A3C_LSTM_GA(torch.nn.Module):
     """
+    ASCII charts on architecture, Check original paper and check original charts at:
+    Gated-Attention Architectures for Task-Oriented Language Grounding
+    https://arxiv.org/abs/1706.07230
+____________________________________________________________________________________________________
+                                    Figure 2. Full Model Architecture
+
+                    Image Processing (f_theta_image)         Image Repr.
+                  ___________________________________       __
+                 |  _______     _______     _______ |      |__|
+      image ->   | |conv2d| -> |conv2d| -> |conv2d| | ---> |__|   ---------|
+                 | |______|    |______|    |______| |      |__|            |
+                 |__________________________________|      |__|            |
+                                                                           |   ________     _______
+              Instruction Processing (f_theta_language) Instruction Repr.  |  | multi |    |      |
+                 _____________________________              __             -->| modal | -> |policy|
+instruction ->  |           ________         |             |__|            |  |fusion |    |      |
+                |          |GRU RNN|         |        ---> |__|            |  |_______|    |______|
+                |          |_______|         |             |__|   ---------|
+                |____________________________|             |__|
+
+____________________________________________________________________________________________________
+
+                                Figure 3: Gated-Attention unit architecture.
+
+Image Representation                          Gated-Attention Multi-modal Fusion unit
+      _______                                                               _______
+     |  ____|__                                                            |  ____|__
+     | |  ____|__            ______________________________                | |  ____|__    to policy
+     |_| |  ____|__   ----> | element-wise multiplication |  --------->    |_| |  ____|__     --->
+       |_| |conv2d|         |_____________________________|                  |_| |conv2d|
+         |_|      |                                                            |_|      |
+           |______|                                      ^                       |______|
+                                                         |
+                                                         |
+                                                         |
+
+Instruction Repr. -> Attention vector (a_L) ->  Gated-Attention filters
+  __                    __                       _______
+ |__|                  |__|                     |  ____|__
+ |__|     ---->        |__|    ---->            | |  ____|__
+ |__|                  |__|                     |_| |  ____|__
+ |__|                  |__|                       |_| |conv2d|
+                                                    |_|      |
+                                                      |______|
+
+____________________________________________________________________________________________________
+
+                            Figure 4: A3C policy model architecture
+
+   Flattened GA fusion output                       Policy Learning Module
+                               ___________________________________________________________________
+       __                     |     _________         ___________                                |
+      |__|                    |    |FC layer|  --->  |   LSTM   | --> Critic FC -> value         |
+      |__|      ------>       |    |________|        |__________| --> Actor FC -> policy logits  |
+      |__|                    |                         ^   ^           ^                        |
+      |__|                    |                         |   |           |                        |
+                              |                        cx  hx          tx                        |
+                              |__________________________________________________________________|
+____________________________________________________________________________________________________
+
     Very similar to the above ActorCritic but has Gated Attention (GA) and processes an instruction
     which is a part of the input state. The attention enables the policy to focus on certain parts
     of the input image given the instruction e.g. instruction "Go to the red cup" and a filter
     could learn and language ground itself in the meaning of "red" with a filter that learns this
     mapping. There is also a time embedding layer to help stabilize value prediction.
     Only 3 conv layers compared to ActorCritic's 4 layers.
-    Originally ran on ViZDoom environment with a non-square image state
+    Originally ran on the ViZDoom environment.
+    # todo split into two paragraphs and explain natural language grounding more
     """
     def __init__(self, num_input_channels, num_outputs, resolution, vocab_size, episode_length):
         super(A3C_LSTM_GA, self).__init__()
@@ -156,7 +220,7 @@ class A3C_LSTM_GA(torch.nn.Module):
             self.num_output_filters = calculate_input_width_height_for_A3C_LSTM_GA(resolution)
         self.lstm_cell_size = self.output_width * self.output_height * self.num_output_filters
 
-        # Instruction Processing
+        # Natural Language Instruction Processing
         self.gru_hidden_size = 256
         self.input_size = vocab_size
         self.embedding = nn.Embedding(self.input_size, 32)
@@ -167,11 +231,9 @@ class A3C_LSTM_GA(torch.nn.Module):
 
         # Time embedding layer, helps in stabilizing value prediction
         self.time_emb_dim = 32
-        self.time_emb_layer = nn.Embedding(
-                episode_length,
-                self.time_emb_dim)
+        self.time_emb_layer = nn.Embedding(episode_length, self.time_emb_dim)
 
-        # A3C-LSTM layers
+        # A3C-LSTM layers (extra self.time_emb_dim input to critic+actor)
         self.linear = nn.Linear(self.lstm_cell_size, 256)
         self.lstm = nn.LSTMCell(256, 256)
         self.critic_linear = nn.Linear(256 + self.time_emb_dim, 1)

@@ -35,7 +35,7 @@ Implementations of these can be found in the algorithms folder and a3c can be ru
 - `python algorithms/a3c/main.py`
 - For running a config file which is set to the BowlsVsCups variant of the NaturalLanguagePickUpObjectTask in tasks.py for running A3C_LSTM_GA model:  
 `python algorithms/a3c/main.py --config-file-name NL_pickup_bowls_vs_cups_fp1_config.json --verbose-num-steps True --num-random-actions-at-init 4`
-- For running [ViZDoom](https://github.com/mwydmuch/ViZDoom) synchronous with 1 process:  
+- For running [ViZDoom](https://github.com/mwydmuch/ViZDoom) (you will need to install ViZDoom) synchronous with 1 process:  
 `python algorithms/a3c/main.py --verbose-num-steps True --sync --vizdoom -v 1`
 - For running atari with 8 processes:  
 `python algorithms/a3c/main.py --atari --num-processes 8`
