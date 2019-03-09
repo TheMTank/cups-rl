@@ -21,6 +21,7 @@ def calculate_lstm_input_size_for_A3C(resolution, stride=2, kernel_size=3, paddi
     42x42 -> (42 − 3 + 2)÷ 2 + 1 = 21x21 after 1 layer
     11x11 after 2 layers -> 6x6 after 3 -> and finally 3x3 after 4 layers
     Therefore lstm input size after flattening would be (3 * 3 * num_filters)
+    We assume that the same kernel_size, padding and stride is used in all convolutional layers
     """
     width = (resolution[0] - kernel_size + 2 * padding) // stride + 1
     width = (width - kernel_size + 2 * padding) // stride + 1
@@ -40,9 +41,8 @@ def calculate_input_width_height_for_A3C_LSTM_GA(resolution):
     Similar to the calculate_lstm_input_size_for_A3C function except that there are only
     3 conv layers and there is variation among the kernel_size, stride, the number of channels
     and there is no padding. Therefore these are hardcoded. Check A3C_LSTM_GA class for these
-    numbers. Also, returns tuple representing (width, height, num_output_filters) instead of size
+    numbers. Also, returns tuple representing (width, height) instead of size
     """
-
     width = (resolution[0] - 8) // 4 + 1
     width = (width - 4) // 2 + 1
     width = (width - 4) // 2 + 1
@@ -51,7 +51,7 @@ def calculate_input_width_height_for_A3C_LSTM_GA(resolution):
     height = (height - 4) // 2 + 1
     height = (height - 4) // 2 + 1
 
-    return width, height, 64
+    return width, height
 
 
 def normalized_columns_initializer(weights, std=1.0):
@@ -88,6 +88,21 @@ def weights_init(m):
 class ActorCritic(torch.nn.Module):
     """
     Ikostrikov's implementation of A3C (https://arxiv.org/abs/1602.01783).
+
+____________________________________________________________________________________________________
+
+                            Figure 4: A3C policy model architecture
+
+   Image Processing module -> Flattened output ->     Policy Learning Module    --->  Final output
+           ______________________                ___________________________________
+          |     _______    ____ |     __       |      ___________                 |
+image ->  | 4x |conv2d| + |ELU| |    |__|      |     |   LSTM   | --> Critic FC-> | -> value
+          |    |______|   |___| | -> |__| -->  |     |__________| --> Actor FC -> | -> policy logits
+          |                     |    |__|      |        ^   ^                     | -> (hx, cx)
+          |                     |    |__|      |        |   |                     |
+          |_____________________|              |  prev cx  hx                     |
+                                               |__________________________________|
+___________________________________________________________________________________________________
 
     Processes an input image (with num_input_channels) with 4 conv layers,
     interspersed with 4 elu activation functions. The output of the final layer is then flattened
@@ -143,7 +158,7 @@ class A3C_LSTM_GA(torch.nn.Module):
     Gated-Attention Architectures for Task-Oriented Language Grounding
     https://arxiv.org/abs/1706.07230
 ____________________________________________________________________________________________________
-                                    Figure 2. Full Model Architecture
+                            Figure 2. Model Architecture and state processing
 
                     Image Processing (f_theta_image)         Image Repr.
                   ___________________________________       __
@@ -155,7 +170,7 @@ ________________________________________________________________________________
               Instruction Processing (f_theta_language) Instruction Repr.  |  | multi |    |      |
                  _____________________________              __             -->| modal | -> |policy|
 instruction ->  |           ________         |             |__|            |  |fusion |    |      |
-                |          |GRU RNN|         |        ---> |__|            |  |_______|    |______|
+word indices    |          |GRU RNN|         |        ---> |__|            |  |_______|    |______|
                 |          |_______|         |             |__|   ---------|
                 |____________________________|             |__|
 
@@ -164,61 +179,66 @@ ________________________________________________________________________________
                                 Figure 3: Gated-Attention unit architecture.
 
 Image Representation                          Gated-Attention Multi-modal Fusion unit
-      _______                                                               _______
-     |  ____|__                                                            |  ____|__
-     | |  ____|__            ______________________________                | |  ____|__    to policy
-     |_| |  ____|__   ----> | element-wise multiplication |  --------->    |_| |  ____|__     --->
-       |_| |conv2d|         |_____________________________|                  |_| |conv2d|
-         |_|      |                                                            |_|      |
-           |______|                                      ^                       |______|
-                                                         |
-                                                         |
-                                                         |
+      _______
+     |  ____|__                                                       _______
+     | |  ____|__            ________________________                |  ____|__
+     |_| |  ____|__   ----> | element-wise multiply |  --------->    | |  ____|__    to policy
+       |_| |conv2d|         |_______________________|                |_| |  ____|__   ------>
+         |_|      |                                                    |_| |conv2d|
+           |______|                            ^                         |_|      |
+                                               |                           |______|
+                                               |
+                                               |
 
-Instruction Repr. -> Attention vector (a_L) ->  Gated-Attention filters
-  __                    __                       _______
- |__|                  |__|                     |  ____|__
- |__|     ---->        |__|    ---->            | |  ____|__
- |__|                  |__|                     |_| |  ____|__
- |__|                  |__|                       |_| |conv2d|
-                                                    |_|      |
-                                                      |______|
+Instruction Repr. -> Attention vector (a_L) -> Gated-Attention filters
+  __                    __                    _______
+ |__|                  |__|                  |  ____|__
+ |__|     ---->        |__|    ---->         | |  ____|__
+ |__|                  |__|                  |_| |  ____|__
+ |__|                  |__|                    |_| |conv2d|
+                                                 |_|      |
+                                                   |______|
 
 ____________________________________________________________________________________________________
 
                             Figure 4: A3C policy model architecture
 
-   Flattened GA fusion output                       Policy Learning Module
-                               ___________________________________________________________________
-       __                     |     _________         ___________                                |
-      |__|                    |    |FC layer|  --->  |   LSTM   | --> Critic FC -> value         |
-      |__|      ------>       |    |________|        |__________| --> Actor FC -> policy logits  |
-      |__|                    |                         ^   ^           ^                        |
-      |__|                    |                         |   |           |                        |
-                              |                        cx  hx          tx                        |
-                              |__________________________________________________________________|
+   Flattened GA fusion output        --->           Policy Learning Module    --->   Final output
+                               ____________________________________________________
+       __                     |     _________         ___________                 |
+      |__|                    |    |FC layer|  --->  |   LSTM   | --> Critic FC-> | -> value
+      |__|      ------>       |    |________|        |__________| --> Actor FC -> | -> policy logits
+      |__|                    |                         ^   ^           ^         | -> (hx, cx)
+      |__|                    |                         |   |           |         |
+                              |                   prev cx  hx        tx emb       |
+                              |___________________________________________________|
 ____________________________________________________________________________________________________
 
     Very similar to the above ActorCritic but has Gated Attention (GA) and processes an instruction
-    which is a part of the input state. The attention enables the policy to focus on certain parts
-    of the input image given the instruction e.g. instruction "Go to the red cup" and a filter
-    could learn and language ground itself in the meaning of "red" with a filter that learns this
-    mapping. There is also a time embedding layer to help stabilize value prediction.
-    Only 3 conv layers compared to ActorCritic's 4 layers.
-    Originally ran on the ViZDoom environment.
-    # todo split into two paragraphs and explain natural language grounding more
+    which is a part of the input state using a GRU. There is also a time embedding layer to help
+    stabilize value prediction and only 3 conv layers compared to ActorCritic's 4 layers.
+    Originally ran on the ViZDoom environment. The above ASCII art figures and commented code
+    below should make the flow quite clear.
+
+    The gated attention multi-modal fusion module enables the policy to focus on certain parts
+    of the input image given the instruction e.g. for the instruction "Go to the red cup", a
+    specific attention filter could be learned which would enable the agent to language ground
+    itself in the meaning of both "red", "cup" and "go to". Language grounding is the ability to
+    map meaning within symbols+language into real world objects and goals.
     """
+
     def __init__(self, num_input_channels, num_outputs, resolution, vocab_size, episode_length):
         super(A3C_LSTM_GA, self).__init__()
+
+        self.output_width, self.output_height = \
+            calculate_input_width_height_for_A3C_LSTM_GA(resolution)
+        self.num_output_filters = 64
+        self.lstm_cell_size = self.output_width * self.output_height * self.num_output_filters
 
         # Image Processing
         self.conv1 = nn.Conv2d(num_input_channels, 128, kernel_size=8, stride=4)
         self.conv2 = nn.Conv2d(128, 64, kernel_size=4, stride=2)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size=4, stride=2)
-
-        self.output_width, self.output_height, \
-            self.num_output_filters = calculate_input_width_height_for_A3C_LSTM_GA(resolution)
-        self.lstm_cell_size = self.output_width * self.output_height * self.num_output_filters
+        self.conv3 = nn.Conv2d(64, self.num_output_filters, kernel_size=4, stride=2)
 
         # Natural Language Instruction Processing
         self.gru_hidden_size = 256
@@ -227,7 +247,7 @@ ________________________________________________________________________________
         self.gru = nn.GRU(32, self.gru_hidden_size)
 
         # Gated-Attention layers
-        self.attn_linear = nn.Linear(self.gru_hidden_size, 64)
+        self.attn_linear = nn.Linear(self.gru_hidden_size, self.num_output_filters)
 
         # Time embedding layer, helps in stabilizing value prediction
         self.time_emb_dim = 32
@@ -247,9 +267,9 @@ ________________________________________________________________________________
         self.critic_linear.weight.data = normalized_columns_initializer(
             self.critic_linear.weight.data, 1.0)
         self.critic_linear.bias.data.fill_(0)
-
         self.lstm.bias_ih.data.fill_(0)
         self.lstm.bias_hh.data.fill_(0)
+
         self.train()
 
     def forward(self, inputs):
@@ -270,11 +290,12 @@ ________________________________________________________________________________
         # Get the attention vector from the instruction representation
         x_attention = F.sigmoid(self.attn_linear(x_instr_rep))
 
-        # Gated-Attention
+        # Gated-Attention expansion from vector into self.num_output_filters depth slices
+        # so each depth slice has the same attention value spread over the entire width and height
         x_attention = x_attention.unsqueeze(2).unsqueeze(3)
         x_attention = x_attention.expand(1, self.num_output_filters, self.output_height,
-                                         self.output_width)
-        assert x_image_rep.size() == x_attention.size()
+                                         self.output_width)  # BCHW -> 1x64xHxW
+        assert x_image_rep.size() == x_attention.size()  # BCHW must be the same for element-wise
         x = x_image_rep * x_attention  # element-wise multiplication between attention and filters
         x = x.view(x.size(0), -1)
 

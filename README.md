@@ -18,7 +18,7 @@ More detailed information on ai2thor environment can be found on their
 
 <div align="center">
   <img src="docs/bowls_fp_404_compressed_gif.gif" width="294px" />
-  <p>A3C agent learning during training on NaturalLanguagePickUpMultipleObjectTask in one of our customized scenes and tasks with the target object being CUPS!</p>
+  <p>A3C agent training on NaturalLanguagePickUpMultipleObjectTask in one of our customized scenes and tasks with the target object being CUPS!</p>
 </div>
 
 ## Running algorithms on ai2thor
