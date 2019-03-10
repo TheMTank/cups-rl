@@ -172,13 +172,13 @@ class AI2ThorEnv(gym.Env):
                         if self.task.max_object_pickup_euclidean_dist:
                             euc_distance_to_obj = calculate_euc_distance_between_agent_and_object(
                                 self.event.metadata['agent'], obj)
-                            print('3D dist: {}. distance to crosshair: {}'.format(
-                                euc_distance_to_obj, obj['distance']))
+                            # print('3D dist: {}. distance to crosshair: {}'.format(
+                            #     euc_distance_to_obj, obj['distance'])) # todo remove
                             if euc_distance_to_obj < self.task.max_object_pickup_euclidean_dist:
                                 closest_pickupable = obj
                         else:
                             closest_pickupable = obj
-                if closest_pickupable:# and not self.event.metadata['inventoryObjects']: # todo option to check for this@?
+                if closest_pickupable: # and not self.event.metadata['inventoryObjects']: # todo option to check for this@?
                     interaction_obj = closest_pickupable
                     self.event = self.controller.step(
                         dict(action=action_str, objectId=interaction_obj['objectId']))

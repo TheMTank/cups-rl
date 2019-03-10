@@ -151,9 +151,18 @@ parser.add_argument('-e', '--evaluate', type=int, default=0,
                     async must be on and will only run test function""")
 
 if __name__ == '__main__':
-    os.environ['CUDA_VISIBLE_DEVICES'] = ""
+    os.environ['CUDA_VISIBLE_DEVICES'] = "" # todo add GA3C link for more GPU oriented version
 
-    # todo add to README.md more info
+    # todo add to README.md more info about all these eid settings.
+    # todo Test it works from multiple folders
+    # todo move experiments folder within a3c
+    # todo resolve static method vs outside function issue
+    # todo atari unbiased mean
+    # todo synchronous comments fix
+    # todo default atari not working and change to --game/env then string and add else
+    # todo more docstrings on checkpoint loading
+    # todo fix comments with fernando's suggestions below (checkpointing, shared_model,
+    # todo save " ".join(sys.argv[:]) as well since im nervous about finding/writing command after resuming
 
     args = parser.parse_args()
     # set to 0 so that checkpoint resume can overwrite if necessary
@@ -191,13 +200,13 @@ if __name__ == '__main__':
         env.game_init()
         args.resolution = (args.frame_width, args.frame_height)
     else:
-        # if you resume a checkpoint and if args.resume_latest_config == True, changes to the file
-        # will be overwritten by the latest_config.json file. Set to False if you want to change
-        # config settings in the config file after resuming and in the middle of training
+        """ if you resume a checkpoint and if args.resume_latest_config == True, changes to the file
+            will be overwritten by the latest_config.json file. Set to False if you want to change
+            config settings in the config file after resuming and in the middle of training """
         args.last_config_resume_path = os.path.join(args.experiment_path, 'latest_config.json')
         args.config_dict = {}
         if args.resume_latest_config:
-            print('args.resume_latest_config is set on')
+            print('args.resume_latest_config is True. Resuming latest config for the env+task')
             # read last_config.json if it exists, else create it below
             if os.path.exists(args.last_config_resume_path):
                 print('Folder for this args.experiment_id "{}" and latest_config file existed'
@@ -258,12 +267,13 @@ if __name__ == '__main__':
             checkpoint_file_name_ints = [
                 int(x.split('/')[-1].split('.pth.tar')[0].split('_')[-1])
                 for x in checkpoint_paths]
+            # todo just get best? Stop saving each one?
             idx_of_latest = checkpoint_file_name_ints.index(max(checkpoint_file_name_ints))
             checkpoint_to_load = checkpoint_paths[idx_of_latest]
             print('Attempting to load latest checkpoint: {}'.format(checkpoint_to_load))
 
             # load checkpoint and unpack values
-            if os.path.isfile(checkpoint_to_load):
+            if os.path.isfile(checkpoint_to_load):  # todo not needed
                 print("Successfully loaded checkpoint {}".format(checkpoint_to_load))
                 checkpoint = torch.load(checkpoint_to_load)
                 args.total_length = checkpoint['total_length']

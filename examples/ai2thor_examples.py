@@ -96,7 +96,7 @@ def run_multithreaded():
 
     Good examples of how to multi-thread are below
     """
-    thread_count = 1
+    thread_count = 3
 
     def run(thread_num):
         """
@@ -132,12 +132,12 @@ def run_multithreaded():
                           renderObjectImage=render_object_image))
             print('Thread num: {}. init time: {}'.format(thread_num, time.time() - t_start))
             t_start_total = time.time()
-            for _ in range(10):
+            num_steps = 50
+            for _ in range(num_steps):
                 env.step({'action': 'MoveAhead'})
-                env.step({'action': 'RotateRight'})
             total_time = time.time() - t_start_total
             print('Thread num: {}. Total time for 10 steps: {}. {:.2f} fps'.
-                  format(thread_num, total_time, 50 / total_time))
+                  format(thread_num, total_time, num_steps / total_time))
         env.stop()
 
     threads = [threading.Thread(target=run, args=(thread_num, ))

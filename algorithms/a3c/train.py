@@ -149,7 +149,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             action = prob.multinomial(num_samples=1).detach()
             log_prob = log_prob.gather(1, action)
             action_int = action.numpy()[0][0].item()
-            # step and unpack state. Store value, log_prob, reward and entropy at end of the loop
+            # step and unpack state. Store value, log_prob, reward and entropy below
             state, reward, done, _ = env.step(action_int)
             image_state, instruction_indices = unpack_state(state, env)
 
@@ -162,8 +162,12 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                 counter.value += 1
 
             # logging, saving stats, benchmarking and resetting
+            values.append(value)
+            log_probs.append(log_prob)
+            rewards.append(reward)
+            entropies.append(entropy)
+            all_rewards_in_episode.append(reward)
             if done:
-                all_rewards_in_episode.append(reward)
                 total_reward_for_episode = sum(all_rewards_in_episode)
                 all_rewards_in_episode = []
                 episode_total_rewards_list.append(total_reward_for_episode)
@@ -173,15 +177,14 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                                         / len(episode_total_rewards_list[-avg_over_num_episodes:])
                     avg_episode_returns.append(avg_episode_return)
                     writer.add_scalar('avg_episode_returns', avg_episode_return, episode_number)
-                # todo something is still not right here
 
                 print('Rank: {}. Episode {} Over. Total Length: {}. Total reward for episode: '
                       '{:.4f}'.format(rank, episode_number, total_length, total_reward_for_episode))
                 print('Rank: {}. Step no: {}. total length: {}'.format(rank, episode_length,
                                                                        total_length))
                 print('Rank: {}. Total Length: {}. Counter across all processes: {}. '
-                      'Total reward for episode: {}'.format(rank, total_length, counter.value,
-                                                            total_reward_for_episode))
+                      'Total reward for episode: {:.4f}'.format(rank, total_length, counter.value,
+                                                                total_reward_for_episode))
                 if rank == 0:
                     writer.add_scalar('episode_lengths', episode_length, episode_number)
                     writer.add_scalar('episode_total_rewards', total_reward_for_episode,
@@ -193,13 +196,6 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
                 episode_number += 1
                 episode_length = 0
-
-            values.append(value)
-            log_probs.append(log_prob)
-            rewards.append(reward)
-            entropies.append(entropy)
-
-            if done:
                 break
 
         # Calculation of returns, advantages, value_loss, GAE, policy_loss.
