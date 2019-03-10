@@ -137,21 +137,18 @@ class FrameStackEnv(gym.Wrapper):
         If num_frame_stack == 1, we are simply using one frame as the input to our CNN.
         The done and info belong to the last step only.
         """
-        if len(self.state_buffer) == 0:
-            # TODO: If deque empty, stack initial state self.num_frame_stack times
-            # stack frames until max
-            state, reward, done, info = self.env.step(action)
-        else:
-            state, reward, done, info = self.env.step(action)
-            observation = torch.from_numpy(state).float().to(self.device)
-            self.state_buffer.append(observation)
+        state, reward, done, info = self.env.step(action)
+        observation = torch.from_numpy(state).float().to(self.device)
+        self.state_buffer.append(observation)
         # num stacked frames x H x W
         state = torch.cat(list(self.state_buffer), 0)
         # Return state, reward, done, info
         return state, reward, done, info
 
     def reset(self):
-        # TODO: check that it works
         state = self.env.reset()
+        observation = torch.from_numpy(state).float().to(self.device)
         self.state_buffer = deque([], maxlen=self.num_frame_stack)
+        self.state_buffer.extend((observation for _ in range(self.num_frame_stack)))
+        state = torch.cat(list(self.state_buffer), 0)
         return state
