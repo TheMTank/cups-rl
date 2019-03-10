@@ -111,12 +111,12 @@ if __name__ == '__main__':
         env = FrameStackEnv(AI2ThorEnv(config_file=args.config_file), args.history_length,
                             args.device)
         args.resolution = env.config['resolution']
-        args.in_channels = env.observation_space.shape[0] * args.history_length
+        args.img_channels = env.observation_space.shape[0]
     else:
         env = Env(args)
         env.train()
         args.resolution = (84, 84)
-        args.in_channels = args.history_length
+        args.img_channels = 1
     action_space = env.action_space
 
     # Agent
@@ -131,7 +131,10 @@ if __name__ == '__main__':
     """
     priority_weight_increase = (1 - args.priority_weight) / (args.T_max - args.learn_start)
 
-    # Construct validation memory
+    """ Construct validation memory. The transitions stored in this memory will remain constant for 
+    the whole training process. During training this gives us a "fixed" evaluation dataset to see
+    how we are improving the performance of our model. 
+    """
     val_mem = ReplayMemory(args, args.evaluation_size)
     mem_steps, done = 0, True
     for mem_steps in range(args.evaluation_size):
@@ -139,7 +142,6 @@ if __name__ == '__main__':
             state, done = env.reset(), False
         next_state, _, done, _ = env.step(env.action_space.sample())
         # No need to store actions or rewards because we only use the state to evaluate Q
-        # TODO: more explanation, why is Q with this constant memory a good evaluation?
         val_mem.append(state, None, None, done)
         state = next_state
 

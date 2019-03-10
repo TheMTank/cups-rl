@@ -76,8 +76,9 @@ class ReplayMemory:
     def __init__(self, args, capacity):
         self.Transition = namedtuple('Transition',
                                 ('timestep', 'state', 'action', 'reward', 'nonterminal'))
-        self.blank_trans = self.Transition(0, torch.zeros(args.resolution[0], args.resolution[1],
-                                                          dtype=torch.uint8), None, 0, False)
+        self.blank_trans = self.Transition(0, torch.zeros(args.img_channels, args.resolution[0],
+                                                          args.resolution[1], dtype=torch.uint8),
+                                           None, 0, False)
         self.device = args.device
         self.capacity = capacity
         self.history = args.history_length
@@ -90,10 +91,12 @@ class ReplayMemory:
         self.t = 0  # Internal episode timestep counter
         # Store transitions in a wrap-around cyclic buffer within a sum tree for querying priorities
         self.transitions = SegmentTree(capacity)
+        self.channels = args.img_channels
 
     # Adds state and action at time t, reward and terminal at time t + 1
     def append(self, state, action, reward, terminal):
-        state = state[-1].mul(255).to(dtype=torch.uint8, device=torch.device('cpu'))
+        state = state[-self.channels:, ...].mul(255).to(dtype=torch.uint8, device=torch.device('cpu'))
+        state = state if len(state.shape) == 3 else state.unsqueeze(0)
         # Only store last frame and discretise to save memory
         self.transitions.append(self.Transition(self.t, state, action, reward, not terminal),
                                 self.transitions.max)  # Store new transition with maximum priority
@@ -101,7 +104,12 @@ class ReplayMemory:
 
     # Returns a transition with blank states where appropriate
     def _get_transition(self, idx):
-        # TODO: add docstring
+        """
+        Return the idx-th transition in the SegmentTree memory information for multi-step DQN. This
+        includes the transitions from t - self.history  to t + self.n (multi-steps). If a terminal
+        state is reached on the process or there are no previous states to time t, the missing
+        transitions will be filled with blank transitions as defined in self.blank_trans
+        """
         transition = np.array([None] * (self.history + self.n))
         transition[self.history - 1] = self.transitions.get(idx)
         for t in range(self.history - 2, -1, -1):  # e.g. 2 1 0
@@ -113,12 +121,20 @@ class ReplayMemory:
             if transition[t - 1].nonterminal:
                 transition[t] = self.transitions.get(idx - self.history + 1 + t)
             else:
-                transition[t] = self.blank_trans  # If prev (next) frame is terminal
+                transition[t] = self.blank_trans  # If prev/next frame is terminal
         return transition
 
     # Returns a valid sample from a segment
     def _get_sample_from_segment(self, segment, i):
-        # TODO: add docstring
+        """
+        Splitting the memory in segments of size segment, we sample uniformly from the ith segment
+        and return the following information:
+        prob: Transition priority (unnormalized probability)
+        idx: Index of the transition sorted by time-step
+        tree_idx: Index of the transition sorted by priority (index within the SegmentTree)
+        (state, action, R, next_state): Transition information
+        nonterminal: True if the episode doesn't end after or during the n-multi-steps
+        """
         valid = False
         while not valid:
             # Uniformly sample an element from within a segment
@@ -131,15 +147,14 @@ class ReplayMemory:
                 # Note that conditions are valid but extra conservative around buffer index 0
                 valid = True
 
-        # TODO: fix comment in line immediately below
         # Retrieve all required transition data (from t - h to t + n)
         transition = self._get_transition(idx)
         # Create un-discretised state and nth next state
-        state = torch.stack([trans.state for trans in transition[:self.history]]).to(
-          dtype=torch.float32, device=self.device).div_(255)
-        next_state = torch.stack([trans.state
-                                  for trans in transition[self.n:self.n + self.history]]).to(
-          dtype=torch.float32, device=self.device).div_(255)
+        state = torch.cat([trans.state for trans in transition[:self.history]], 0).to(
+            dtype=torch.float32, device=self.device).div_(255)
+        next_state = torch.cat(
+            [trans.state for trans in transition[self.n: (self.n + self.history)]], 0).to(
+            dtype=torch.float32, device=self.device).div_(255)
         # Discrete action to be used as index
         action = torch.tensor([transition[self.history - 1].action], dtype=torch.int64,
                               device=self.device)
@@ -174,10 +189,11 @@ class ReplayMemory:
         # Calculate normalised probabilities
         probs = np.array(probs, dtype=np.float32) / p_total
         capacity = self.capacity if self.transitions.full else self.transitions.index
-        # TODO: describe the formulas separately and not as a whole
-        # Compute importance-sampling weights w_j = ((N * P(j))^−β) / max(w_i)
+        # Compute importance-sampling normalized weights w_j = w_i / max(w_i)
+        # where w_i = (N * P(j))^−β)
         weights = (capacity * probs) ** -self.priority_weight
         # Normalise by max importance-sampling weight from batch
+        # w_j = w_i / max(w_i)
         weights = torch.tensor(weights / weights.max(), dtype=torch.float32, device=self.device)
         return tree_idxs, states, actions, returns, next_states, nonterminals, weights
 
