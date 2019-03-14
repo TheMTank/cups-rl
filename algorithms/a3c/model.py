@@ -13,47 +13,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def calculate_lstm_input_size_for_A3C(resolution, stride=2, kernel_size=3, padding=1,
-                                      num_filters=32):
-    """
-    Find LSTM size after 4 conv layers below in A3C using regular
-    convolution math. For example:
-    42x42 -> (42 − 3 + 2)÷ 2 + 1 = 21x21 after 1 layer
-    11x11 after 2 layers -> 6x6 after 3 -> and finally 3x3 after 4 layers
-    Therefore lstm input size after flattening would be (3 * 3 * num_filters)
-    We assume that the same kernel_size, padding and stride is used in all convolutional layers
-    """
-    width = (resolution[0] - kernel_size + 2 * padding) // stride + 1
-    width = (width - kernel_size + 2 * padding) // stride + 1
-    width = (width - kernel_size + 2 * padding) // stride + 1
-    width = (width - kernel_size + 2 * padding) // stride + 1
-
-    height = (resolution[1] - kernel_size + 2 * padding) // stride + 1
-    height = (height - kernel_size + 2 * padding) // stride + 1
-    height = (height - kernel_size + 2 * padding) // stride + 1
-    height = (height - kernel_size + 2 * padding) // stride + 1
-
-    return width * height * num_filters
-
-
-def calculate_input_width_height_for_A3C_LSTM_GA(resolution):
-    """
-    Similar to the calculate_lstm_input_size_for_A3C function except that there are only
-    3 conv layers and there is variation among the kernel_size, stride, the number of channels
-    and there is no padding. Therefore these are hardcoded. Check A3C_LSTM_GA class for these
-    numbers. Also, returns tuple representing (width, height) instead of size
-    """
-    width = (resolution[0] - 8) // 4 + 1
-    width = (width - 4) // 2 + 1
-    width = (width - 4) // 2 + 1
-
-    height = (resolution[1] - 8) // 4 + 1
-    height = (height - 4) // 2 + 1
-    height = (height - 4) // 2 + 1
-
-    return width, height
-
-
 def normalized_columns_initializer(weights, std=1.0):
     # todo can still explain more
     """
@@ -118,7 +77,7 @@ ________________________________________________________________________________
         self.conv3 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
         self.conv4 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
 
-        self.lstm_cell_size = calculate_lstm_input_size_for_A3C(resolution)
+        self.lstm_cell_size = self.calculate_lstm_input_size_for_A3C(resolution)
 
         self.lstm = nn.LSTMCell(self.lstm_cell_size, 256)
 
@@ -151,6 +110,29 @@ ________________________________________________________________________________
 
         return self.critic_linear(x), self.actor_linear(x), (hx, cx)
 
+    @staticmethod
+    def calculate_lstm_input_size_for_A3C(resolution, stride=2, kernel_size=3, padding=1,
+                                          num_filters=32):
+        """
+        Find LSTM size after 4 conv layers below in A3C using regular
+        convolution math. For example:
+        42x42 -> (42 − 3 + 2)÷ 2 + 1 = 21x21 after 1 layer
+        11x11 after 2 layers -> 6x6 after 3 -> and finally 3x3 after 4 layers
+        Therefore lstm input size after flattening would be (3 * 3 * num_filters)
+        We assume that the same kernel_size, padding and stride is used in all convolutional layers
+        """
+        width = (resolution[0] - kernel_size + 2 * padding) // stride + 1
+        width = (width - kernel_size + 2 * padding) // stride + 1
+        width = (width - kernel_size + 2 * padding) // stride + 1
+        width = (width - kernel_size + 2 * padding) // stride + 1
+
+        height = (resolution[1] - kernel_size + 2 * padding) // stride + 1
+        height = (height - kernel_size + 2 * padding) // stride + 1
+        height = (height - kernel_size + 2 * padding) // stride + 1
+        height = (height - kernel_size + 2 * padding) // stride + 1
+
+        return width * height * num_filters
+
 
 class A3C_LSTM_GA(torch.nn.Module):
     """
@@ -158,6 +140,7 @@ class A3C_LSTM_GA(torch.nn.Module):
     Gated-Attention Architectures for Task-Oriented Language Grounding
     https://arxiv.org/abs/1706.07230
 ____________________________________________________________________________________________________
+
                             Figure 2. Model Architecture and state processing
 
                     Image Processing (f_theta_image)         Image Repr.
@@ -230,7 +213,7 @@ ________________________________________________________________________________
     def __init__(self, num_input_channels, num_outputs, resolution, vocab_size, episode_length):
         super(A3C_LSTM_GA, self).__init__()
 
-        self.output_width, self.output_height = \
+        self.output_width, self.output_height = self.\
             calculate_input_width_height_for_A3C_LSTM_GA(resolution)
         self.num_output_filters = 64
         self.lstm_cell_size = self.output_width * self.output_height * self.num_output_filters
@@ -306,3 +289,21 @@ ________________________________________________________________________________
         x = torch.cat((hx, time_emb.view(-1, self.time_emb_dim)), 1)
 
         return self.critic_linear(x), self.actor_linear(x), (hx, cx)
+
+    @staticmethod
+    def calculate_input_width_height_for_A3C_LSTM_GA(resolution):
+        """
+        Similar to the calculate_lstm_input_size_for_A3C function except that there are only
+        3 conv layers and there is variation among the kernel_size, stride, the number of channels
+        and there is no padding. Therefore these are hardcoded. Check A3C_LSTM_GA class for these
+        numbers. Also, returns tuple representing (width, height) instead of size
+        """
+        width = (resolution[0] - 8) // 4 + 1
+        width = (width - 4) // 2 + 1
+        width = (width - 4) // 2 + 1
+
+        height = (resolution[1] - 8) // 4 + 1
+        height = (height - 4) // 2 + 1
+        height = (height - 4) // 2 + 1
+
+        return width, height

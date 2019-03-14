@@ -276,8 +276,6 @@ class AI2ThorEnv(gym.Env):
         self.task.step_num = 0  # needed so done returns False below. task.reset() also does this
 
         if self.num_random_actions_at_init > 0:
-            print('Number of random actions at initialisation: {}'.format(
-                self.num_random_actions_at_init))
             for i in range(self.num_random_actions_at_init):
                 action = self.action_space.sample()
                 _, _, done, _ = self.step(action)

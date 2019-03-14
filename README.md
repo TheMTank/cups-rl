@@ -40,7 +40,7 @@ Implementations of these can be found in the algorithms folder and a3c can be ru
 - For running atari with 8 processes:  
 `python algorithms/a3c/main.py --atari --num-processes 8`
 
-Check the argparse help for more details and variations of running the algorithm with different 
+For A3C's `-eid` param you can specify experiment names which will create folders for checkpointing and hyperparameters, otherwise experiment name is the current date and a concatenated random guid. Check the argparse help for more details and variations of running the algorithm with different 
 hyperparams. 
 
 ## Installation
