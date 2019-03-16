@@ -87,23 +87,42 @@ class Agent:
           mem.sample(self.batch_size)
 
         """Calculate current state probabilities (online network noise already sampled)
-        The log is used to calculate the losses. It also provides more stability for the gradients 
-        propagation during training and it is not needed for evaluation 
-        """
+         The log is used to calculate the losses. It also provides more stability for the gradients 
+         propagation during training and it is not needed for evaluation 
+         """
         # Log probabilities log p(s_t, ·; θonline) for the visited states in the sampled transitions
         visited_online_log_probs = self.online_net(states, log=True)
         # log p(s_t, a_t; θonline) of the actions selected on the visited states (online network)
         visited_action_online_log_probs = visited_online_log_probs[range(self.batch_size), actions]
 
-        # TODO: put all this things in the scope of the with in a separate function (returning m)
+        visited_action_target_probs = self.compute_target_probs(states, actions, returns,
+                                                                next_states, nonterminals)
+        """Cross-entropy loss (minimises KL-distance between online and target_probs): 
+        DKL(target_probs || online_log_probs)
+        visited_action_online_log_probs: policy distribution for online network
+        target_probs: aligned target policy distribution
+        """
+        loss = -torch.sum(visited_action_target_probs * visited_action_online_log_probs, 1)
+        self.online_net.zero_grad()
+        # Backpropagate importance-weighted (Prioritized Experience Replay) minibatch loss
+        (weights * loss).mean().backward()
+        self.optimiser.step()
+        # Update priorities of sampled transitions
+        mem.update_priorities(idxs, loss.detach().cpu().numpy())
+
+    def compute_target_probs(self, states, actions, returns, next_states, nonterminals):
+        """
+        Returns probability distribution for target policy given the visited transitions. Since the
+        Q function is defined as a discrete distribution, the expected returns will most likely
+        fall outside the support of the distribution and we won't be able to compute the KL
+        divergence between the target and online policies for the visited transitions. Therefore, we
+        need to project the resulting distribution into the support defined by the network output
+        definition.
+
+        For a detailed explanation of the math behind this process we recommend you to read this
+        blog: https://mtomassoli.github.io/2017/12/08/distributional_rl/
+        """
         with torch.no_grad():
-            """
-            -------------------
-            Policy Evaluation
-            -------------------
-            For a detailed explanation of the math behind this policy evaluation we recommend you to
-            read this blog: https://mtomassoli.github.io/2017/12/08/distributional_rl/
-            """
             # Calculate self.multi_step-th next state Q distribution
             online_z = self.online_net(next_states)
             # We compute the expectation of the Q distribution from the N-step distribution
@@ -156,7 +175,7 @@ class Agent:
                  ...  |    :      |  ...    mass_l += mass_b * 2 / 3
                       |    :      |         mass_u += mass_b * 1 / 3
             Vmin ----------------------- Vmax
-            
+
             The probability mass becomes 0 when l = b = u (b is int). Note that for this case
             u - b + b - l = b - b + b - b = 0 and therefore
             target_probs = visited_action_target_probs * 0
@@ -186,19 +205,7 @@ class Agent:
             target_probs.view(-1).index_add_(
                 0, (u + offset).view(-1), (visited_action_target_probs * (b - l.float())).view(-1)
             )
-
-        """Cross-entropy loss (minimises KL-distance between Z and target_probs): 
-        DKL(target_probs || online_log_probs)
-        visited_action_online_log_probs: policy distribution for online network
-        target_probs: aligned target policy distribution
-        """
-        loss = -torch.sum(target_probs * visited_action_online_log_probs, 1)
-        self.online_net.zero_grad()
-        # Backpropagate importance-weighted (Prioritized Experience Replay) minibatch loss
-        (weights * loss).mean().backward()
-        self.optimiser.step()
-        # Update priorities of sampled transitions
-        mem.update_priorities(idxs, loss.detach().cpu().numpy())
+        return target_probs
 
     def update_target_net(self):
         """Updates target network as explained in Double DQN """
