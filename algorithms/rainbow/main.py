@@ -122,8 +122,7 @@ if __name__ == '__main__':
     # Agent
     dqn = Agent(args, env)
     mem = ReplayMemory(args, args.memory_capacity)
-    """
-    Priority weights are linearly annealed and increase every step by priority_weight_increase from 
+    """ Priority weights are linearly annealed and increase every step by priority_weight_increase from 
     args.priority_weight to 1. 
     Typically, the unbiased nature of the updates is most important near convergence at the end of 
     training, as the process is highly non-stationary anyway, due to changing policies, state 
@@ -133,7 +132,7 @@ if __name__ == '__main__':
 
     """ Construct validation memory. The transitions stored in this memory will remain constant for 
     the whole training process. During training this gives us a "fixed" evaluation dataset to see
-    how we are improving the performance of our model. 
+    how the agent's confidence of its performance is improving. 
     """
     val_mem = ReplayMemory(args, args.evaluation_size)
     mem_steps, done = 0, True
@@ -153,7 +152,7 @@ if __name__ == '__main__':
         # Training loop
         dqn.train()
         num_steps, done = 0, True
-
+        # TODO: change T_max to max_num_steps
         while num_steps < args.T_max:
             if done:
                 state, done = env.reset(), False

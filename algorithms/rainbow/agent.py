@@ -3,6 +3,7 @@ Adapted from https://github.com/Kaixhin/Rainbow
 
 Wrapper class including setup, training and evaluation functions for Rainbow DQN model
 """
+
 import os
 import numpy as np
 import torch
@@ -18,7 +19,7 @@ class Agent:
     def __init__(self, args, env):
         """
         Q(s,a) is the expected reward. Z is the full distribution from which Q is generated.
-        Support represents the support of Z distribution (non-zero part of pdf)
+        Support represents the support of Z distribution (non-zero part of pdf).
         Z is represented with a fixed number of "atoms", which are pairs of values (x_i, p_i)
         composed by the discrete positions (x_i) equidistant along its support defined between
         Vmin-Vmax and the probability mass or "weight" (p_i) for that particular position.
@@ -32,13 +33,13 @@ class Agent:
            Vmin ----------------------- Vmax
         """
         self.action_space = env.action_space
-        self.atoms = args.num_atoms
+        self.num_atoms = args.num_atoms
         self.Vmin = args.V_min
         self.Vmax = args.V_max
-        self.support = torch.linspace(args.V_min, args.V_max, self.atoms).to(device=args.device)
-        self.delta_z = (args.V_max - args.V_min) / (self.atoms - 1)
+        self.support = torch.linspace(args.V_min, args.V_max, self.num_atoms).to(device=args.device)
+        self.delta_z = (args.V_max - args.V_min) / (self.num_atoms - 1)
         self.batch_size = args.batch_size
-        self.n = args.multi_step
+        self.multi_step = args.multi_step
         self.discount = args.discount
 
         self.online_net = RainbowDQN(args, self.action_space).to(device=args.device)
@@ -61,11 +62,11 @@ class Agent:
         self.optimiser = optim.Adam(self.online_net.parameters(), lr=args.lr, eps=args.adam_eps)
 
     def reset_noise(self):
-        """ Resets noisy weights in all linear layers (of online net only) """
+        """Resets noisy weights in all linear layers (of online net only) """
         self.online_net.reset_noise()
 
     def act(self, state):
-        """ Acts based on single state (no batch) """
+        """Acts based on single state (no batch) """
         with torch.no_grad():
             return (self.online_net(state.unsqueeze(0)) * self.support).sum(2).argmax(1).item()
 
@@ -85,77 +86,113 @@ class Agent:
         idxs, states, actions, returns, next_states, nonterminals, weights = \
           mem.sample(self.batch_size)
 
-        """ Calculate current state probabilities (online network noise already sampled)
-        The log provides more stability for the gradients propagation during training and it is 
-        not needed for evaluation """
-        log_ps = self.online_net(states, log=True)  # Log probabilities log p(s_t, ·; θonline)
-        log_ps_a = log_ps[range(self.batch_size), actions]  # log p(s_t, a_t; θonline)
+        """Calculate current state probabilities (online network noise already sampled)
+        The log is used to calculate the losses. It also provides more stability for the gradients 
+        propagation during training and it is not needed for evaluation 
+        """
+        # Log probabilities log p(s_t, ·; θonline) for the visited states in the sampled transitions
+        visited_online_log_probs = self.online_net(states, log=True)
+        # log p(s_t, a_t; θonline) of the actions selected on the visited states (online network)
+        visited_action_online_log_probs = visited_online_log_probs[range(self.batch_size), actions]
 
+        # TODO: put all this things in the scope of the with in a separate function (returning m)
         with torch.no_grad():
             """
             -------------------
             Policy Evaluation
             -------------------
-            Calculate nth next state action probabilities with the online policy for N-step Learning
-            Probabilities: p(s_t+n, ·; θonline), i.e. for all actions
+            For a detailed explanation of the math behind this policy evaluation we recommend you to
+            read this blog: https://mtomassoli.github.io/2017/12/08/distributional_rl/
             """
-            pns = self.online_net(next_states)
-            # We compute the expected Q from the N-step distribution
-            # d_t+n = (z, p(s_t+n, ·; θonline)) = Q(s_t+n, ·) = sum_i(z_i·p_i(s_t+n, ·)) ALL actions
-
-            dns = self.support.expand_as(pns) * pns
-            # Choose optimal action a* from online network
-            # argmax_a[(z, p(s_t+n, a; θonline))]
-            argmax_indices_ns = dns.sum(2).argmax(1)
+            # Calculate self.multi_step-th next state Q distribution
+            online_z = self.online_net(next_states)
+            # We compute the expectation of the Q distribution from the N-step distribution
+            # online q (not distributional) = sum(z_action * p_action) for ALL actions
+            online_q = (self.support.expand_as(online_z) * online_z).sum(2)
+            # Store optimal action a* indices from online Q distribution
+            online_greedy_action_indices = online_q.argmax(1)
             # Sample new target net noise, i.e. fix new random weights for noisy layers to
             # encourage exploration
             self.target_net.reset_noise()
-            # Calculate nth next state action probabilities with the target policy for N-step
-            # Learning. Probabilities p(s_t+n, ·; θtarget), i.e. for all actions
-            pns = self.target_net(next_states)
-            """ Calculate target probabilities for Double DQN. For that we compare the expected Q 
-            from online greedy selection with the expected Q from the target network for the same 
-            action. Probabilities p(s_t+n, argmax_a[(z, p(s_t+n, a; θonline))]; θtarget) """
-            pns_a = pns[range(self.batch_size), argmax_indices_ns]
-            """ Apply distributional N-step Bellman operator Tz (Bellman operator T applied to z)
-            Tz = R^n + (γ^n)z (accounting for terminal states)
-            Look at in _get_sample_from_segment() from memory.py for more details """
-            Tz = returns.unsqueeze(1) + nonterminals * (self.discount ** self.n) \
+            # We compute the Q distribution from the target network
+            target_z = self.target_net(next_states)
+            """Calculate target action probabilities for the actions selected using the online 
+            network. The expected online_q will be optimized towards these values as it is done in 
+            Double DQN.
+            """
+            visited_action_target_probs = target_z[range(self.batch_size),
+                                                   online_greedy_action_indices]
+            """Apply distributional N-step Bellman operator Tz (Bellman operator T applied to z), 
+            also Bellman equation for distributional Q.
+            Tz = returns_t + γ * z_t+1 
+            This is the same as the "classic" Bellman equation but using z instead of V. It
+            accounts terminal states, in which case the z is 0 since we don't expect to get more 
+            rewards in the future. 
+            Since we are doing multi step Q-Learning as well, we will be doing a lookahead of
+            self.multi_step steps. This results in the Tz operator defind as:
+            Tz = returns_t + γ * R_t+1 + ... + (γ ** (n-1)) * R_t+n-1 + (γ ** n) * z_t+n
+            Look at in _get_sample_from_segment() from memory.py for more details on the multi-step
+            calculations
+            """
+            Tz = returns.unsqueeze(1) + nonterminals * (self.discount ** self.multi_step) \
                  * self.support.unsqueeze(0)
             # Clamp values so they fall within the support of Z values
             Tz = Tz.clamp(min=self.Vmin, max=self.Vmax)
-            """ Compute L2 projection of Tz onto fixed support Z.
+            """Compute L2 projection of Tz onto fixed support Z.
             1. Find which values of the discrete fix distribution are the closest lower (l) and 
-            upper value (u) to the values from Tz (b).
-            b = (Tz - Vmin) / Δz """
+            upper value (u) to the values obtained from Tz (b).
+            b = (Tz - Vmin) / Δz 
+            """
             b = (Tz - self.Vmin) / self.delta_z
             l, u = b.floor().to(torch.int64), b.ceil().to(torch.int64)
-            # Fix disappearing probability mass when l = b = u (b is int)
-            l[(u > 0) * (l == u)] -= 1
-            u[(l < (self.atoms - 1)) * (l == u)] += 1
             """
             2. Distribute probability of Tz. Since b is most likely not having the exact value of 
-            one of our predefined atoms, we split its mass between the closest atoms (l, u) in 
-            proportion to their distance to b.
-                                 u
-                     l    b      .     
-                     ._d__.__2d__|    
-                ...  |    :      |  ...    mass_l += mass_b * 1 / 3
-                     |    :      |         mass_r += mass_b * 2 / 3
-           Vmin ----------------------- Vmax
+            one of our predefined atoms, we split its probability mass between the closest atoms 
+            (l, u) in proportion to their OPPOSED distance to b so that the closest atom receives
+            most of the mass in proportion to their distances.
+                                  u
+                      l    b      .     
+                      ._d__.__2d__|    
+                 ...  |    :      |  ...    mass_l += mass_b * 2 / 3
+                      |    :      |         mass_u += mass_b * 1 / 3
+            Vmin ----------------------- Vmax
             
+            The probability mass becomes 0 when l = b = u (b is int). Note that for this case
+            u - b + b - l = b - b + b - b = 0 and therefore
+            target_probs = visited_action_target_probs * 0
+            To fix this, we change  l -= 1 which would result in:
+            u - b + b - l = b - b + b - (b - 1) = 1 and therefore
+            target_probs = visited_action_target_probs * 1
+            Except in the case where b = 0, because l -=1 would make l = -1 and then 
+            target_probs = visited_action_target_probs * -1 
+            Which would mean that we are substracting the probability mass! To handle this case we
+            would only do l -=1 if u > 0, and for the particular case of b = u = l = 0 we would 
+            keep l = 0 but u =+ 1, resulting again in
+            target_probs = visited_action_target_probs * 1
             """
-            m = states.new_zeros(self.batch_size, self.atoms)
-            offset = torch.linspace(0, ((self.batch_size - 1) * self.atoms),
-                                    self.batch_size).unsqueeze(1).expand(self.batch_size,
-                                                                         self.atoms).to(actions)
-            # m_l = m_l + p(s_t+n, a*)(u - b)
-            m.view(-1).index_add_(0, (l + offset).view(-1), (pns_a * (u.float() - b)).view(-1))
-            # m_u = m_u + p(s_t+n, a*)(b - l)
-            m.view(-1).index_add_(0, (u + offset).view(-1), (pns_a * (b - l.float())).view(-1))
+            l[(u > 0) * (l == u)] -= 1  # Handles the case of u = b = l != 0
+            u[(l < (self.num_atoms - 1)) * (l == u)] += 1  # Handles the case of u = b = l = 0
 
-        # Cross-entropy loss (minimises KL-distance between Z and m: DKL(m||p(s_t, a_t)))
-        loss = -torch.sum(m * log_ps_a, 1)
+            # We use new_zeros instead of zeros to auto assign device and dtype of states tensor
+            target_probs = states.new_zeros(self.batch_size, self.num_atoms)
+            offset = torch.linspace(0, ((self.batch_size - 1) * self.num_atoms),
+                                    self.batch_size).unsqueeze(1).expand(self.batch_size,
+                                                                         self.num_atoms).to(actions)
+            # Add probabilities to the closest lower atom
+            target_probs.view(-1).index_add_(
+                0, (l + offset).view(-1), (visited_action_target_probs * (u.float() - b)).view(-1)
+            )
+            # Add probabilities to the closest upper atom
+            target_probs.view(-1).index_add_(
+                0, (u + offset).view(-1), (visited_action_target_probs * (b - l.float())).view(-1)
+            )
+
+        """Cross-entropy loss (minimises KL-distance between Z and target_probs): 
+        DKL(target_probs || online_log_probs)
+        visited_action_online_log_probs: policy distribution for online network
+        target_probs: aligned target policy distribution
+        """
+        loss = -torch.sum(target_probs * visited_action_online_log_probs, 1)
         self.online_net.zero_grad()
         # Backpropagate importance-weighted (Prioritized Experience Replay) minibatch loss
         (weights * loss).mean().backward()
@@ -164,15 +201,15 @@ class Agent:
         mem.update_priorities(idxs, loss.detach().cpu().numpy())
 
     def update_target_net(self):
-        """ Updates target network as explained in Double DQN """
+        """Updates target network as explained in Double DQN """
         self.target_net.load_state_dict(self.online_net.state_dict())
 
-    def save(self, path):
-        """ Save model parameters on current device (don't move model between devices) """
-        torch.save(self.online_net.state_dict(), os.path.join(path, 'model.pth'))
+    def save(self, path, filename):
+        """Save model parameters on current device """
+        torch.save(self.online_net.state_dict(), os.path.join(path, filename))
 
     def evaluate_q(self, state):
-        """ Evaluates Q-value based on single state (no batch) """
+        """Evaluates Q-value based on single state (no batch) """
         with torch.no_grad():
             return (self.online_net(state.unsqueeze(0)) * self.support).sum(2).max(1)[0].item()
 

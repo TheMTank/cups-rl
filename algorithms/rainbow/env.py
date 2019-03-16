@@ -148,7 +148,7 @@ class FrameStackEnv(gym.Wrapper):
     def reset(self):
         state = self.env.reset()
         observation = torch.from_numpy(state).float().to(self.device)
-        self.state_buffer = deque([], maxlen=self.num_frame_stack)
-        self.state_buffer.extend((observation for _ in range(self.num_frame_stack)))
+        self.state_buffer = deque([observation for _ in range(self.num_frame_stack)],
+                                  maxlen=self.num_frame_stack)
         state = torch.cat(list(self.state_buffer), 0)
         return state

@@ -17,6 +17,8 @@ class SegmentTree:
     Note that in practice we use a stratified sampling by dividing the memory into equal size
     segments and sampling uniformly from each one of them at every step. This reduces the sampling
     operation to O(1) as well.
+    # TODO: add ascii art to explain it (propagation and stuff)
+    Efficiently store millions of transitions and sample from them
     """
     def __init__(self, size):
         self.index = 0
@@ -50,6 +52,9 @@ class SegmentTree:
 
     # Searches for the location of a value in sum tree
     def _retrieve(self, index, value):
+        """
+        Binary search tree which finds index with closest probability
+        """
         left, right = 2 * index + 1, 2 * index + 2
         if left >= len(self.sum_tree):
             return index
@@ -83,7 +88,7 @@ class ReplayMemory:
         self.capacity = capacity
         self.history = args.history_length
         self.discount = args.discount
-        self.n = args.multi_step
+        self.multi_step = args.multi_step
         # Initial importance sampling weight β, annealed to 1 over course of training
         self.priority_weight = args.priority_weight
         # Priority exponent α
@@ -95,7 +100,8 @@ class ReplayMemory:
 
     # Adds state and action at time t, reward and terminal at time t + 1
     def append(self, state, action, reward, terminal):
-        state = state[-self.channels:, ...].mul(255).to(dtype=torch.uint8, device=torch.device('cpu'))
+        state = state[-self.channels:, ...].mul(255).to(dtype=torch.uint8,
+                                                        device=torch.device('cpu'))
         state = state if len(state.shape) == 3 else state.unsqueeze(0)
         # Only store last frame and discretise to save memory
         self.transitions.append(self.Transition(self.t, state, action, reward, not terminal),
@@ -106,18 +112,24 @@ class ReplayMemory:
     def _get_transition(self, idx):
         """
         Return the idx-th transition in the SegmentTree memory information for multi-step DQN. This
-        includes the transitions from t - self.history  to t + self.n (multi-steps). If a terminal
-        state is reached on the process or there are no previous states to time t, the missing
-        transitions will be filled with blank transitions as defined in self.blank_trans
+        includes the transitions from t - self.history  to t + self.multi_step (multi-steps). If a
+        terminal state is reached on the process or there are no previous states to time t, the
+        missing transitions will be filled with blank transitions as defined in self.blank_trans
         """
-        transition = np.array([None] * (self.history + self.n))
+        transition = np.array([None] * (self.history + self.multi_step))
+        # idx is the last transition in history
         transition[self.history - 1] = self.transitions.get(idx)
+        # fill in previous transitions of history
         for t in range(self.history - 2, -1, -1):  # e.g. 2 1 0
+            # check if next transition is terminal/first step
             if transition[t + 1].timestep == 0:
                 transition[t] = self.blank_trans  # If future frame has timestep 0
             else:
                 transition[t] = self.transitions.get(idx - self.history + 1 + t)
-        for t in range(self.history, self.history + self.n):  # e.g. 4 5 6
+        # fill in the history of the future for multi-step transitions
+        # TODO: fix this. overlapping (sometimes), we are using the present + 3 extra frames and that final frame is considered to be the state index
+        # 0 4 8 12 16 20 24 28 32 36 40
+        for t in range(self.history, self.history + self.multi_step):  # e.g. 4 5 6
             if transition[t - 1].nonterminal:
                 transition[t] = self.transitions.get(idx - self.history + 1 + t)
             else:
@@ -125,35 +137,42 @@ class ReplayMemory:
         return transition
 
     # Returns a valid sample from a segment
-    def _get_sample_from_segment(self, segment, i):
+    def _get_sample_from_segment(self, segment_prob, i):
         """
-        Splitting the memory in segments of size segment, we sample uniformly from the ith segment
+        Splitting the memory in segments of segment_size, we sample uniformly from the ith segment
         and return the following information:
+
         prob: Transition priority (unnormalized probability)
         idx: Index of the transition sorted by time-step
         tree_idx: Index of the transition sorted by priority (index within the SegmentTree)
         (state, action, R, next_state): Transition information
-        nonterminal: True if the episode doesn't end after or during the n-multi-steps
+        nonterminal: 1 if the episode doesn't end after or during the n-multi-steps
+        TODO: ascii art
+
+          /
+         /
+        /____
         """
         valid = False
         while not valid:
             # Uniformly sample an element from within a segment
-            sample = np.random.uniform(i * segment, (i + 1) * segment)
+            sample = np.random.uniform(i * segment_prob, (i + 1) * segment_prob)
             # Retrieve sample from tree with un-normalised probability
-            prob, idx, tree_idx = self.transitions.find(sample)
+            prob, idx, tree_idx = self.transitions.find(sample) # TODO: explain that here is where the magic happens
+            # TODO: Change straddled to something more understandable
             # Resample if transition straddled current index or probability 0
-            if (self.transitions.index - idx) % self.capacity > self.n and \
+            if (self.transitions.index - idx) % self.capacity > self.multi_step and \
                     (idx - self.transitions.index) % self.capacity >= self.history and prob != 0:
                 # Note that conditions are valid but extra conservative around buffer index 0
                 valid = True
 
-        # Retrieve all required transition data (from t - h to t + n)
+        # Retrieve all required transition data (from t - history_length to t + multi_step)
         transition = self._get_transition(idx)
-        # Create un-discretised state and nth next state
+        # Create un-discretised (float) state and nth next state
         state = torch.cat([trans.state for trans in transition[:self.history]], 0).to(
             dtype=torch.float32, device=self.device).div_(255)
         next_state = torch.cat(
-            [trans.state for trans in transition[self.n: (self.n + self.history)]], 0).to(
+            [trans.state for trans in transition[self.multi_step: (self.multi_step + self.history)]], 0).to(
             dtype=torch.float32, device=self.device).div_(255)
         # Discrete action to be used as index
         action = torch.tensor([transition[self.history - 1].action], dtype=torch.int64,
@@ -161,9 +180,9 @@ class ReplayMemory:
         # Calculate truncated n-step discounted return R^n = Σ_k=0->n-1 (γ^k)R_t+k+1
         # (note that invalid nth next states have reward 0)
         R = torch.tensor([sum(self.discount ** n * transition[self.history + n - 1].reward
-                              for n in range(self.n))], dtype=torch.float32, device=self.device)
+                              for n in range(self.multi_step))], dtype=torch.float32, device=self.device)
         # Mask for non-terminal nth next states
-        nonterminal = torch.tensor([transition[self.history + self.n - 1].nonterminal],
+        nonterminal = torch.tensor([transition[self.history + self.multi_step - 1].nonterminal],
                                    dtype=torch.float32, device=self.device)
 
         return prob, idx, tree_idx, state, action, R, next_state, nonterminal
@@ -179,9 +198,9 @@ class ReplayMemory:
         # Retrieve sum of all priorities (used to create a normalised probability distribution)
         p_total = self.transitions.total()
         # Batch size number of segments, based on sum over all probabilities
-        segment = p_total / batch_size
+        segment_prob = p_total / batch_size
         # Get batch of valid consecutive samples.
-        batch = [self._get_sample_from_segment(segment, i) for i in range(batch_size)]
+        batch = [self._get_sample_from_segment(segment_prob, i) for i in range(batch_size)]
         probs, idxs, tree_idxs, states, actions, returns, next_states, nonterminals = zip(*batch)
         states, next_states, = torch.stack(states), torch.stack(next_states)
         actions, returns, nonterminals = torch.cat(actions), torch.cat(returns), \
@@ -219,7 +238,11 @@ class ReplayMemory:
         state_stack = [None] * self.history
         state_stack[-1] = self.transitions.data[self.current_idx].state
         prev_timestep = self.transitions.data[self.current_idx].timestep
-        for t in reversed(range(self.history - 1)):
+        # check in the whole history
+        for t in reversed(range(self.history - 1)):  # e.g. 2 1 0
+            # TODO: why the first state is stored blank? analyze terminals and starting point for frame stacks and multi-steps
+            # checking if t+1 is a terminal state indicated by the timestep being 0
+            # If a terminal state is found in the past, all the rest of past states will be blank as well
             if prev_timestep == 0:
                 state_stack[t] = self.blank_trans.state  # If future frame has timestep 0
             else:

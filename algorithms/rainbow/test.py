@@ -5,6 +5,7 @@ Functions for testing Rainbow and saving graphics of statistics for rewards and 
 evaluation period
 """
 import os
+# TODO: try except on plotly saying that it is a requirement for evaluation. Also add to readme
 import plotly
 from plotly.graph_objs import Scatter
 from plotly.graph_objs.scatter import Line
@@ -21,6 +22,7 @@ steps, rewards, Qs, best_avg_reward = [], [], [], -1e10
 
 
 # Test DQN
+# TODO: stop using T. Change to num_steps
 def test(env, T, args, dqn, val_mem, evaluate_only=False):
     """
     Explanation to our multiple tests for the special case of "ai2thor":
@@ -30,7 +32,9 @@ def test(env, T, args, dqn, val_mem, evaluate_only=False):
     reasons and testing with rendering.
     """
     global steps, rewards, Qs, best_avg_reward
+    # TODO: eval_steps
     steps.append(T)
+    # TODO: step_rewards, step_Qs
     T_rewards, T_Qs = [], []
     if args.game != 'ai2thor':
         env = Env(args)
@@ -73,6 +77,7 @@ def test(env, T, args, dqn, val_mem, evaluate_only=False):
         # Save model parameters if improved
         if avg_reward > best_avg_reward:
             best_avg_reward = avg_reward
+            # TODO: pass in filename (check save function arguments)
             dqn.save('weights')
 
     # Return average reward and Q-value
