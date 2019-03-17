@@ -13,7 +13,7 @@ from matplotlib import pyplot as plt
 import ai2thor.controller
 
 from gym_ai2thor.task_utils import check_if_focus_and_close_enough_to_object_type, \
-    show_bounding_boxes
+    show_bounding_boxes, show_instance_segmentation
 
 
 def rgb2gray(rgb):
@@ -75,6 +75,7 @@ if __name__ == '__main__':
 
     # 98 75 126 109 - mug a bit to left middle centre
     # 165 75 194 109 - mug a bit to middle right bottom
+    show_instance_segmentation(event, ['Mug', 'Apple'])
     show_bounding_boxes(event)
     show_bounding_boxes(event, ['mug', 'cup', 'Apple'], lines_between_boxes_and_crosshair=True)
     bool_list = check_if_focus_and_close_enough_to_object_type(event, 'Apple', verbose=True)

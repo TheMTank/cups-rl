@@ -40,8 +40,29 @@ def show_bounding_boxes(event, key_terms=None, lines_between_boxes_and_crosshair
                 bbox_x_cent, bbox_y_cent = (x2 + x1) / 2, (y2 + y1) / 2
                 x_coords, y_coords = [crosshair_x, bbox_x_cent], [crosshair_y, bbox_y_cent]
                 plt.plot(x_coords, y_coords, marker='o', markersize=3, color=bbox_color)
-                dist = math.sqrt((crosshair_x - bbox_x_cent) ** 2 + (crosshair_y - bbox_y_cent) ** 2)
+                dist = math.sqrt((crosshair_x - bbox_x_cent) ** 2 +
+                                 (crosshair_y - bbox_y_cent) ** 2)
                 print('2D distance of bbox centre to crosshair: {}'.format(round(dist, 3)))
+    plt.show()
+
+def show_instance_segmentation(event, key_terms):
+    fig2 = plt.figure()
+    ax2 = fig2.add_subplot(111)
+
+    show_all = True if not key_terms else False
+
+    # check if objectType is within objectId
+    check_if = lambda x, name: True if x.lower() in name.lower() else False
+
+    event_frame_with_segmentation = event.frame.copy()
+    for key, mask_arr in event.instance_masks.items():
+        if show_all or any([check_if(term, key) for term in key_terms]):
+            nonzero_indices = mask_arr.nonzero()
+
+            event_frame_with_segmentation[nonzero_indices[0], nonzero_indices[1], :] = \
+                np.array([255, 255, 255])  # only white for now
+
+    plt.imshow(event_frame_with_segmentation, interpolation='nearest')
     plt.show()
 
 ##############################
