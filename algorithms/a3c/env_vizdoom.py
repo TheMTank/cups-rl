@@ -12,13 +12,18 @@ import codecs
 import json
 import warnings
 import os
+import random
 
 import numpy as np
 from gym import spaces
 
-from algorithms.a3c.vizdoom_utils.doom import *   # todo probably avoid this but at least it is self-contained within this file
-from algorithms.a3c.vizdoom_utils.points import *
-from algorithms.a3c.vizdoom_utils.constants import *
+from algorithms.a3c.vizdoom_utils.doom import DoomObject, DoomGame, split_object, get_l2_distance, \
+    get_agent_location, process_screen, spawn_object, spawn_agent, set_doom_configuration
+from algorithms.a3c.vizdoom_utils.points import generate_points
+from algorithms.a3c.vizdoom_utils.constants import CORRECT_OBJECT_REWARD, \
+    REWARD_THRESHOLD_DISTANCE, WRONG_OBJECT_REWARD, EASY_ENV_OBJECT_X, \
+    X_OFFSET, Y_OFFSET, MAP_SIZE_X, MAP_SIZE_Y, OBJECT_Y_DIST, MEDIUM_ENV_OBJECT_X_MIN, \
+    MEDIUM_ENV_OBJECT_X_MAX, HARD_ENV_OBJ_DIST_THRESHOLD, MARGIN, SIZE_THRESHOLD
 
 actions = [[True, False, False], [False, True, False], [False, False, True]]
 
@@ -26,6 +31,7 @@ ObjectLocation = collections.namedtuple("ObjectLocation", ["x", "y"])
 AgentLocation = collections.namedtuple("AgentLocation", ["x", "y", "theta"])
 
 
+# todo inherit from BaseTask and rename get_reward?
 class Task:
     # extra addition to make it work with ai2thor code
     def __init__(self):
@@ -36,7 +42,25 @@ class GroundingEnv:
     def __init__(self, args):
         """Initializes the environment.
         Args:
-          args: dictionary of parameters.
+          args: dictionary of parameters. Contains vizdoom specific params below:
+
+          train_instr_file: path to training json file with instructions which is a list of objects
+                with keys: "instruction": "Go to the red short object",
+                           "targets": [
+                               "ShortRedTorch",
+                               "ShortRedColumn"
+                           ],
+                           "description": "red short object"
+          test_instr_file: Same as above but for testing
+          all_instr_file: Same as above but contains all the instructions to calculate object lists
+          use_train_instructions: Boolean for whether to use training instructions or test
+          frame_height and frame_width: resolution
+          scenario_path: Doom scenario file to load (default: vizdoom_maps/room.wad)
+          visualize: Visualize the environment
+          sleep: Sleep between frames for better visualization (default: 0)
+          living_reward: Default reward at each time step (default: 0,
+                         change to -0.005 to encourage shorter paths)
+          difficulty: easy, medium or hard (explained below)
         """
         self.params = args
         self.curr_file_folder = os.path.dirname(os.path.realpath(__file__))
@@ -59,7 +83,7 @@ class GroundingEnv:
                                                              self.params.object_size_file))
         self.objects_info = self.get_objects_info()
 
-        # extra stuff to make it work with ai2thor A3C
+        # extra stuff below to make it work with ai2thor A3C
         self.task = Task()
         self.observation_space = spaces.Box(low=0, high=255,
                                             shape=(3, self.params.frame_height,
@@ -102,8 +126,7 @@ class GroundingEnv:
 
         # Special code to handle 'largest' and 'smallest' since we need to
         # compute sizes for those particular instructions.
-        if 'largest' not in self.instruction \
-                and 'smallest' not in self.instruction:
+        if 'largest' not in self.instruction and 'smallest' not in self.instruction:
             object_ids = random.sample([x for x in range(len(self.objects))
                                         if x not in correct_objects], 4)
         else:
@@ -195,7 +218,6 @@ class GroundingEnv:
                                target_location.x, target_location.y)
         if dist <= REWARD_THRESHOLD_DISTANCE:
             reward = CORRECT_OBJECT_REWARD
-            return reward
         else:
             for i, object_location in enumerate(self.object_coordinates):
                 if i == self.correct_location:
@@ -217,32 +239,23 @@ class GroundingEnv:
         object_x_coordinates = []
         object_y_coordinates = []
 
-        if self.params.difficulty == 'easy':
-            # Agent location fixed in Easy.
-            agent_x_coordinate = 128
-            agent_y_coordinate = 512
-            agent_orientation = 0
+        # Agent location fixed in Easy and medium
+        agent_x_coordinate, agent_y_coordinate, agent_orientation = 128, 512, 0
 
+        if self.params.difficulty == 'easy':
             # Candidate object locations are fixed in Easy.
             object_x_coordinates = [EASY_ENV_OBJECT_X] * 5
             for i in range(-2, 3):
                 object_y_coordinates.append(
                     Y_OFFSET + MAP_SIZE_Y/2.0 + OBJECT_Y_DIST * i)
-
-        if self.params.difficulty == 'medium':
-            # Agent location fixed in Medium.
-            agent_x_coordinate = 128
-            agent_y_coordinate = 512
-            agent_orientation = 0
-
+        elif self.params.difficulty == 'medium':
             # Generate 5 candidate object locations.
             for i in range(-2, 3):
                 object_x_coordinates.append(np.random.randint(
                     MEDIUM_ENV_OBJECT_X_MIN, MEDIUM_ENV_OBJECT_X_MAX))
                 object_y_coordinates.append(
                     Y_OFFSET + MAP_SIZE_Y/2.0 + OBJECT_Y_DIST * i)
-
-        if self.params.difficulty == 'hard':
+        elif self.params.difficulty == 'hard':
             # Generate 6 random locations: 1 for agent starting position
             # and 5 for candidate objects.
             random_locations = generate_points(HARD_ENV_OBJ_DIST_THRESHOLD,
@@ -263,20 +276,21 @@ class GroundingEnv:
             object_x_coordinates, object_y_coordinates
 
     def get_candidate_objects_superlative_instr(self, correct_object):
-        '''
+        """
         Get any possible combination of objects
         and give the maximum size
         SIZE_THRESHOLD refers to the size in terms of number of pixels so that
         atleast there is minimum size difference between two objects for
         instructions with superlative terms (largest and smallest)
         These sizes are stored in ../data/object_sizes.txt
-        '''
+
+        instr_contains_color is True if the instruction contains the color
+        attribute (e.g.) "Go to the largest green object".
+        instr_contains_color is False if the instruction doesn't contain the
+        color attribute. (e.g.) "Go to the smallest object"
+        """
 
         instr_contains_color = False
-        # instr_contains_color is set if the instruction contains the color
-        # attribute (e.g.) "Go to the largest green object".
-        # instr_contains_color is True if the instruction doesn't contain the
-        # color attribute. (e.g.) "Go to the smallest object"
 
         instruction_words = self.instruction.split()
         if len(instruction_words) == 6 and \
