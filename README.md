@@ -1,4 +1,4 @@
-# ai2thor-experiments
+# cups-rl -- Customizable Unity Photorealistic Simulation for Reinforcement Learning algorithms
 
 This project will focus primarily on the implementation and benchmark of different approaches to 
 domain and task transfer learning in reinforcement learning. The focus lies on a diverse set of 
@@ -11,8 +11,15 @@ We included our own wrapper for the environment as well to support the modificat
 within an openAI gym interface, so that new and more complex tasks can be developed efficiently to 
 train and test the agent.
 
+We will release a blog soon which will go into more detail about this repo and how to use all of the features of our wrapper.
 More detailed information on ai2thor environment can be found on their 
 [tutorial](http://ai2thor.allenai.org/tutorials/installation).
+
+
+<div align="center">
+  <img src="docs/bowls_fp_404_compressed_gif.gif" width="294px" />
+  <p>A3C agent learning during training on NaturalLanguagePickUpMultipleObjectTask in one of our customized scenes and tasks with the target object being CUPS!</p>
+</div>
 
 ## Overview
 
@@ -38,18 +45,18 @@ hyperparams and on the atari environment as well.
 
 ## Installation
 
-Clone ai2thor-experiments repository:
+Clone cups-rl repository:
 
 ```
-# AI2THOR_EXPERIMENTS=/path/to/clone/ai2thor-experiments
-git clone https://github.com/TheMTank/ai2thor-experiments.git $AI2THOR_EXPERIMENTS
+# CUPS_RL=/path/to/clone/cups-rl
+git clone https://github.com/TheMTank/cups-rl.git $CUPS_RL
 ```
 
 Install Python dependencies (Currently only supporting python 3.5+):
 
-`pip install -r $AI2THOR_EXPERIMENTS/requirements.txt`
+`pip install -r $CUPS_RL/requirements.txt`
 
-Finally, add `AI2THOR_EXPERIMENTS` to your PYTHONPATH environment variable and you are done.
+Finally, add `CUPS_RL` to your PYTHONPATH environment variable and you are done.
 
 ## How to use
 
@@ -134,12 +141,13 @@ We encourage you to explore the scripts on the `examples` folder to guide you on
  tasks. 
 
 Here is the desired result of an example task in which the goal of the agent is to place a cup in the 
-microwave.
+sink.
 
 <div align="center">
-  <img src="docs/cup_into_microwave.gif" width="294px" />
-  <p>Example of task "place cup in microwave"</p>
+  <img src="docs/cup_into_sink.gif" width="294px" />
+  <p>Example of task "place cup in sink"</p>
 </div>
+
 
 ## The Team
 
@@ -152,4 +160,4 @@ To produce value for the individual, for researchers, for institutions and for t
 
 ## License
 
-This project is released under the [MIT license](https://github.com/TheMTank/ai2thor-experiments/master/LICENSE).
+This project is released under the [MIT license](https://github.com/TheMTank/cups-rl/master/LICENSE).
