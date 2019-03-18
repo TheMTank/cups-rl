@@ -31,7 +31,7 @@ parser.add_argument('--disable-cuda', action='store_true', help='Disable CUDA')
 """ Game can be ai2thor to use our wrapper or one atari rom from the list here:
     https://github.com/openai/atari-py/tree/master/atari_py/atari_roms """
 parser.add_argument('--game', type=str, default='ai2thor', help='ATARI game or environment')
-parser.add_argument('--T-max', type=int, default=int(50e6), metavar='STEPS',
+parser.add_argument('--max-num-steps', type=int, default=int(50e6), metavar='STEPS',
                     help='Number of training steps')
 parser.add_argument('--max-episode-length', type=int, default=int(1e3), metavar='LENGTH',
                     help='Max episode length (0 to disable)')
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     training, as the process is highly non-stationary anyway, due to changing policies, state 
     distributions and bootstrap targets, that small bias can be ignored in this context.
     """
-    priority_weight_increase = (1 - args.priority_weight) / (args.T_max - args.learn_start)
+    priority_weight_increase = (1 - args.priority_weight) / (args.max_num_steps - args.learn_start)
 
     """ Construct validation memory. The transitions stored in this memory will remain constant for 
     the whole training process. During training this gives us a "fixed" evaluation dataset to see
@@ -152,8 +152,7 @@ if __name__ == '__main__':
         # Training loop
         dqn.train()
         num_steps, done = 0, True
-        # TODO: change T_max to max_num_steps
-        while num_steps < args.T_max:
+        while num_steps < args.max_num_steps:
             if done:
                 state, done = env.reset(), False
             if num_steps % args.replay_frequency == 0:
@@ -167,7 +166,7 @@ if __name__ == '__main__':
             num_steps += 1
 
             if num_steps % args.log_interval == 0:
-                log('num_steps = ' + str(num_steps) + ' / ' + str(args.T_max))
+                log('num_steps = ' + str(num_steps) + ' / ' + str(args.max_num_steps))
 
             # Train and test
             if num_steps >= args.learn_start:
@@ -181,7 +180,7 @@ if __name__ == '__main__':
                     dqn.eval()  # Set DQN (online network) to evaluation mode. Fixed linear layers
                     # Test and save best model
                     avg_reward, avg_Q = test(env, num_steps, args, dqn, val_mem)
-                    log('num_steps = ' + str(num_steps) + ' / ' + str(args.T_max) +
+                    log('num_steps = ' + str(num_steps) + ' / ' + str(args.max_num_steps) +
                         ' | Avg. reward: ' + str(avg_reward) + ' | Avg. Q: ' + str(avg_Q))
                     dqn.train()  # Set DQN (online network) back to training mode
 

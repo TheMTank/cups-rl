@@ -10,15 +10,21 @@ import numpy as np
 # Segment tree data structure where parent node values are sum/max of children node values
 class SegmentTree:
     """
-    We use this structure because it has the following benefits:
-    - Insertion and update is O(1)
-    - Sampling according to priority order is O(log n)
+    This class implements a sum-tree, which is a binary tree in which the value of the parent node
+    is the sum of its two children. This structure is optimal to retrieve sample indices which
+    cumulative sum adds up to a certain value, in our case within the segments defined in the
+    replay memory. Here an example:
 
-    Note that in practice we use a stratified sampling by dividing the memory into equal size
-    segments and sampling uniformly from each one of them at every step. This reduces the sampling
-    operation to O(1) as well.
-    # TODO: add ascii art to explain it (propagation and stuff)
-    Efficiently store millions of transitions and sample from them
+                                    _______________42_____________
+                                   /                              \
+                             _____29______                  ______13______
+                            /             \                /              \
+                          _13_         __16___         ___3___         __10__
+                         /    \       /       \       /       \       /      \
+    Priority values:    3     10     12       4      1        2       8      2
+    Cumulative sum:   [0-3)  [3-13) [13-25) [25-29)[29-30)  [30-32)[32-40) [40-42)
+
+    This structure allows us to efficiently store millions of transitions and sample from them
     """
     def __init__(self, size):
         self.index = 0
@@ -53,7 +59,8 @@ class SegmentTree:
     # Searches for the location of a value in sum tree
     def _retrieve(self, index, value):
         """
-        Binary search tree which finds index with closest probability
+        Binary search tree which returns index of the closest cumulative priority sum transition.
+        Searches for the leaf with the closest value greater or equal than the input value.
         """
         left, right = 2 * index + 1, 2 * index + 2
         if left >= len(self.sum_tree):
@@ -78,9 +85,41 @@ class SegmentTree:
 
 
 class ReplayMemory:
+    """ This class includes prioritized experience replay (PER) in the context of Double Q-Learning
+    and the calculations of cumulative returns for multi-step Q-Learning.
+
+    When adding an experienced transition (s, a, R, s') to the PER memory we assign a priority value
+    to it. This priorities represent how much we estimate that can be learned from that transition.
+    Since we estimate the error of our online Q network by comparing the value of Q with the output
+    of a target Q network, we can consider this error as an indicator of how much we can still learn
+    from it.
+
+    The naive approach would be to sample greedily, i.e. learn always from the highest priority
+    transitions, but the problem with this is that our estimation of both online and target networks
+    will very likely be noisy and therefore we shouldn't be too confident on our estimation of the
+    priorities.
+
+    For this reason PER paper proposed a stratified sampling algorithm that groups transitions by
+    their priority levels and samples a transition from each group uniformly. This ensures that
+    sample transitions from the different groups are always included in a mini-batch.
+    This algorithm requires the memory to be sorted by transitions with an insertion cost of
+    O(n*log(n)) and sampling of O(n) assuming we use a binary tree to store the transitions with n
+    being the memory size.
+
+    However, a more efficient but similarly beneficial method proposed in the paper that balanced
+    between the stratified sampling and the greedy sampling is implemented here. This method
+    consists of storing the transitions unsorted, dividing the memory in groups with the same amount
+    of priority and sampling a transition uniformly from each group. This ensures that high priority
+    transitions are sampled more often but also that not all samples belong to the same strata.
+    Appending a new transition to the unsorted memory is O(1) and sampling O(log(n)) assuming a
+    sum-tree is used to get the intervals of transitions summing up to the total priority value.
+
+    For details on how the sum-tree is used check the SegmentTree class in this script.
+    """
     def __init__(self, args, capacity):
         self.Transition = namedtuple('Transition',
                                 ('timestep', 'state', 'action', 'reward', 'nonterminal'))
+        # Blank transitions are used to fill frames missing from history or multi-step Q-learning
         self.blank_trans = self.Transition(0, torch.zeros(args.img_channels, args.resolution[0],
                                                           args.resolution[1], dtype=torch.uint8),
                                            None, 0, False)
@@ -108,7 +147,6 @@ class ReplayMemory:
                                 self.transitions.max)  # Store new transition with maximum priority
         self.t = 0 if terminal else self.t + 1  # Start new episodes with t = 0
 
-    # Returns a transition with blank states where appropriate
     def _get_transition(self, idx):
         """
         Return the idx-th transition in the SegmentTree memory information for multi-step DQN. This
@@ -126,9 +164,10 @@ class ReplayMemory:
                 transition[t] = self.blank_trans  # If future frame has timestep 0
             else:
                 transition[t] = self.transitions.get(idx - self.history + 1 + t)
-        # fill in the history of the future for multi-step transitions
-        # TODO: fix this. overlapping (sometimes), we are using the present + 3 extra frames and that final frame is considered to be the state index
-        # 0 4 8 12 16 20 24 28 32 36 40
+        """Fill in the history of the future for multi-step transitions. As a reminder, for the
+        present frame we move self.multi_step extra transitions and the last one is considered to be
+        the state index, because it is the one we want to estimate Q from.
+        """
         for t in range(self.history, self.history + self.multi_step):  # e.g. 4 5 6
             if transition[t - 1].nonterminal:
                 transition[t] = self.transitions.get(idx - self.history + 1 + t)
@@ -136,9 +175,9 @@ class ReplayMemory:
                 transition[t] = self.blank_trans  # If prev/next frame is terminal
         return transition
 
-    # Returns a valid sample from a segment
     def _get_sample_from_segment(self, segment_prob, i):
         """
+        Returns a valid sample from a segment.
         Splitting the memory in segments of segment_size, we sample uniformly from the ith segment
         and return the following information:
 
@@ -147,20 +186,30 @@ class ReplayMemory:
         tree_idx: Index of the transition sorted by priority (index within the SegmentTree)
         (state, action, R, next_state): Transition information
         nonterminal: 1 if the episode doesn't end after or during the n-multi-steps
-        TODO: ascii art
 
-          /
-         /
-        /____
+        priority
+        ^
+        |  <---33---><----33------><----34-------> Every segment sums up to the same total priority
+        |         |                      |         defined by segment_prob input
+        |         |        |             |         This function samples uniformly from the ith
+        |    |   ||  |     |             |         segment.
+        |    |   ||  |     |  |      ||  |     |
+        |  | |  ||||||     | ||   |  ||| |   | |
+        |  |||||||||||||   ||||  ||||||| | | | |
+        |  |||||||||||||||||||||||||||||||||||||
+        |-----------------------------------------> sample index
         """
         valid = False
         while not valid:
             # Uniformly sample an element from within a segment
             sample = np.random.uniform(i * segment_prob, (i + 1) * segment_prob)
-            # Retrieve sample from tree with un-normalised probability
-            prob, idx, tree_idx = self.transitions.find(sample) # TODO: explain that here is where the magic happens
-            # TODO: Change straddled to something more understandable
-            # Resample if transition straddled current index or probability 0
+            # Retrieve sample transition by the cumulative sum of priorities value from the tree
+            # with un-normalised probability
+            prob, idx, tree_idx = self.transitions.find(sample)
+            """Resample if transition hasn't got at least self.history valid transitions before or
+            self.multi_step transitions after it. Also checks that the priority of the sampled 
+            transition is not 0, which would mean that we should ignore it entirely.
+            """
             if (self.transitions.index - idx) % self.capacity > self.multi_step and \
                     (idx - self.transitions.index) % self.capacity >= self.history and prob != 0:
                 # Note that conditions are valid but extra conservative around buffer index 0
@@ -240,9 +289,11 @@ class ReplayMemory:
         prev_timestep = self.transitions.data[self.current_idx].timestep
         # check in the whole history
         for t in reversed(range(self.history - 1)):  # e.g. 2 1 0
-            # TODO: why the first state is stored blank? analyze terminals and starting point for frame stacks and multi-steps
-            # checking if t+1 is a terminal state indicated by the timestep being 0
-            # If a terminal state is found in the past, all the rest of past states will be blank as well
+            """Terminal states are indicated by having timestep 0. Since we always sample             
+            self.history frames stacked frames we need to fill the unexisting past transitions at
+            the beginning of the episode and we do it with as many frames of zeros as necessary to
+            stack enough frames
+            """
             if prev_timestep == 0:
                 state_stack[t] = self.blank_trans.state  # If future frame has timestep 0
             else:

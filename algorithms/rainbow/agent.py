@@ -91,9 +91,9 @@ class Agent:
          propagation during training and it is not needed for evaluation 
          """
         # Log probabilities log p(s_t, ·; θonline) for the visited states in the sampled transitions
-        visited_online_log_probs = self.online_net(states, log=True)
+        online_log_probs = self.online_net(states, log=True)
         # log p(s_t, a_t; θonline) of the actions selected on the visited states (online network)
-        visited_action_online_log_probs = visited_online_log_probs[range(self.batch_size), actions]
+        online_log_probs = online_log_probs[range(self.batch_size), actions]
 
         visited_action_target_probs = self.compute_target_probs(states, actions, returns,
                                                                 next_states, nonterminals)
@@ -102,7 +102,7 @@ class Agent:
         visited_action_online_log_probs: policy distribution for online network
         target_probs: aligned target policy distribution
         """
-        loss = -torch.sum(visited_action_target_probs * visited_action_online_log_probs, 1)
+        loss = -torch.sum(visited_action_target_probs * online_log_probs, 1)
         self.online_net.zero_grad()
         # Backpropagate importance-weighted (Prioritized Experience Replay) minibatch loss
         (weights * loss).mean().backward()
@@ -139,8 +139,8 @@ class Agent:
             network. The expected online_q will be optimized towards these values as it is done in 
             Double DQN.
             """
-            visited_action_target_probs = target_z[range(self.batch_size),
-                                                   online_greedy_action_indices]
+            target_probs = target_z[range(self.batch_size),
+                                    online_greedy_action_indices]
             """Apply distributional N-step Bellman operator Tz (Bellman operator T applied to z), 
             also Bellman equation for distributional Q.
             Tz = returns_t + γ * z_t+1 
@@ -193,19 +193,19 @@ class Agent:
             u[(l < (self.num_atoms - 1)) * (l == u)] += 1  # Handles the case of u = b = l = 0
 
             # We use new_zeros instead of zeros to auto assign device and dtype of states tensor
-            target_probs = states.new_zeros(self.batch_size, self.num_atoms)
+            projected_target_probs = states.new_zeros(self.batch_size, self.num_atoms)
             offset = torch.linspace(0, ((self.batch_size - 1) * self.num_atoms),
                                     self.batch_size).unsqueeze(1).expand(self.batch_size,
                                                                          self.num_atoms).to(actions)
             # Add probabilities to the closest lower atom
-            target_probs.view(-1).index_add_(
-                0, (l + offset).view(-1), (visited_action_target_probs * (u.float() - b)).view(-1)
+            projected_target_probs.view(-1).index_add_(
+                0, (l + offset).view(-1), (target_probs * (u.float() - b)).view(-1)
             )
             # Add probabilities to the closest upper atom
-            target_probs.view(-1).index_add_(
-                0, (u + offset).view(-1), (visited_action_target_probs * (b - l.float())).view(-1)
+            projected_target_probs.view(-1).index_add_(
+                0, (u + offset).view(-1), (target_probs * (b - l.float())).view(-1)
             )
-        return target_probs
+        return projected_target_probs
 
     def update_target_net(self):
         """Updates target network as explained in Double DQN """

@@ -5,25 +5,29 @@ Functions for testing Rainbow and saving graphics of statistics for rewards and 
 evaluation period
 """
 import os
-# TODO: try except on plotly saying that it is a requirement for evaluation. Also add to readme
-import plotly
-from plotly.graph_objs import Scatter
-from plotly.graph_objs.scatter import Line
+import warnings
+try:
+    import plotly
+    from plotly.graph_objs import Scatter
+    from plotly.graph_objs.scatter import Line
+    plotly_installed = True
+except ImportError:
+    warnings.warn("Error importing plotly. No plots will be saved on evaluation")
+    plotly_installed = False
 import torch
 
 from algorithms.rainbow.env import Env
 
 """ Global variables used to track the evaluation results
-steps               - list of evaluation steps at each evaluation period
+eval_steps       - list of evaluation steps at each evaluation period
 rewards          - list of rewards obtained at each evaluation period
 Qs               - list of Q obtained at each evaluation period  
 best_avg_reward  - stores the best average reward achieved to save the best model """
-steps, rewards, Qs, best_avg_reward = [], [], [], -1e10
+eval_steps, rewards, Qs, best_avg_reward = [], [], [], -1e10
 
 
 # Test DQN
-# TODO: stop using T. Change to num_steps
-def test(env, T, args, dqn, val_mem, evaluate_only=False):
+def test(env, num_steps, args, dqn, val_mem, evaluate_only=False):
     """
     Explanation to our multiple tests for the special case of "ai2thor":
     In AI2Thor environment the rendering is not optional, so using two instances of the environment
@@ -31,11 +35,9 @@ def test(env, T, args, dqn, val_mem, evaluate_only=False):
     multiple rendering options, e.g. having the option of training without rendering for efficiency
     reasons and testing with rendering.
     """
-    global steps, rewards, Qs, best_avg_reward
-    # TODO: eval_steps
-    steps.append(T)
-    # TODO: step_rewards, step_Qs
-    T_rewards, T_Qs = [], []
+    global eval_steps, rewards, Qs, best_avg_reward
+    eval_steps.append(num_steps)
+    step_rewards, step_Qs = [], []
     if args.game != 'ai2thor':
         env = Env(args)
     # Test performance over several episodes
@@ -56,29 +58,28 @@ def test(env, T, args, dqn, val_mem, evaluate_only=False):
             if args.render and args.game != 'ai2thor':
                 env.render()
             if done:
-                T_rewards.append(reward_sum)
+                step_rewards.append(reward_sum)
     if args.game != 'ai2thor':
         env.close()
     # Test Q-values over validation memory completely independently of evaluation episodes
     for state in val_mem:  # Iterate over valid states
-        T_Qs.append(dqn.evaluate_q(state))
+        step_Qs.append(dqn.evaluate_q(state))
 
-    avg_reward, avg_Q = sum(T_rewards) / len(T_rewards), sum(T_Qs) / len(T_Qs)
+    avg_reward, avg_Q = sum(step_rewards) / len(step_rewards), sum(step_Qs) / len(step_Qs)
     if not evaluate_only:
         # Append to results
-        rewards.append(T_rewards)
-        Qs.append(T_Qs)
+        rewards.append(step_rewards)
+        Qs.append(step_Qs)
 
         # Plot
-        # TODO: check plots again. Something looks fishy...
-        _plot_line(steps, rewards, 'Reward', path='results')
-        _plot_line(steps, Qs, 'Q', path='results')
+        if plotly_installed:
+            _plot_line(eval_steps, rewards, 'Reward', path='results')
+            _plot_line(eval_steps, Qs, 'Q', path='results')
 
         # Save model parameters if improved
         if avg_reward > best_avg_reward:
             best_avg_reward = avg_reward
-            # TODO: pass in filename (check save function arguments)
-            dqn.save('weights')
+            dqn.save(path='weights', filename='rainbow_{}.pt'.format(num_steps))
 
     # Return average reward and Q-value
     return avg_reward, avg_Q
