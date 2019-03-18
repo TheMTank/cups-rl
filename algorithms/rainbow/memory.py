@@ -11,7 +11,7 @@ import numpy as np
 class SegmentTree:
     """
     This class implements a sum-tree, which is a binary tree in which the value of the parent node
-    is the sum of its two children. This structure is optimal to retrieve sample indices which
+    is the sum of its two children. This structure is optimal to retrieve sample indices where the
     cumulative sum adds up to a certain value, in our case within the segments defined in the
     replay memory. Here an example:
 
@@ -25,6 +25,7 @@ class SegmentTree:
     Cumulative sum:   [0-3)  [3-13) [13-25) [25-29)[29-30)  [30-32)[32-40) [40-42)
 
     This structure allows us to efficiently store millions of transitions and sample from them
+    quickly.
     """
     def __init__(self, size):
         self.index = 0
@@ -85,11 +86,11 @@ class SegmentTree:
 
 
 class ReplayMemory:
-    """ This class includes prioritized experience replay (PER) in the context of Double Q-Learning
-    and the calculations of cumulative returns for multi-step Q-Learning.
+    """ This class includes prioritized experience replay (PER) and the calculations of cumulative
+    returns for multi-step Q-Learning.
 
     When adding an experienced transition (s, a, R, s') to the PER memory we assign a priority value
-    to it. This priorities represent how much we estimate that can be learned from that transition.
+    to it. These priorities represent how much we estimate can be learned from that transition.
     Since we estimate the error of our online Q network by comparing the value of Q with the output
     of a target Q network, we can consider this error as an indicator of how much we can still learn
     from it.
@@ -99,20 +100,21 @@ class ReplayMemory:
     will very likely be noisy and therefore we shouldn't be too confident on our estimation of the
     priorities.
 
-    For this reason PER paper proposed a stratified sampling algorithm that groups transitions by
-    their priority levels and samples a transition from each group uniformly. This ensures that
+    For this reason the PER paper proposed a rank-based sampling algorithm that groups transitions
+    by their priority levels and samples a transition from each group uniformly. This ensures that
     sample transitions from the different groups are always included in a mini-batch.
     This algorithm requires the memory to be sorted by transitions with an insertion cost of
     O(n*log(n)) and sampling of O(n) assuming we use a binary tree to store the transitions with n
-    being the memory size.
+    being the number of transition that fit in the memory.
 
     However, a more efficient but similarly beneficial method proposed in the paper that balanced
-    between the stratified sampling and the greedy sampling is implemented here. This method
-    consists of storing the transitions unsorted, dividing the memory in groups with the same amount
-    of priority and sampling a transition uniformly from each group. This ensures that high priority
-    transitions are sampled more often but also that not all samples belong to the same strata.
-    Appending a new transition to the unsorted memory is O(1) and sampling O(log(n)) assuming a
-    sum-tree is used to get the intervals of transitions summing up to the total priority value.
+    between the rank-based sampling and the greedy sampling is implemented here. This method
+    consists of storing the transitions unsorted, dividing the memory into groups with the same
+    amount of priority and sampling a transition uniformly from each group. This ensures that high
+    priority transitions are sampled more often but also that both segments and samples are diverse
+    in terms of priority levels. Appending a new transition to the unsorted memory is O(1) and
+    sampling O(log(n)) assuming a sum-tree is used to get the intervals of transitions summing up to
+    the total priority value.
 
     For details on how the sum-tree is used check the SegmentTree class in this script.
     """
@@ -164,7 +166,7 @@ class ReplayMemory:
                 transition[t] = self.blank_trans  # If future frame has timestep 0
             else:
                 transition[t] = self.transitions.get(idx - self.history + 1 + t)
-        """Fill in the history of the future for multi-step transitions. As a reminder, for the
+        """Fill in the history of the future for multi-step transitions. As a reminder, from the
         present frame we move self.multi_step extra transitions and the last one is considered to be
         the state index, because it is the one we want to estimate Q from.
         """
@@ -189,11 +191,11 @@ class ReplayMemory:
 
         priority
         ^
-        |  <---33---><----33------><----34-------> Every segment sums up to the same total priority
+        |  <---33---><-----33-----><-----33---->   Every segment sums up to the same total priority
         |         |                      |         defined by segment_prob input
         |         |        |             |         This function samples uniformly from the ith
         |    |   ||  |     |             |         segment.
-        |    |   ||  |     |  |      ||  |     |
+        |    |   ||  |     |  |      ||  |
         |  | |  ||||||     | ||   |  ||| |   | |
         |  |||||||||||||   ||||  ||||||| | | | |
         |  |||||||||||||||||||||||||||||||||||||
@@ -221,7 +223,8 @@ class ReplayMemory:
         state = torch.cat([trans.state for trans in transition[:self.history]], 0).to(
             dtype=torch.float32, device=self.device).div_(255)
         next_state = torch.cat(
-            [trans.state for trans in transition[self.multi_step: (self.multi_step + self.history)]], 0).to(
+            [trans.state
+             for trans in transition[self.multi_step: (self.multi_step + self.history)]], 0).to(
             dtype=torch.float32, device=self.device).div_(255)
         # Discrete action to be used as index
         action = torch.tensor([transition[self.history - 1].action], dtype=torch.int64,
@@ -229,8 +232,9 @@ class ReplayMemory:
         # Calculate truncated n-step discounted return R^n = Σ_k=0->n-1 (γ^k)R_t+k+1
         # (note that invalid nth next states have reward 0)
         R = torch.tensor([sum(self.discount ** n * transition[self.history + n - 1].reward
-                              for n in range(self.multi_step))], dtype=torch.float32, device=self.device)
-        # Mask for non-terminal nth next states
+                              for n in range(self.multi_step))],
+                         dtype=torch.float32, device=self.device)
+        # Mask for non-terminal nth next states (final state)
         nonterminal = torch.tensor([transition[self.history + self.multi_step - 1].nonterminal],
                                    dtype=torch.float32, device=self.device)
 
@@ -290,8 +294,8 @@ class ReplayMemory:
         # check in the whole history
         for t in reversed(range(self.history - 1)):  # e.g. 2 1 0
             """Terminal states are indicated by having timestep 0. Since we always sample             
-            self.history frames stacked frames we need to fill the unexisting past transitions at
-            the beginning of the episode and we do it with as many frames of zeros as necessary to
+            self.history stacked frames we need to fill the unexisting past transitions at the 
+            beginning of the episode and we do it with as many frames of zeros as necessary to
             stack enough frames
             """
             if prev_timestep == 0:

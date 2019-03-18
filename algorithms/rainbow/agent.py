@@ -43,14 +43,14 @@ class Agent:
         self.discount = args.discount
 
         self.online_net = RainbowDQN(args, self.action_space).to(device=args.device)
-        if args.model and os.path.isfile(args.model):
+        if args.model_path and os.path.isfile(args.model_path):
             """
             When you call torch.load() on a file which contains GPU tensors, those tensors will be 
             loaded to GPU by default. You can call torch.load(.., map_location=’cpu’) and then 
             load_state_dict() to avoid GPU RAM surge when loading a model checkpoint.
             Source: https://pytorch.org/docs/stable/torch.html#torch.load
             """
-            self.online_net.load_state_dict(torch.load(args.model, map_location='cpu'))
+            self.online_net.load_state_dict(torch.load(args.model_path, map_location='cpu'))
         self.online_net.train()
 
         self.target_net = RainbowDQN(args, self.action_space).to(device=args.device)
@@ -87,22 +87,22 @@ class Agent:
           mem.sample(self.batch_size)
 
         """Calculate current state probabilities (online network noise already sampled)
-         The log is used to calculate the losses. It also provides more stability for the gradients 
-         propagation during training and it is not needed for evaluation 
-         """
+        The log is used to calculate the losses. It also provides more stability for the gradients 
+        propagation during training and it is not needed for evaluation 
+        """
         # Log probabilities log p(s_t, ·; θonline) for the visited states in the sampled transitions
         online_log_probs = self.online_net(states, log=True)
         # log p(s_t, a_t; θonline) of the actions selected on the visited states (online network)
         online_log_probs = online_log_probs[range(self.batch_size), actions]
 
-        visited_action_target_probs = self.compute_target_probs(states, actions, returns,
-                                                                next_states, nonterminals)
+        target_probs = self.compute_target_probs(states, actions, returns, next_states,
+                                                 nonterminals)
         """Cross-entropy loss (minimises KL-distance between online and target_probs): 
-        DKL(target_probs || online_log_probs)
-        visited_action_online_log_probs: policy distribution for online network
+        DKL(target_probs || online_probs)
+        online_log_probs: policy distribution for online network
         target_probs: aligned target policy distribution
         """
-        loss = -torch.sum(visited_action_target_probs * online_log_probs, 1)
+        loss = -torch.sum(target_probs * online_log_probs, 1)
         self.online_net.zero_grad()
         # Backpropagate importance-weighted (Prioritized Experience Replay) minibatch loss
         (weights * loss).mean().backward()
