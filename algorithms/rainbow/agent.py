@@ -218,7 +218,7 @@ class Agent:
     def evaluate_q(self, state):
         """Evaluates Q-value based on single state (no batch) """
         with torch.no_grad():
-            return (self.online_net(state.unsqueeze(0)) * self.support).sum(2).max(1)[0].item()
+            return (self.online_net(state) * self.support).sum(2).max(1)[0].item()
 
     def train(self):
         self.online_net.train()
