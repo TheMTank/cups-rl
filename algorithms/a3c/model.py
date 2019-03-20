@@ -50,7 +50,7 @@ class ActorCritic(torch.nn.Module):
 
 ____________________________________________________________________________________________________
 
-                            Figure 4: A3C policy model architecture
+                            A3C policy model architecture
 
    Image Processing module -> Flattened output ->     Policy Learning Module    --->  Final output
            ______________________                ___________________________________
@@ -232,7 +232,8 @@ ________________________________________________________________________________
         # Gated-Attention layers
         self.attn_linear = nn.Linear(self.gru_hidden_size, self.num_output_filters)
 
-        # Time embedding layer, helps in stabilizing value prediction
+        # Time embedding layer, helps in stabilizing value prediction e.g. if only 1 step is left
+        # in episode not much reward can be earned vs the same image state with 500 steps left
         self.time_emb_dim = 32
         self.time_emb_layer = nn.Embedding(episode_length, self.time_emb_dim)
 

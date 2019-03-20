@@ -40,10 +40,8 @@ class AI2ThorEnv(gym.Env):
     """
     This class wraps the ai2thor environment
     """
-    # todo get rid of seed?
-    def __init__(self, seed=None, config_file='config_files/default_config.json', config_dict=None):
+    def __init__(self, config_file='config_files/default_config.json', config_dict=None):
         """
-        :param seed:         (int)   Random seed
         :param config_file:  (str)   Path to environment configuration file. Either absolute or
                                      relative path to the root of this repository.
                                      default and good example at: config_files/config_example.json
@@ -54,8 +52,6 @@ class AI2ThorEnv(gym.Env):
         self.config = read_config(config_file, config_dict)
         # Randomness settings
         self.np_random = None
-        if seed:
-            self.seed(seed)
         self.num_random_actions_at_init = self.config.get('num_random_actions_at_init', 0)
         # Object settings
         # acceptable objects taken from config file.
@@ -114,7 +110,7 @@ class AI2ThorEnv(gym.Env):
         if not self.scene_id:
             raise ValueError('Need to specify scene_id in config')
         # todo check for self.config['task'].get('list_of_xyz_starting_positions')
-        # todo and implement random.choice of starting position for specific task/scene
+        # todo and implement random.choice of starting position for specific task/scene with teleport
         # todo precompute all valid locations for all scenes and avoid objects too?
         # Start ai2thor
         self.controller = ai2thor.controller.Controller()
@@ -158,10 +154,13 @@ class AI2ThorEnv(gym.Env):
                         distance = closest_receptacle['distance']
                 if self.event.metadata['inventoryObjects'] and closest_receptacle:
                     interaction_obj = closest_receptacle
+                    object_to_put = self.event.metadata['inventoryObjects'][0]
                     self.event = self.controller.step(
                             dict(action=action_str,
-                                 objectId=self.event.metadata['inventoryObjects'][0]['objectId'],
+                                 objectId=object_to_put['objectId'],
                                  receptacleObjectId=interaction_obj['objectId']))
+                    self.event.metadata['lastObjectPut'] = object_to_put
+                    self.event.metadata['lastObjectPutReceptacle'] = interaction_obj
             elif action_str.startswith('Pickup'):
                 closest_pickupable = None
                 for obj in visible_objects:
@@ -182,6 +181,7 @@ class AI2ThorEnv(gym.Env):
                     interaction_obj = closest_pickupable
                     self.event = self.controller.step(
                         dict(action=action_str, objectId=interaction_obj['objectId']))
+                    self.event.metadata['lastObjectPickedUp'] = interaction_obj
             elif action_str.startswith('Open'):
                 closest_openable = None
                 for obj in visible_objects:
@@ -193,8 +193,8 @@ class AI2ThorEnv(gym.Env):
                     if closest_openable:
                         interaction_obj = closest_openable
                         self.event = self.controller.step(
-                            dict(action=action_str,
-                                 objectId=interaction_obj['objectId']))
+                            dict(action=action_str, objectId=interaction_obj['objectId']))
+                        self.event.metadata['lastObjectOpened'] = interaction_obj
             elif action_str.startswith('Close'):
                 closest_openable = None
                 for obj in visible_objects:
@@ -206,8 +206,8 @@ class AI2ThorEnv(gym.Env):
                     if closest_openable:
                         interaction_obj = closest_openable
                         self.event = self.controller.step(
-                            dict(action=action_str,
-                                 objectId=interaction_obj['objectId']))
+                            dict(action=action_str, objectId=interaction_obj['objectId']))
+                        self.event.metadata['lastObjectClosed'] = interaction_obj
             else:
                 raise error.InvalidAction('Invalid interaction {}'.format(action_str))
             # print what object was interacted with and state of inventory
@@ -242,6 +242,8 @@ class AI2ThorEnv(gym.Env):
 
         self.task.step_num += 1
 
+        # todo if frame_segmentation_on: return segmented image. OR could add it as a channel?
+        # todo create 50 random room tasks with segmentation on since it should be easier
         image_state = self.preprocess(self.event.frame)
         extra_state = self.task.get_extra_state()
         state = (image_state, extra_state) if extra_state else image_state
@@ -307,7 +309,3 @@ class AI2ThorEnv(gym.Env):
 
     def close(self):
         self.controller.stop()
-
-
-if __name__ == '__main__':
-    AI2ThorEnv()

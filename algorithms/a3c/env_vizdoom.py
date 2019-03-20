@@ -324,6 +324,7 @@ class GroundingEnv:
         return [x.name for x in output_objects[:4]]
 
     def get_objects_info(self):
+        # todo docstring
         objects = []
         objects_map = self.objects
         for obj in objects_map:
@@ -335,6 +336,7 @@ class GroundingEnv:
         return objects
 
     def get_all_objects(self, filename):
+        # todo docstring
         objects = []
         object_dict = {}
         count = 0
