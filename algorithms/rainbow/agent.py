@@ -123,7 +123,7 @@ class Agent:
         blog: https://mtomassoli.github.io/2017/12/08/distributional_rl/
         """
         with torch.no_grad():
-            # Calculate self.multi_step-th next state Q distribution
+            # Calculate self.multi_step-th next state Q distribution (Z) for Double Q-Learning
             online_z = self.online_net(next_states)
             # We compute the expectation of the Q distribution from the N-step distribution
             # online q (not distributional) = sum(z_action * p_action) for ALL actions
@@ -136,11 +136,10 @@ class Agent:
             # We compute the Q distribution from the target network
             target_z = self.target_net(next_states)
             """Calculate target action probabilities for the actions selected using the online 
-            network. The expected online_q will be optimized towards these values as it is done in 
-            Double DQN.
+            network. The expected online_q will be optimized towards these values similarly as to 
+            how it is done in Double DQN.
             """
-            target_probs = target_z[range(self.batch_size),
-                                    online_greedy_action_indices]
+            target_probs = target_z[range(self.batch_size), online_greedy_action_indices]
             """Apply distributional N-step Bellman operator Tz (Bellman operator T applied to z), 
             also Bellman equation for distributional Q.
             Tz = returns_t + γ * z_t+1 
@@ -148,18 +147,22 @@ class Agent:
             accounts terminal states, in which case the z is 0 since we don't expect to get more 
             rewards in the future. 
             Since we are doing multi step Q-Learning as well, we will be doing a lookahead of
-            self.multi_step steps. This results in the Tz operator defind as:
+            self.multi_step steps. This results in the Tz operator defined as:
             Tz = returns_t + γ * R_t+1 + ... + (γ ** (n-1)) * R_t+n-1 + (γ ** n) * z_t+n
             Look at in _get_sample_from_segment() from memory.py for more details on the multi-step
             calculations
+            For calculating Tz we use the support to calculate ALL possible expected returns, 
+            i.e. the full distribution, without looking at the probabilities yet. 
             """
             Tz = returns.unsqueeze(1) + nonterminals * (self.discount ** self.multi_step) \
                  * self.support.unsqueeze(0)
             # Clamp values so they fall within the support of Z values
             Tz = Tz.clamp(min=self.Vmin, max=self.Vmax)
-            """Compute L2 projection of Tz onto fixed support Z.
-            1. Find which values of the discrete fix distribution are the closest lower (l) and 
-            upper value (u) to the values obtained from Tz (b).
+            """Compute L2 projection of Tz onto fixed support Z in two steps.
+            1. Find which values of the discrete fixed distribution are the closest lower (l) and 
+            upper value (u) to the values obtained from Tz (b). As a reminder, b is the new support 
+            of our return distribution shifted from the original network output support when we 
+            computed Tz.
             b = (Tz - Vmin) / Δz 
             """
             b = (Tz - self.Vmin) / self.delta_z
@@ -184,7 +187,7 @@ class Agent:
             target_probs = visited_action_target_probs * 1
             Except in the case where b = 0, because l -=1 would make l = -1 and then 
             target_probs = visited_action_target_probs * -1 
-            Which would mean that we are substracting the probability mass! To handle this case we
+            Which would mean that we are subtracting the probability mass! To handle this case we
             would only do l -=1 if u > 0, and for the particular case of b = u = l = 0 we would 
             keep l = 0 but u =+ 1, resulting again in
             target_probs = visited_action_target_probs * 1
@@ -197,7 +200,11 @@ class Agent:
             offset = torch.linspace(0, ((self.batch_size - 1) * self.num_atoms),
                                     self.batch_size).unsqueeze(1).expand(self.batch_size,
                                                                          self.num_atoms).to(actions)
-            # Add probabilities to the closest lower atom
+            # Distribute probabilities to the closest lower atom in inverse proportion to the
+            # distance to the atom. For efficiency, we are adding the 
+            # values to the flattened view of the array not flattening the array itself.
+            # TODO: explain this simpler ->            for idx, t_idx in enumerate(l + offset):
+            #                 projected_target_probs[l + offset] += (target_probs * (u.float() - b)).view(-1)[idx] for idx in len(l+offset)
             projected_target_probs.view(-1).index_add_(
                 0, (l + offset).view(-1), (target_probs * (u.float() - b)).view(-1)
             )
@@ -218,7 +225,7 @@ class Agent:
     def evaluate_q(self, state):
         """Evaluates Q-value based on single state (no batch) """
         with torch.no_grad():
-            return (self.online_net(state) * self.support).sum(2).max(1)[0].item()
+            return (self.online_net(state.unsqueeze(0)) * self.support).sum(2).max(1)[0].item()
 
     def train(self):
         self.online_net.train()

@@ -304,7 +304,7 @@ class ReplayMemory:
                 state_stack[t] = \
                   self.transitions.data[self.current_idx + t - self.history + 1].state
                 prev_timestep -= 1
-        # Agent will turn into batch
-        state = torch.stack(state_stack, 0).to(dtype=torch.float32, device=self.device).div_(255)
+        # Concatenate images to return a single state
+        state = torch.cat(state_stack, 0).to(dtype=torch.float32, device=self.device).div_(255)
         self.current_idx += 1
         return state
