@@ -162,8 +162,13 @@ class Agent:
             1. Find which values of the discrete fixed distribution are the closest lower (l) and 
             upper value (u) to the values obtained from Tz (b). As a reminder, b is the new support 
             of our return distribution shifted from the original network output support when we 
-            computed Tz.
+            computed Tz. In other words, b is how many times deltaz I am from Vmin to get to 
+            Tz by definition
             b = (Tz - Vmin) / Δz 
+            We've expressed Tz in terms of b (the misaligned support but still similar in the sense 
+            of exact same starting point and exact same distance between the atoms as the original 
+            support). Still misaligned but that's why do the redistribution in terms of 
+            proportionality.
             """
             b = (Tz - self.Vmin) / self.delta_z
             l, u = b.floor().to(torch.int64), b.ceil().to(torch.int64)
@@ -180,17 +185,13 @@ class Agent:
             Vmin ----------------------- Vmax
 
             The probability mass becomes 0 when l = b = u (b is int). Note that for this case
-            u - b + b - l = b - b + b - b = 0 and therefore
-            target_probs = visited_action_target_probs * 0
+            u - b + b - l = b - b + b - b = 0 
             To fix this, we change  l -= 1 which would result in:
-            u - b + b - l = b - b + b - (b - 1) = 1 and therefore
-            target_probs = visited_action_target_probs * 1
-            Except in the case where b = 0, because l -=1 would make l = -1 and then 
-            target_probs = visited_action_target_probs * -1 
+            u - b + b - l = b - b + b - (b - 1) = 1
+            Except in the case where b = 0, because l -=1 would make l = -1  
             Which would mean that we are subtracting the probability mass! To handle this case we
             would only do l -=1 if u > 0, and for the particular case of b = u = l = 0 we would 
-            keep l = 0 but u =+ 1, resulting again in
-            target_probs = visited_action_target_probs * 1
+            keep l = 0 but u =+ 1
             """
             l[(u > 0) * (l == u)] -= 1  # Handles the case of u = b = l != 0
             u[(l < (self.num_atoms - 1)) * (l == u)] += 1  # Handles the case of u = b = l = 0
@@ -200,11 +201,10 @@ class Agent:
             offset = torch.linspace(0, ((self.batch_size - 1) * self.num_atoms),
                                     self.batch_size).unsqueeze(1).expand(self.batch_size,
                                                                          self.num_atoms).to(actions)
-            # Distribute probabilities to the closest lower atom in inverse proportion to the
-            # distance to the atom. For efficiency, we are adding the 
-            # values to the flattened view of the array not flattening the array itself.
-            # TODO: explain this simpler ->            for idx, t_idx in enumerate(l + offset):
-            #                 projected_target_probs[l + offset] += (target_probs * (u.float() - b)).view(-1)[idx] for idx in len(l+offset)
+            """Distribute probabilities to the closest lower atom in inverse proportion to the
+            distance to the atom. For efficiency, we are adding the values to the flattened view of 
+            the array not flattening the array itself.
+            """
             projected_target_probs.view(-1).index_add_(
                 0, (l + offset).view(-1), (target_probs * (u.float() - b)).view(-1)
             )
