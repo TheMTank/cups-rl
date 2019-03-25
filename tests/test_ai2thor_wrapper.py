@@ -64,7 +64,9 @@ class TestAI2ThorEnv(unittest.TestCase):
                                       'gridSize': 0.25,
                                       'acceptable_receptacles': [
                                         'Microwave'  # the used receptacle below
-                                      ]})
+                                      ],
+                                      'target_objects': {'Mug': 1}})
+        movement_penalty = len(actions_to_look_at_cup) * env.task.movement_reward
 
         for episode in range(2):  # twice to make sure no random initialisation
             env.reset()
@@ -75,7 +77,7 @@ class TestAI2ThorEnv(unittest.TestCase):
                 rewards.append(reward)
                 if done:
                     break
-            self.assertTrue(sum(rewards) == 2)
+            self.assertAlmostEqual(sum(rewards), 2 + movement_penalty)
 
     def test_config_override(self):
         """

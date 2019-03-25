@@ -14,6 +14,7 @@ def read_config(config_path, config_dict=None):
     overwritten with the config_dict. Full example below:
 
     {
+        "render_options": {"depth": true},
         "pickup_put_interaction": true,
         "pickup_objects": [
             "Mug",
@@ -33,7 +34,7 @@ def read_config(config_path, config_dict=None):
         "resolution": [128, 128],
         "task": {
             "task_name": "PickUp",
-            "target_object": "Mug"
+            "target_object": {"Mug": 1}
         }
     }
 
@@ -54,7 +55,8 @@ def read_config(config_path, config_dict=None):
                         warnings.warn('Key: [\'{}\'][\'{}\'] already in config file with value {}. '
                                       'Overwriting with value: {}'.format(key, task_key,
                                                 config[key][task_key], config_dict[key][task_key]))
-                        config[key][task_key] = config_dict[key][task_key]
+
+                    config[key][task_key] = config_dict[key][task_key]
             # else just a regular check
             elif key in config:
                 warnings.warn('Key: {} already in config file with value {}. '
@@ -63,6 +65,7 @@ def read_config(config_path, config_dict=None):
                 config[key] = config_dict[key]
 
     return config
+
 
 class InvalidTaskParams(Exception):
     """

@@ -5,7 +5,7 @@ inheriting the predefined methods and can be extended for particular tasks.
 import ai2thor.controller
 import numpy as np
 from skimage import transform
-from copy import deepcopy
+from collections import defaultdict
 
 import gym
 from gym import error, spaces
@@ -84,7 +84,11 @@ class AI2ThorEnv(gym.Env):
         # ai2thor initialise function settings
         self.cameraY = self.config.get('cameraY', 0.0)
         self.gridSize = self.config.get('gridSize', 0.1)
-        
+        # Rendering options. Set segmentation and bounding box options off as default
+        self.render_options = defaultdict(lambda: False)
+        if 'render_options' in self.config:
+            for option, value in self.config['render_options'].items():
+                self.render_options[option] = value
         # Create task from config
         self.task = TaskFactory.create_task(self.config)
         # Start ai2thor
@@ -201,18 +205,22 @@ class AI2ThorEnv(gym.Env):
         """
         Compute image operations to generate state representation
         """
+        # TODO: replace scikit image with opencv
         img = transform.resize(img, self.config['resolution'], mode='reflect')
         img = img.astype(np.float32)
         if self.observation_space.shape[0] == 1:
-            img = rgb2gray(img)  # todo cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            img = rgb2gray(img)
+        img = np.moveaxis(img, 2, 0)
         return img
 
     def reset(self):
         print('Resetting environment and starting new episode')
         self.controller.reset(self.scene_id)
         self.event = self.controller.step(dict(action='Initialize', gridSize=self.gridSize,
-                                               cameraY=self.cameraY, renderDepthImage=True,
-                                               renderClassImage=True, renderObjectImage=True,
+                                               cameraY=self.cameraY,
+                                               renderDepthImage=self.render_options['depth'],
+                                               renderClassImage=self.render_options['class'],
+                                               renderObjectImage=self.render_options['object'],
                                                continuous=self.continuous_movement))
         self.task.reset()
         state = self.preprocess(self.event.frame)
