@@ -115,9 +115,11 @@ class AI2ThorEnv(gym.Env):
                 closest_receptacle = None
                 for obj in visible_objects:
                     # look for closest receptacle to put object from inventory
-                    if obj['receptacle'] and obj['distance'] < distance \
-                        and obj['objectType'] in self.objects['receptacles'] \
-                            and len(obj['receptacleObjectIds']) < obj['receptacleCount']:
+                    closest_receptacle_to_put_object_in = obj['receptacle'] and \
+                                                          obj['distance'] < distance \
+                                    and obj['objectType'] in self.objects['receptacles'] \
+                                    and len(obj['receptacleObjectIds']) < obj['receptacleCount']
+                    if closest_receptacle_to_put_object_in:
                         closest_receptacle = obj
                         distance = closest_receptacle['distance']
                 if self.event.metadata['inventoryObjects'] and closest_receptacle:
@@ -130,8 +132,10 @@ class AI2ThorEnv(gym.Env):
                 closest_pickupable = None
                 for obj in visible_objects:
                     # look for closest object to pick up
-                    if obj['pickupable'] and obj['distance'] < distance and \
-                            obj['objectType'] in self.objects['pickupables']:
+                    closest_object_to_pick_up = obj['pickupable'] and \
+                                                obj['distance'] < distance and \
+                                obj['objectType'] in self.objects['pickupables']
+                    if closest_object_to_pick_up:
                         closest_pickupable = obj
                 if closest_pickupable and not self.event.metadata['inventoryObjects']:
                     interaction_obj = closest_pickupable
@@ -141,28 +145,30 @@ class AI2ThorEnv(gym.Env):
                 closest_openable = None
                 for obj in visible_objects:
                     # look for closest closed receptacle to open it
-                    if obj['openable'] and obj['distance'] < distance and not obj['isopen'] and \
-                            obj['objectType'] in self.objects['openables']:
+                    is_closest_closed_receptacle = obj['openable'] and \
+                            obj['distance'] < distance and not obj['isopen'] and \
+                            obj['objectType'] in self.objects['openables']
+                    if is_closest_closed_receptacle:
                         closest_openable = obj
                         distance = closest_openable['distance']
-                    if closest_openable:
-                        interaction_obj = closest_openable
-                        self.event = self.controller.step(
-                            dict(action=action_str,
-                                 objectId=interaction_obj['objectId']))
+                if closest_openable:
+                    interaction_obj = closest_openable
+                    self.event = self.controller.step(
+                        dict(action=action_str, objectId=interaction_obj['objectId']))
             elif action_str.startswith('Close'):
                 closest_openable = None
                 for obj in visible_objects:
                     # look for closest opened receptacle to close it
-                    if obj['openable'] and obj['distance'] < distance and obj['isopen'] and \
-                            obj['objectType'] in self.objects['openables']:
+                    is_closest_open_receptacle = obj['openable'] and obj['distance'] < distance \
+                                                 and obj['isopen'] and \
+                                                 obj['objectType'] in self.objects['openables']
+                    if is_closest_open_receptacle:
                         closest_openable = obj
                         distance = closest_openable['distance']
-                    if closest_openable:
-                        interaction_obj = closest_openable
-                        self.event = self.controller.step(
-                            dict(action=action_str,
-                                 objectId=interaction_obj['objectId']))
+                if closest_openable:
+                    interaction_obj = closest_openable
+                    self.event = self.controller.step(
+                        dict(action=action_str, objectId=interaction_obj['objectId']))
             else:
                 raise error.InvalidAction('Invalid interaction {}'.format(action_str))
             # print what object was interacted with and state of inventory
@@ -181,12 +187,10 @@ class AI2ThorEnv(gym.Env):
                 # Rotate actions
                 if action_str.endswith('Left'):
                     self.absolute_rotation -= self.rotation_amount
-                    self.event = self.controller.step(
-                        dict(action='Rotate', rotation=self.absolute_rotation))
                 elif action_str.endswith('Right'):
                     self.absolute_rotation += self.rotation_amount
-                    self.event = self.controller.step(
-                        dict(action='Rotate', rotation=self.absolute_rotation))
+                self.event = self.controller.step(
+                    dict(action='Rotate', rotation=self.absolute_rotation))
             else:
                 # Do normal RotateLeft/Right command in discrete mode (i.e. 3D GridWorld)
                 self.event = self.controller.step(dict(action=action_str))

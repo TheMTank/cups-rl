@@ -1,4 +1,4 @@
-# cups-rl -- Customizable Unity Photorealistic Simulation for Reinforcement Learning algorithms
+# cups-rl - Customisable Unified Physical Simulations for Reinforcement Learning
 
 This project will focus primarily on the implementation and benchmark of different approaches to 
 domain and task transfer learning in reinforcement learning. The focus lies on a diverse set of 
