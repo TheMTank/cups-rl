@@ -2,7 +2,8 @@
 Here we try different cameraY (to bring the agent to the ground), gridSize (the amount of movement),
  continuous_movement (not just 90 degree rotations and can move diagonally) and finally a specific unity
  build. For ours we placed many cups on the ground. Still picks random actions but shows how much
- we can vary the environment.
+ we can vary the environment. Check this GitHub issue for more details:
+ https://github.com/allenai/ai2thor/issues/40
 """
 import time
 import argparse
@@ -15,13 +16,14 @@ parser.add_argument('--build-path', required=True,
 args = parser.parse_args()
 
 if __name__ == '__main__':
-
+    # todo no build file and/or change to build-file-name
     config_dict = {
         'pickup_put_interaction': True,
         'open_close_interaction': False,  # disable opening/closing objects
         'openable_objects': [],  # disable opening objects another way
         'pickup_objects': [
-            "Cup"
+            'Mug',
+            'Apple'
         ],
         'scene_id': 'FloorPlan1',  # let's try a different room
         'grayscale': True,
@@ -31,8 +33,8 @@ if __name__ == '__main__':
         'continuous_movement': True,
         'build_path': args.build_path,
         'task': {
-            'task_name': 'PickUp',
-            'target_object': 'Cup'
+            'task_name': 'PickUpTask',
+            'target_objects': {'Mug': 1, 'Apple': 5}
         }
     }
 

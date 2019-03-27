@@ -21,7 +21,7 @@
     "continuous_movement": false,
     "build_path": false,
     "task": {
-        "task_name": "PickUp",
+        "task_name": "PickUpTask",
         "target_objects": {"Mug": 1}
     }
 }

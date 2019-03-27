@@ -12,7 +12,7 @@ from gym import error, spaces
 from gym.utils import seeding
 from gym_ai2thor.image_processing import rgb2gray
 from gym_ai2thor.utils import read_config
-from gym_ai2thor.tasks import TaskFactory
+import gym_ai2thor.tasks
 
 ALL_POSSIBLE_ACTIONS = [
     'MoveAhead',
@@ -90,7 +90,10 @@ class AI2ThorEnv(gym.Env):
             for option, value in self.config['render_options'].items():
                 self.render_options[option] = value
         # Create task from config
-        self.task = TaskFactory.create_task(self.config)
+        try:
+            self.task = getattr(gym_ai2thor.tasks, self.config['task']['task_name'])(**self.config)
+        except Exception as e:
+            raise ValueError('Error occurred while creating task. Exception: {}'.format(e))
         # Start ai2thor
         self.controller = ai2thor.controller.Controller()
         if self.config.get('build_path'):

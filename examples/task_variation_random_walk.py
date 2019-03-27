@@ -20,8 +20,8 @@ if __name__ == '__main__':
         'grayscale': True,
         'resolution': [128, 128],
         'task': {
-            'task_name': 'PickUp',
-            'target_object': 'Apple'  # target object changed to Apple
+            'task_name': 'PickUpTask',
+            'target_objects': {'Apple': 1}  # target object changed to Apple
         }
     }
 
