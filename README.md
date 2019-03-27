@@ -11,9 +11,13 @@ We included our own wrapper for the environment as well to support the modificat
 within an openAI gym interface, so that new and more complex tasks can be developed efficiently to 
 train and test the agent.
 
-We will release a blog soon which will go into more detail about this repo and how to use all of the features of our wrapper.
+We have begun a long-running blog series which will go into more detail about this repo and how to use all of the features of our wrapper.
+
+- [From Cups to Consciousness (Part 1): How are cups related to intelligence?](https://towardsdatascience.com/from-cups-to-consciousness-part-1-how-are-cups-related-to-intelligence-8b7c701fa197)
+
+Currently using ai2thor version 0.0.44.
 More detailed information on ai2thor environment can be found on their 
-[tutorial](http://ai2thor.allenai.org/tutorials/installation).
+[website](http://ai2thor.allenai.org/tutorials/installation).
 
 
 <div align="center">
@@ -140,7 +144,8 @@ class MoveAheadTask(BaseTask):
 
 We encourage you to explore the scripts on the `examples` folder to guide you on the wrapper
  functionalities and explore how to create more customized versions of ai2thor environments and 
- tasks. 
+ tasks. It is possible for the agent to do continuous rotation with 10 degrees by setting 
+ `continuous_movement: True` in the config as well, see task_on_ground_variation.py in examples. 
 
 Here is the desired result of an example task in which the goal of the agent is to place a cup in the 
 sink.

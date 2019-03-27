@@ -48,6 +48,32 @@ class TestAI2ThorEnv(unittest.TestCase):
         self.assertTrue(len(all_step_times) == num_steps)
         env.close()
 
+    def test_all_task_init(self):
+        """
+        Test that the creation of all tasks still works by taking a few random steps after
+        resetting environment
+        """
+        param_list = [
+            {
+                'pickup_objects': [
+                    'Mug',
+                    'Apple'
+                ],
+                'task': {
+                    'task_name': 'PickUpTask',
+                    'target_objects': {'Mug': 1, 'Apple': 5}
+                }
+            }
+        ]
+
+        for params in param_list:
+            env = AI2ThorEnv(config_dict=params)
+            state = env.reset()
+            for i in range(5):
+                action = env.action_space.sample()
+                state, reward, done, _ = env.step(action)
+            env.close()
+
     def test_cup_task_and_interaction_actions(self):
         """
         Check if picking up and putting down cup works and agent receives reward of 2 for doing it
