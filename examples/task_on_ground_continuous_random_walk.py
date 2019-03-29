@@ -10,20 +10,21 @@ import argparse
 
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 
-parser = argparse.ArgumentParser(description='Provide build path')
-parser.add_argument('--build-path', required=True,
-                    help='Required Unity build path for custom scenes (e.g. cups on ground)')
+parser = argparse.ArgumentParser(description='Provide build file name')
+parser.add_argument('--build-file-name', required=True,
+                    help='Required Unity build file name for custom scenes (e.g. cups and agent '
+                         'on the ground). Needs to be in gym_ai2thor/build_files. Check README for '
+                         'download instructions or create your own with Unity')
 args = parser.parse_args()
 
 if __name__ == '__main__':
-    # todo no build file and/or change to build-file-name
     config_dict = {
         'pickup_put_interaction': True,
         'open_close_interaction': False,  # disable opening/closing objects
         'openable_objects': [],  # disable opening objects another way
         'pickup_objects': [
             'Mug',
-            'Apple'
+            'Bowl'
         ],
         'scene_id': 'FloorPlan1',  # let's try a different room
         'grayscale': True,
@@ -31,10 +32,10 @@ if __name__ == '__main__':
         'cameraY': -0.85,
         'gridSize': 0.1,  # 0.01
         'continuous_movement': True,
-        'build_path': args.build_path,
+        'build_file_name': args.build_file_name,
         'task': {
             'task_name': 'PickUpTask',
-            'target_objects': {'Mug': 1, 'Apple': 5}
+            'target_objects': {'Mug': 1, 'Bowl': 5}
         }
     }
 

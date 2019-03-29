@@ -16,7 +16,7 @@
     "grayscale": true,
     "resolution": [64, 64],
     "task": {
-        "task_name": "PickUp",
+        "task_name": "PickUpTask",
         "target_objects": {"Mug": 10},
         "movement_reward": -1
     }

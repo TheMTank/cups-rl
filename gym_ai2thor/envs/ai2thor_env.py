@@ -2,6 +2,9 @@
 Base class implementation for ai2thor environments wrapper, which adds an openAI gym interface for
 inheriting the predefined methods and can be extended for particular tasks.
 """
+
+import os
+
 import ai2thor.controller
 import numpy as np
 from skimage import transform
@@ -96,9 +99,16 @@ class AI2ThorEnv(gym.Env):
             raise ValueError('Error occurred while creating task. Exception: {}'.format(e))
         # Start ai2thor
         self.controller = ai2thor.controller.Controller()
-        if self.config.get('build_path'):
-            self.controller.local_executable_path = self.config.get('build_path',
-                                                                    self.config.get('build_path'))
+        if self.config.get('build_file_name'):
+            # file must be in gym_ai2thor/build_files
+            self.build_file_path = os.path.abspath(os.path.join(__file__, '../../build_files',
+                                                                self.config['build_file_name']))
+            print('Build file path at: {}'.format(self.build_file_path))
+            if not os.path.exists(self.build_file_path):
+                raise ValueError('Unity build file at:\n{}\n does not exist'.format(
+                    self.build_file_path))
+            self.controller.local_executable_path = self.build_file_path
+
         self.controller.start()
 
     def step(self, action, verbose=True):

@@ -19,7 +19,7 @@
     "cameraY": 0.0,
     "gridSize": 0.1,
     "continuous_movement": false,
-    "build_path": false,
+    "build_file_name": false,
     "task": {
         "task_name": "PickUpTask",
         "target_objects": {"Mug": 1}
