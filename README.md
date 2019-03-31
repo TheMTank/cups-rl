@@ -109,22 +109,13 @@ For experimentation it is important to be able to make slight modifications of t
  argument `config_dict`, that allows to input a python dictionary **in addition to** the config file 
  that overrides the parameters described in the config.
 
-The tasks are defined in `envs/tasks.py` and allow for particular configurations regarding the 
+The tasks are defined in `gym_ai2thor//tasks.py` and allow for particular configurations regarding the 
 rewards given and termination conditions for an episode. You can use the tasks that we defined
 there or create your own adding by adding it as a subclass of `BaseTask`. 
 Here an example of a new task definition:
 
 ```
-# envs/tasks.py
-class TaskFactory:
-    ...
-    elif task_name == 'MoveAheadTask':
-        return MoveAheadTask(**config['task'])
-    ...
-```
-
-```
-# envs/tasks.py
+# gym_ai2thor/tasks.py
 class MoveAheadTask(BaseTask):
     def __init__(self, *args, **kwargs):
         super().__init__(kwargs)
@@ -162,7 +153,7 @@ sink.
 
 ## The Team
 
-[The M Tank](http://www.themtank.org/) is a non-partisan organisation that works solely to recognise the multifaceted 
+[MTank](http://www.themtank.org/) is a non-partisan organisation that works solely to recognise the multifaceted 
 nature of Artificial Intelligence research and to highlight key developments within all sectors affected by these 
 advancements. Through the creation of unique resources, the combination of ideas and their provision to the public, 
 this project hopes to encourage the dialogue which is beginning to take place globally. 
