@@ -19,6 +19,7 @@ class TaskFactory:
         :param config: parsed config file
         :return: Task instance initialized
         """
+        # todo maybe remove taskfactory
         task_name = config['task']['task_name']
         if task_name == 'PickUpTask':
             if config['task']['target_object'] in config['pickup_objects']:
@@ -44,7 +45,7 @@ class BaseTask:
     """
     def __init__(self, **kwargs):
         self.config = kwargs
-        self.task_has_language_instructions = False
+        self.has_language_instructions = False
         self.max_episode_length = self.config['max_episode_length'] \
             if 'max_episode_length' in self.config else 1000
         self.movement_reward = self.config.get('movement_reward', 0)
@@ -335,3 +336,12 @@ class NaturalLanguagePickUpMultipleObjectTask(NaturalLanguageBaseTask):
     def reset(self):
         self.prev_inventory = []
         return super(NaturalLanguagePickUpMultipleObjectTask, self).reset()
+
+"""
+1. PickUp spam putdown cup (default)
+2. PickUp multiple cups
+3. Put a cup in sink
+4. Put 3 cups in sink
+5. Put cup in microwave
+- pick up cups with segmentation on 50 rooms (so it generalises to the white blob)
+"""

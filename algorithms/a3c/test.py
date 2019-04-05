@@ -22,19 +22,19 @@ from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
 def test(rank, args, shared_model, counter):
     torch.manual_seed(args.seed + rank)
 
-    if args.atari:
+    if args.env == 'atari':
         env = create_atari_env(args.atari_env_name)
-    elif args.vizdoom:
+    elif args.env == 'vizdoom':
         # many more dependencies required for VizDoom
         from algorithms.a3c.env_vizdoom import GroundingEnv
 
         env = GroundingEnv(args)
         env.game_init()
-    else:
+    elif args.env == 'ai2thor':
         env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict)
     env.seed(args.seed + rank)
 
-    if env.task.task_has_language_instructions:
+    if env.task.has_language_instructions:
         model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n,
                             args.resolution, len(env.task.word_to_idx), args.max_episode_length)
     else:
@@ -68,7 +68,7 @@ def test(rank, args, shared_model, counter):
             hx = hx.detach()
 
         with torch.no_grad():
-            if not env.task.task_has_language_instructions:
+            if not env.task.has_language_instructions:
                 value, logit, (hx, cx) = model((image_state.unsqueeze(0).float(), (hx, cx)))
             else:
                 tx = torch.from_numpy(np.array([episode_length])).long()

@@ -35,7 +35,7 @@ AgentLocation = collections.namedtuple("AgentLocation", ["x", "y", "theta"])
 class Task:
     # extra addition to make it work with ai2thor code
     def __init__(self):
-        self.task_has_language_instructions = True
+        self.has_language_instructions = True
 
 
 class GroundingEnv:
