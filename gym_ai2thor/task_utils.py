@@ -94,7 +94,7 @@ def unpack_state(state, env):
     and returns unpacked state into a tuple.
     """
     instruction_indices = None
-    if not env.task.task_has_language_instructions:
+    if not env.task.has_language_instructions:
         image_state = state
     else:
         # natural language instruction is within state so unpack tuple

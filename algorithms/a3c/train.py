@@ -24,6 +24,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+from tensorboardX import SummaryWriter
 
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 from algorithms.a3c.env_atari import create_atari_env
@@ -31,40 +32,56 @@ from algorithms.a3c.model import ActorCritic, A3C_LSTM_GA
 from gym_ai2thor.task_utils import unpack_state
 
 
-def save_checkpoint(save_object, checkpoint_path, filename, is_best=False):
-    fp = os.path.join(checkpoint_path, filename)
+def save_checkpoint(save_object, checkpoint_path):
+    fp = os.path.join(checkpoint_path, 'model_best.pth.tar')
+    print('Saving best model to path: {}'.format(fp))
     torch.save(save_object, fp)
-    print('Saved model to path: {}'.format(fp))
-    if is_best:
-        shutil.copyfile(fp, os.path.join(checkpoint_path, 'model_best.pth.tar'))
 
 def ensure_shared_grads(model, shared_model):
+    """
+    In DeepMind's paper they say they perform async updates without locks to maximise throughput
+    Check these issues for more information:
+    https://github.com/ikostrikov/pytorch-a3c/issues/25
+    https://discuss.pytorch.org/t/problem-on-variable-grad-data/957/15
+    """
     for param, shared_param in zip(model.parameters(),
                                    shared_model.parameters()):
         if shared_param.grad is not None:
-            return
-        shared_param._grad = param.grad
+            return  # todo see if this ever happens. And also see how it works under concurrency
+        shared_param._grad = param.grad  # _grad is writable
 
 def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
     """
-    Main A3C or A3C_LSTM_GA train loop and initialisation
+    Main A3C or A3C_LSTM_GA initialisation and train loop
     """
     train_start_time = time.time()
+
+    if rank == 0:
+        # todo try max_queue param to see if it increases how long it takes before blocking
+        # todo find exactly when it blocks. See if omp is the issue
+        writer = SummaryWriter(comment='A3C',  # this will create dirs
+                               log_dir=args.tensorboard_path, purge_step=args.episode_number)
+        # run tensorboardX --logs_dir args.tensorboard_path in terminal and open browser e.g.
+        print('Rank == 0. Writer created in this process')
+        print('-----------------\nTensorboard command (from root):\n'
+              'tensorboard --logdir algorithms/a3c/experiments/{}/tensorboard_logs'
+              '\n-----------------'.format(args.experiment_id))
+
     torch.manual_seed(args.seed + rank)
 
-    if args.atari:
+    if args.env == 'atari':
         env = create_atari_env(args.atari_env_name)
-    elif args.vizdoom:
+    elif args.env == 'vizdoom':
         # many more dependencies required for VizDoom
         from algorithms.a3c.env_vizdoom import GroundingEnv
 
         env = GroundingEnv(args)
         env.game_init()
-    else:
+    elif args.env == 'ai2thor':
         env = AI2ThorEnv(config_file=args.config_file_path, config_dict=args.config_dict)
-    env.seed(args.seed + rank)
+    env.seed(args.seed + rank)  # todo actually make it work?
 
-    if env.task.task_has_language_instructions:
+    if env.task.has_language_instructions:
         model = A3C_LSTM_GA(env.observation_space.shape[0], env.action_space.n,
                             args.resolution, len(env.task.word_to_idx), args.max_episode_length)
     else:
@@ -117,7 +134,6 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             # save model every args.checkpoint_freq
             if rank == 0 and total_length > 0 and total_length % (args.checkpoint_freq //
                                                                   args.num_processes) == 0:
-                fn = 'checkpoint_total_length_{}.pth.tar'.format(total_length)
                 checkpoint_dict = {
                     'total_length': total_length,
                     'episode_number': episode_number,
@@ -126,13 +142,11 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                     'state_dict': model.state_dict(),
                     'optimizer': optimizer.state_dict()
                 }
-                best_so_far = False
                 if avg_episode_return > best_avg_episode_return:
-                    best_so_far = True
-                save_checkpoint(checkpoint_dict, args.checkpoint_path, fn, best_so_far)
+                    save_checkpoint(checkpoint_dict, args.checkpoint_path)
 
             # Run model to get predicted value, action logits and LSTM hidden+cell state
-            if not env.task.task_has_language_instructions:
+            if not env.task.has_language_instructions:
                 value, logit, (hx, cx) = model((image_state.unsqueeze(0).float(), (hx, cx)))
             else:
                 # Time embedding from integer to stabilise value prediction and instruction indices
@@ -176,8 +190,9 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                     avg_episode_return = sum(episode_total_rewards_list[-avg_over_num_episodes:]) \
                                         / len(episode_total_rewards_list[-avg_over_num_episodes:])
                     avg_episode_returns.append(avg_episode_return)
-                    writer.add_scalar('avg_episode_returns', avg_episode_return, episode_number)
+                    # writer.add_scalar('avg_episode_returns', avg_episode_return, episode_number)
 
+                # todo print average episode return
                 print('Rank: {}. Episode {} Over. Total Length: {}. Total reward for episode: '
                       '{:.4f}'.format(rank, episode_number, total_length, total_reward_for_episode))
                 print('Rank: {}. Step no: {}. total length: {}'.format(rank, episode_length,
@@ -186,9 +201,10 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
                       'Total reward for episode: {:.4f}'.format(rank, total_length, counter.value,
                                                                 total_reward_for_episode))
                 if rank == 0:
-                    writer.add_scalar('episode_lengths', episode_length, episode_number)
-                    writer.add_scalar('episode_total_rewards', total_reward_for_episode,
-                                      episode_number)
+                    pass
+                    # writer.add_scalar('episode_lengths', episode_length, episode_number)
+                    # writer.add_scalar('episode_total_rewards', total_reward_for_episode,
+                    #                   episode_number)
 
                 # instruction_indices is None if task doesn't require language instructions
                 state = env.reset()
@@ -203,7 +219,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
         curr_return = torch.zeros(1, 1)
         # change current return to predicted value if episode wasn't terminal
         if not done:
-            if not env.task.task_has_language_instructions:
+            if not env.task.has_language_instructions:
                 value, _, _ = model((image_state.unsqueeze(0).float(), (hx, cx)))
             else:
                 value, _, _ = model((image_state.unsqueeze(0).float(),
@@ -213,6 +229,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
         # if episode is terminal, curr_return is 0. Otherwise, predicted value is curr_return
         # This is because V_t+1(S) will need to succeed for terminal state below: values[i + 1]
+        # and to estimate GAE online where args.num_steps is much less than episode length
         values.append(curr_return)
         policy_loss = 0
         value_loss = 0
@@ -225,11 +242,11 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
             # Generalized Advantage Estimation (GAE). TD residual: delta_t = r_t + 𝛾 * V_t+1 - V_t
             delta_t = rewards[i] + args.gamma * values[i + 1] - values[i]
-            gae = gae * args.gamma * args.tau + delta_t
+            gae = gae * args.gamma * args.gae_lambda + delta_t
 
             # log probability of action multipled with GAE with entropy to encourage exploration
             policy_loss = policy_loss - log_probs[i] * gae.detach() - \
-                          args.entropy_coef * entropies[i]
+                          args.entropy_coef * entropies[i]  # negative because SGD, not SGA
 
         # Backprop, gradient norm clipping and optimisation
         optimizer.zero_grad()
@@ -240,9 +257,9 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
         # benchmarking and general info
         num_backprops += 1
-        if rank == 0:
-            writer.add_scalar('policy_loss', policy_loss.item(), num_backprops)
-            writer.add_scalar('value_loss', value_loss.item(), num_backprops)
+        # if rank == 0:
+        #     writer.add_scalar('policy_loss', policy_loss.item(), num_backprops)
+        #     writer.add_scalar('value_loss', value_loss.item(), num_backprops)
         p_losses.append(policy_loss.item())
         v_losses.append(value_loss.item())
 
@@ -256,7 +273,7 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
             v_losses = []
 
         if rank == 0 and args.verbose_num_steps:
-            print('Step no: {}. total length: {}. Time elapsed: {}m'.format(
+            print('Step no: {}. total length: {}. Time elapsed: {}m'.format(  # todo time elapsed would be nice outside verbose
                 episode_length,
                 total_length,
                 round((time.time() - train_start_time) / 60.0, 3)
@@ -264,4 +281,4 @@ def train(rank, args, shared_model, counter, lock, writer, optimizer=None):
 
             if num_backprops % 100 == 0:
                 print('Time taken for args.steps ({}): {}'.format(args.num_steps,
-                       round(time.time() - interaction_start_time, 3)))
+                      round(time.time() - interaction_start_time, 3)))
