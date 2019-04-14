@@ -15,7 +15,7 @@ We have begun a long-running blog series which will go into more detail about th
 
 - [From Cups to Consciousness (Part 1): How are cups related to intelligence?](https://towardsdatascience.com/from-cups-to-consciousness-part-1-how-are-cups-related-to-intelligence-8b7c701fa197)
 
-Currently using ai2thor version 0.0.44.
+Currently using ai2thor version 0.0.44 and up.
 More detailed information on ai2thor environment can be found on their 
 [website](http://ai2thor.allenai.org/tutorials/installation).
 

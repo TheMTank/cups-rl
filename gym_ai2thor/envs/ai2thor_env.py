@@ -30,8 +30,10 @@ ALL_POSSIBLE_ACTIONS = [
     'CloseObject',
     'PickupObject',
     'PutObject'
+    # Non-available actions within this wrapper:
     # Rotate is also possible when continuous_movement == True but we don't list it here
     # Teleport and TeleportFull but these shouldn't be allowable actions for an agent
+    # DropHand, etc came in ai2thor 1.0 but we left them out for now and they're hard to discretize
 ]
 
 
