@@ -31,9 +31,11 @@ ALL_POSSIBLE_ACTIONS = [
     'PickupObject',
     'PutObject'
     # Non-available actions within this wrapper:
-    # Rotate is also possible when continuous_movement == True but we don't list it here
-    # Teleport and TeleportFull but these shouldn't be allowable actions for an agent
-    # DropHand, etc came in ai2thor 1.0 but we left them out for now and they're hard to discretize
+    # 'Rotate' is also possible when continuous_movement == True but we don't list it here
+    # 'Teleport' and 'TeleportFull' but these shouldn't be allowable actions for an agent
+    # These actions below are from ai2thor 1.0 but they're hard to discretize so they're not usable
+    # 'DropHandObject', 'ThrowObject', 'ToggleObjectOn', 'ToggleObjectOff', 'MoveHandAhead',
+    # 'MoveHandBack', 'MoveHandLeft', 'MoveHandRight', 'MoveHandUp', 'MoveHandDown', 'RotateHand'
 ]
 
 
@@ -209,9 +211,11 @@ class AI2ThorEnv(gym.Env):
             else:
                 # Do normal RotateLeft/Right command in discrete mode (i.e. 3D GridWorld)
                 self.event = self.controller.step(dict(action=action_str))
-        else:
+        elif action_str.startswith('Move') or action_str.startswith('Look'):
             # Move and Look actions
             self.event = self.controller.step(dict(action=action_str))
+        else:
+            raise NotImplementedError('action_str: {} is not implemented'.format(action_str))
 
         self.task.step_num += 1
         state_image = self.preprocess(self.event.frame)
