@@ -46,6 +46,33 @@ class TestAI2ThorEnv(unittest.TestCase):
             time.time() - start, sum(all_step_times) / len(all_step_times)))
 
         self.assertTrue(len(all_step_times) == num_steps)
+        env.close()
+
+    def test_all_task_init(self):
+        """
+        Test that the creation of all tasks still works by taking a few random steps after
+        resetting environment
+        """
+        param_list = [
+            {
+                'pickup_objects': [
+                    'Mug',
+                    'Apple'
+                ],
+                'task': {
+                    'task_name': 'PickUpTask',
+                    'target_objects': {'Mug': 1, 'Apple': 5}
+                }
+            }
+        ]
+
+        for params in param_list:
+            env = AI2ThorEnv(config_dict=params)
+            state = env.reset()
+            for i in range(5):
+                action = env.action_space.sample()
+                state, reward, done, _ = env.step(action)
+            env.close()
 
     def test_cup_task_and_interaction_actions(self):
         """
@@ -61,6 +88,7 @@ class TestAI2ThorEnv(unittest.TestCase):
             'MoveRight', 'OpenObject', 'PutObject', 'PickupObject', 'CloseObject']
 
         env = AI2ThorEnv(config_dict={'scene_id': 'FloorPlan28',
+                                      'gridSize': 0.25,
                                       'acceptable_receptacles': [
                                         'Microwave'  # the used receptacle below
                                       ],
@@ -77,6 +105,7 @@ class TestAI2ThorEnv(unittest.TestCase):
                 if done:
                     break
             self.assertAlmostEqual(sum(rewards), 2 + movement_penalty)
+        env.close()
 
     def test_config_override(self):
         """
@@ -92,6 +121,7 @@ class TestAI2ThorEnv(unittest.TestCase):
                              'Key: scene_id already in config file' in w.message.args[0]])
 
         self.assertTrue(env.scene_id == 'FloorPlan27')
+        env.close()
 
     @staticmethod
     def test_simple_example():

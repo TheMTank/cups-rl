@@ -1,4 +1,4 @@
-# cups-rl -- Customizable Unity Photorealistic Simulation for Reinforcement Learning algorithms
+# cups-rl - Customisable Unified Physical Simulations for Reinforcement Learning
 
 This project will focus primarily on the implementation and benchmark of different approaches to 
 domain and task transfer learning in reinforcement learning. The focus lies on a diverse set of 
@@ -11,9 +11,13 @@ We included our own wrapper for the environment as well to support the modificat
 within an openAI gym interface, so that new and more complex tasks can be developed efficiently to 
 train and test the agent.
 
-We will release a blog soon which will go into more detail about this repo and how to use all of the features of our wrapper.
+We have begun a long-running blog series which will go into more detail about this repo and how to use all of the features of our wrapper.
+
+- [From Cups to Consciousness (Part 1): How are cups related to intelligence?](https://towardsdatascience.com/from-cups-to-consciousness-part-1-how-are-cups-related-to-intelligence-8b7c701fa197)
+
+Currently using ai2thor version 0.0.44 and up.
 More detailed information on ai2thor environment can be found on their 
-[tutorial](http://ai2thor.allenai.org/tutorials/installation).
+[website](http://ai2thor.allenai.org/tutorials/installation).
 
 
 <div align="center">
@@ -81,8 +85,8 @@ for episode in range(N_EPISODES):
 ### Environment and Task configurations
 
 The environment is typically defined by a JSON configuration file located on the `gym_ai2thor/config_files` 
-folder. You can find an example `config_example.json` to see how to customize it. Here there is one
-as well:
+folder. You can find a full example at `config_example.json` to see how to customize it. Here there is 
+another one as well:
 
 ```
 # gym_ai2thor/config_files/myconfig.json
@@ -92,10 +96,12 @@ as well:
  'acceptable_receptacles': ['CounterTop', 'TableTop', 'Sink'],
  'openable_objects': ['Microwave'],
  'scene_id': 'FloorPlan28',
+ 'gridSize': 0.1,
+ 'continuous_movement': true,
  'grayscale': True,
  'resolution': (300, 300),
  'task': {'task_name': 'PickUp',
-          'target_object': 'Mug'}} 
+          'target_object': {"Mug": 1}}} 
  ```
  
 For experimentation it is important to be able to make slight modifications of the environment 
@@ -103,22 +109,13 @@ For experimentation it is important to be able to make slight modifications of t
  argument `config_dict`, that allows to input a python dictionary **in addition to** the config file 
  that overrides the parameters described in the config.
 
-The tasks are defined in `envs/tasks.py` and allow for particular configurations regarding the 
+The tasks are defined in `gym_ai2thor/tasks.py` and allow for particular configurations regarding the 
 rewards given and termination conditions for an episode. You can use the tasks that we defined
-there or create your own modifying the `TaskFactory` and adding it as a subclass of the `BaseTask`. 
+there or create your own adding by adding it as a subclass of `BaseTask`. 
 Here an example of a new task definition:
 
 ```
-# envs/tasks.py
-class TaskFactory:
-    ...
-    elif task_name == 'MoveAheadTask':
-        return MoveAheadTask(**config['task'])
-    ...
-```
-
-```
-# envs/tasks.py
+# gym_ai2thor/tasks.py
 class MoveAheadTask(BaseTask):
     def __init__(self, *args, **kwargs):
         super().__init__(kwargs)
@@ -138,7 +135,12 @@ class MoveAheadTask(BaseTask):
 
 We encourage you to explore the scripts on the `examples` folder to guide you on the wrapper
  functionalities and explore how to create more customized versions of ai2thor environments and 
- tasks. 
+ tasks. It is possible for the agent to do continuous rotation with 10 degrees by setting 
+ `continuous_movement: True` in the config as well, see task_on_ground_variation.py in examples.
+ 
+ In the config `build_file_name` can be set to a file/folder combination within `gym_ai2thor/build_files`. 
+ We provide a preliminary unity build that you can download from Google Drive [here](https://drive.google.com/open?id=1UlmAnLuDVBYEiw_xPsGcbuXQTAiNwo8E) 
+ but of course you can use your own by following the instructions on the ai2thor repository but we will be adding more in the future. 
 
 Here is the desired result of an example task in which the goal of the agent is to place a cup in the 
 sink.
@@ -151,7 +153,7 @@ sink.
 
 ## The Team
 
-[The M Tank](http://www.themtank.org/) is a non-partisan organisation that works solely to recognise the multifaceted 
+[MTank](http://www.themtank.org/) is a non-partisan organisation that works solely to recognise the multifaceted 
 nature of Artificial Intelligence research and to highlight key developments within all sectors affected by these 
 advancements. Through the creation of unique resources, the combination of ideas and their provision to the public, 
 this project hopes to encourage the dialogue which is beginning to take place globally. 

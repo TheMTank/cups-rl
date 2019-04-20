@@ -1,32 +1,47 @@
 """
-Example trying out different tasks within the ai2thor wrapper.
-Still picks random actions but shows how much we can vary the environment.
+Here we try different cameraY (to bring the agent to the ground), gridSize (the amount of movement),
+ continuous_movement (not just 90 degree rotations and can move diagonally) and finally a specific
+ unity build (check the readme for download instructions). For ours we placed many cups on the
+ ground. Still picks random actions but shows how much we can vary the environment.
+ Check this GitHub issue for more details:
+ https://github.com/allenai/ai2thor/issues/40
 """
 import time
+import argparse
 
 from gym_ai2thor.envs.ai2thor_env import AI2ThorEnv
 
+parser = argparse.ArgumentParser(description='Provide build file name')
+parser.add_argument('--build-file-name', required=True,
+                    help='Required Unity build file name for custom scenes (e.g. cups and agent '
+                         'on the ground). Needs to be in gym_ai2thor/build_files. Check README for '
+                         'download instructions or create your own with Unity')
+args = parser.parse_args()
 
 if __name__ == '__main__':
-    # Here we only allow apples to picked up and this our target object to pick up
     config_dict = {
         'pickup_put_interaction': True,
         'open_close_interaction': False,  # disable opening/closing objects
         'openable_objects': [],  # disable opening objects another way
         'pickup_objects': [
-            "Apple"
+            'Mug',
+            'Bowl'
         ],
-        'scene_id': 'FloorPlan27',  # let's try a different room
+        'scene_id': 'FloorPlan1',  # let's try a different room
         'grayscale': True,
         'resolution': [128, 128],
+        'cameraY': -0.85,
+        'gridSize': 0.1,  # 0.01
+        'continuous_movement': True,
+        'build_file_name': args.build_file_name,
         'task': {
             'task_name': 'PickUpTask',
-            'target_objects': {'Apple': 1}  # target object changed to Apple
+            'target_objects': {'Mug': 1, 'Bowl': 5}
         }
     }
 
     # Input config_dict to env which will overwrite a few values given in the default config_file.
-    # Therefore, a few harmless warnings are expected
+    # Therefore, a few warnings will occur
     env = AI2ThorEnv(config_dict=config_dict)
     max_episode_length = env.task.max_episode_length
     N_EPISODES = 3
