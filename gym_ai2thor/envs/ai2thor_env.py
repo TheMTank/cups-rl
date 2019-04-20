@@ -201,7 +201,7 @@ class AI2ThorEnv(gym.Env):
                     action_str, interaction_obj['objectType'], inventory_changed_str))
         elif action_str.startswith('Rotate'):
             if self.continuous_movement:
-                # Rotate actions
+                # Rotate action
                 if action_str.endswith('Left'):
                     self.absolute_rotation -= self.rotation_amount
                 elif action_str.endswith('Right'):

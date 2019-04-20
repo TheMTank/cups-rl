@@ -101,7 +101,7 @@ another one as well:
  'grayscale': True,
  'resolution': (300, 300),
  'task': {'task_name': 'PickUp',
-          'target_object': 'Mug'}} 
+          'target_object': {"Mug": 1}}} 
  ```
  
 For experimentation it is important to be able to make slight modifications of the environment 
@@ -109,7 +109,7 @@ For experimentation it is important to be able to make slight modifications of t
  argument `config_dict`, that allows to input a python dictionary **in addition to** the config file 
  that overrides the parameters described in the config.
 
-The tasks are defined in `gym_ai2thor//tasks.py` and allow for particular configurations regarding the 
+The tasks are defined in `gym_ai2thor/tasks.py` and allow for particular configurations regarding the 
 rewards given and termination conditions for an episode. You can use the tasks that we defined
 there or create your own adding by adding it as a subclass of `BaseTask`. 
 Here an example of a new task definition:
@@ -140,7 +140,7 @@ We encourage you to explore the scripts on the `examples` folder to guide you on
  
  In the config `build_file_name` can be set to a file/folder combination within `gym_ai2thor/build_files`. 
  We provide a preliminary unity build that you can download from Google Drive [here](https://drive.google.com/open?id=1UlmAnLuDVBYEiw_xPsGcbuXQTAiNwo8E) 
- but of course you can use your own by following the instructions on the ai2thor repository. 
+ but of course you can use your own by following the instructions on the ai2thor repository but we will be adding more in the future. 
 
 Here is the desired result of an example task in which the goal of the agent is to place a cup in the 
 sink.

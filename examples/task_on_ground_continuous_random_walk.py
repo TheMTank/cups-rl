@@ -1,8 +1,9 @@
 """
 Here we try different cameraY (to bring the agent to the ground), gridSize (the amount of movement),
- continuous_movement (not just 90 degree rotations and can move diagonally) and finally a specific unity
- build. For ours we placed many cups on the ground. Still picks random actions but shows how much
- we can vary the environment. Check this GitHub issue for more details:
+ continuous_movement (not just 90 degree rotations and can move diagonally) and finally a specific
+ unity build (check the readme for download instructions). For ours we placed many cups on the
+ ground. Still picks random actions but shows how much we can vary the environment.
+ Check this GitHub issue for more details:
  https://github.com/allenai/ai2thor/issues/40
 """
 import time
