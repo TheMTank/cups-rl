@@ -14,6 +14,7 @@ train and test the agent.
 We have begun a long-running blog series which will go into more detail about this repo and how to use all of the features of our wrapper.
 
 - [From Cups to Consciousness (Part 1): How are cups related to intelligence?](https://towardsdatascience.com/from-cups-to-consciousness-part-1-how-are-cups-related-to-intelligence-8b7c701fa197)
+- [From Cups to Consciousness (Part 2): From simulation to the real world](https://medium.com/@TheMTank/from-cups-to-consciousness-part-2-from-simulation-to-the-real-world-a9ea1249e233)
 
 Currently using ai2thor version 0.0.44 and up.
 More detailed information on ai2thor environment can be found on their 
@@ -111,7 +112,7 @@ For experimentation it is important to be able to make slight modifications of t
 
 The tasks are defined in `gym_ai2thor/tasks.py` and allow for particular configurations regarding the 
 rewards given and termination conditions for an episode. You can use the tasks that we defined
-there or create your own adding by adding it as a subclass of `BaseTask`. 
+there or create your own by adding it as a subclass of `BaseTask`. 
 Here an example of a new task definition:
 
 ```
@@ -140,7 +141,7 @@ We encourage you to explore the scripts on the `examples` folder to guide you on
  
  In the config `build_file_name` can be set to a file/folder combination within `gym_ai2thor/build_files`. 
  We provide a preliminary unity build that you can download from Google Drive [here](https://drive.google.com/open?id=1UlmAnLuDVBYEiw_xPsGcbuXQTAiNwo8E) 
- but of course you can use your own by following the instructions on the ai2thor repository but we will be adding more in the future. 
+ but of course you can create your own by following the instructions on the ai2thor repository. We will be adding more builds in the future. 
 
 Here is the desired result of an example task in which the goal of the agent is to place a cup in the 
 sink.
