@@ -121,6 +121,11 @@ class AI2ThorEnv(gym.Env):
                                       '0 and {}!'.format(self.action_space.n))
         action_str = self.action_names[action]
         visible_objects = [obj for obj in self.event.metadata['objects'] if obj['visible']]
+        self.event.metadata['lastObjectPut'] = None
+        self.event.metadata['lastObjectPutReceptacle'] = None
+        self.event.metadata['lastObjectPickedUp'] = None
+        self.event.metadata['lastObjectOpened'] = None
+        self.event.metadata['lastObjectClosed'] = None
 
         # if/else statements below for dealing with up to 13 actions
         if action_str.endswith('Object'):  # All interactions end with 'Object'
@@ -130,21 +135,24 @@ class AI2ThorEnv(gym.Env):
                 if self.event.metadata['inventoryObjects'] else []
             if action_str.startswith('Put'):
                 closest_receptacle = None
-                for obj in visible_objects:
-                    # look for closest receptacle to put object from inventory
-                    closest_receptacle_to_put_object_in = obj['receptacle'] and \
-                                                          obj['distance'] < distance \
-                                    and obj['objectType'] in self.objects['receptacles'] \
-                                    and len(obj['receptacleObjectIds']) < obj['receptacleCount']
-                    if closest_receptacle_to_put_object_in:
-                        closest_receptacle = obj
-                        distance = closest_receptacle['distance']
-                if self.event.metadata['inventoryObjects'] and closest_receptacle:
-                    interaction_obj = closest_receptacle
-                    self.event = self.controller.step(
-                            dict(action=action_str,
-                                 objectId=self.event.metadata['inventoryObjects'][0]['objectId'],
-                                 receptacleObjectId=interaction_obj['objectId']))
+                if self.event.metadata['inventoryObjects']:
+                    for obj in visible_objects:
+                        # look for closest receptacle to put object from inventory
+                        closest_receptacle_to_put_object_in = obj['receptacle'] and \
+                                                              obj['distance'] < distance \
+                                        and obj['objectType'] in self.objects['receptacles']
+                        if closest_receptacle_to_put_object_in:
+                            closest_receptacle = obj
+                            distance = closest_receptacle['distance']
+                    if closest_receptacle:
+                        interaction_obj = closest_receptacle
+                        object_to_put = self.event.metadata['inventoryObjects'][0]
+                        self.event = self.controller.step(
+                                dict(action=action_str,
+                                     objectId=object_to_put['objectId'],
+                                     receptacleObjectId=interaction_obj['objectId']))
+                        self.event.metadata['lastObjectPut'] = object_to_put
+                        self.event.metadata['lastObjectPutReceptacle'] = interaction_obj
             elif action_str.startswith('Pickup'):
                 closest_pickupable = None
                 for obj in visible_objects:
@@ -158,6 +166,7 @@ class AI2ThorEnv(gym.Env):
                     interaction_obj = closest_pickupable
                     self.event = self.controller.step(
                         dict(action=action_str, objectId=interaction_obj['objectId']))
+                    self.event.metadata['lastObjectPickedUp'] = interaction_obj
             elif action_str.startswith('Open'):
                 closest_openable = None
                 for obj in visible_objects:
@@ -172,6 +181,7 @@ class AI2ThorEnv(gym.Env):
                     interaction_obj = closest_openable
                     self.event = self.controller.step(
                         dict(action=action_str, objectId=interaction_obj['objectId']))
+                    self.event.metadata['lastObjectOpened'] = interaction_obj
             elif action_str.startswith('Close'):
                 closest_openable = None
                 for obj in visible_objects:
@@ -186,6 +196,7 @@ class AI2ThorEnv(gym.Env):
                     interaction_obj = closest_openable
                     self.event = self.controller.step(
                         dict(action=action_str, objectId=interaction_obj['objectId']))
+                    self.event.metadata['lastObjectClosed'] = interaction_obj
             else:
                 raise error.InvalidAction('Invalid interaction {}'.format(action_str))
             # print what object was interacted with and state of inventory
