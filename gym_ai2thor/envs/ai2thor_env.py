@@ -89,6 +89,9 @@ class AI2ThorEnv(gym.Env):
                                                    self.config['resolution'][1]),
                                             dtype=np.uint8)
         # ai2thor initialise function settings
+        self.metadata_last_object_attributes = ['lastObjectPut', 'lastObjectPutReceptacle',
+                                                'lastObjectPickedUp', 'lastObjectOpened',
+                                                'lastObjectClosed']
         self.cameraY = self.config.get('cameraY', 0.0)
         self.gridSize = self.config.get('gridSize', 0.1)
         # Rendering options. Set segmentation and bounding box options off as default
@@ -121,11 +124,8 @@ class AI2ThorEnv(gym.Env):
                                       '0 and {}!'.format(self.action_space.n))
         action_str = self.action_names[action]
         visible_objects = [obj for obj in self.event.metadata['objects'] if obj['visible']]
-        self.event.metadata['lastObjectPut'] = None
-        self.event.metadata['lastObjectPutReceptacle'] = None
-        self.event.metadata['lastObjectPickedUp'] = None
-        self.event.metadata['lastObjectOpened'] = None
-        self.event.metadata['lastObjectClosed'] = None
+        for attribute in self.metadata_last_object_attributes:
+            self.event.metadata[attribute] = None
 
         # if/else statements below for dealing with up to 13 actions
         if action_str.endswith('Object'):  # All interactions end with 'Object'

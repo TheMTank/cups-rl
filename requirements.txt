@@ -2,4 +2,5 @@ gym
 ai2thor>=0.0.44
 scikit-image>=0.14.1
 torch>=0.4.1
-
+# For Rainbow there's an option to run atari gym environments, you will need to install atari-py for these.
+# For A3C agent you can install VizDoom if you want to run that environment
