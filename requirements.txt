@@ -1,3 +1,4 @@
+gym
 ai2thor>=0.0.44
 scikit-image>=0.14.1
 torch>=0.4.1
