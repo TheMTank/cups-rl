@@ -40,7 +40,9 @@ class PickUpTask(BaseTask):
     object was added to the inventory with the action PickUp (See gym_ai2thor.envs.ai2thor_env for
     details). Because the agent can only carry 1 object at a time in its inventory, to receive
     a lot of reward one must learn to put objects down. Optimal behaviour will lead to the agent
-    spamming PickupObject and PutObject near a receptacle
+    spamming PickupObject and PutObject near a receptacle. target_objects is a dict which contains
+    the target objects which the agent gets reward for picking up and the amount of reward was the
+    value
     """
     def __init__(self, **kwargs):
         super().__init__(kwargs)

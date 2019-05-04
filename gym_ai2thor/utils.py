@@ -63,6 +63,9 @@ def read_config(config_path, config_dict=None):
                               'Overwriting with value: {}'.format(key, config[key],
                                                                   config_dict[key]))
                 config[key] = config_dict[key]
+            # key is not in config file so therefore we add it
+            else:
+                config[key] = config_dict[key]
 
     return config
 

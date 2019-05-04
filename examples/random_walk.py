@@ -11,7 +11,8 @@ N_EPISODES = 3
 
 
 if __name__ == '__main__':
-    env = AI2ThorEnv()
+    config_dict = {'max_episode_length': 2000}
+    env = AI2ThorEnv(config_dict=config_dict)
     max_episode_length = env.task.max_episode_length
     for episode in range(N_EPISODES):
         start = time.time()
